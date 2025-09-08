@@ -51,3 +51,6 @@ api-spa-durban-develop-main/.turbo
 api-spa-durban-develop-main/pids
 api-spa-durban-develop-main/*.pid
 api-spa-durban-develop-main/*.pid.lock
+# uploads
+api-spa-durban-develop-main/public/uploads/
+

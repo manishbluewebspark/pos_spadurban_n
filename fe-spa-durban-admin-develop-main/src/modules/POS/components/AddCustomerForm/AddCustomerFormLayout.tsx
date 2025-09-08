@@ -3,12 +3,15 @@ import { useState } from 'react';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import ATMCircularProgress from 'src/components/atoms/ATMCircularProgress/ATMCircularProgress';
 import ATMDatePicker from 'src/components/atoms/FormElements/ATMDatePicker/ATMDatePicker';
+import ATMMultiSelect from 'src/components/atoms/FormElements/ATMMultiSelect/ATMMultiSelect';
 import ATMNumberField from 'src/components/atoms/FormElements/ATMNumberField/ATMNumberField';
 import ATMSelect from 'src/components/atoms/FormElements/ATMSelect/ATMSelect';
 import ATMTextArea from 'src/components/atoms/FormElements/ATMTextArea/ATMTextArea';
 import ATMTextField from 'src/components/atoms/FormElements/ATMTextField/ATMTextField';
 import MOLFormDialog from 'src/components/molecules/MOLFormDialog/MOLFormDialog';
+import { useFetchData } from 'src/hooks/useFetchData';
 import { CustomerFormValues } from 'src/modules/Customer/models/Customer.model';
+import { useGetOutletsQuery } from 'src/modules/Outlet/service/OutletServices';
 
 const countries = [
   { label: 'afghanistan', value: 'AFG' },
@@ -223,6 +226,13 @@ const genderOptions = [
   },
 ];
 
+const customerGroupOptions = [
+  {
+    value: 'golden member',
+    label: 'Golden Member'
+  }
+]
+
 const AddCustomerFormLayout = ({
   formikProps,
   onClose,
@@ -231,6 +241,22 @@ const AddCustomerFormLayout = ({
   const { values, setFieldValue, isSubmitting, handleBlur, touched, errors } =
     formikProps;
   const [showField, setShowField] = useState(false);
+  const localStoreId = localStorage.getItem('store_Id');
+  const { data: outlets, isLoading: isOutletsLoading } = useFetchData(
+    useGetOutletsQuery,
+    {
+      body: {
+        isPaginationRequired: false,
+        filterBy: JSON.stringify([
+          {
+            fieldName: 'isActive',
+            value: true,
+          },
+        ]),
+      },
+    },
+  );
+
   return (
     <>
       <MOLFormDialog
@@ -380,6 +406,41 @@ const AddCustomerFormLayout = ({
                 />
               </div>
             )}
+
+            {showField && (<div className="">
+              <ATMSelect
+                required
+                name="customerGroup"
+                value={values?.customerGroup}
+                onChange={(newValue) => setFieldValue('customerGroup', newValue)}
+                label="Customer Group"
+                placeholder="Select Customer Group"
+                options={customerGroupOptions}
+                valueAccessKey="value"
+                onBlur={handleBlur}
+              />
+            </div>)}
+
+            {showField && (<div className="">
+              <ATMMultiSelect
+                name="outlets"
+                value={
+                  localStoreId
+                    ? outlets?.filter((o) => o._id === localStoreId) // pre-select the store
+                    : values.outlets
+                }
+                onChange={(newValue) => setFieldValue('outlets', newValue)}
+                label="Outlets"
+                placeholder="Select Outlets"
+                options={outlets}
+                onBlur={handleBlur}
+                isValid={!errors?.outlets}
+                getOptionLabel={(option: any) => option?.name}
+                valueAccessKey="_id"
+                isLoading={isOutletsLoading}
+                isDisabled={!!localStoreId} // disable if storeId exists
+              />
+            </div>)}
             {/*address */}
             {showField && (
               <div className="col-span-2 ">

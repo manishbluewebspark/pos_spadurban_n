@@ -31,7 +31,7 @@ const EditCustomerFormWrapper = () => {
     dateOfBirth: (data as any)?.data?.dateOfBirth || null,
     gender: { value: (data as any)?.data?.gender },
     customerGroup: (data as any)?.data?.customerGroup || '',
-    outlets: (data as any)?.outlets,
+    outlets: (data as any)?.data?.outlets,
   };
 
   const validationSchema = object().shape({

@@ -211,6 +211,10 @@ const customerGroupOptions = [
   {
     value: 'golden member',
     label: 'Golden Member'
+  },
+    {
+    value: 'new user',
+    label: 'New Member'
   }
 ]
 

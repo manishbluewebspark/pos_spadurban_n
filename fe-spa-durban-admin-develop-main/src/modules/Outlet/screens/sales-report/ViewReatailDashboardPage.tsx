@@ -16,7 +16,7 @@ import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
-
+import { saveAs } from "file-saver";
 
 const salesData = [
   {
@@ -46,6 +46,16 @@ const ViewReatailDashboardPage = () => {
     endDate: dateFilter?.end_date,
     reportDuration: appliedFilters?.[2]?.value
   });
+
+  const durationLabel =
+    (appliedFilters?.[2]?.value?.[0] as string) === "DAILY"
+      ? "Previous Day"
+      : (appliedFilters?.[2]?.value?.[0] as string) === "WEEKLY"
+        ? "Previous Week"
+        : (appliedFilters?.[2]?.value?.[0] as string) === "MONTHLY"
+          ? "Previous Month"
+          : "";
+
 
   console.log('----------ffff', data)
 
@@ -151,7 +161,10 @@ const ViewReatailDashboardPage = () => {
 
     // ✅ Sirf tabhi default outlet set karo jab user ne abhi tak outlet select nahi किया
     if (!currentOutlet) {
-      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
+      outlets.forEach(o => {
+        newSearchParams.append("outletIds", o._id);
+      });
+
     }
 
     newSearchParams.set("reportDuration", reportDuration);
@@ -177,22 +190,23 @@ const ViewReatailDashboardPage = () => {
       <h2 className="text-lg font-semibold text-slate-700">{title}</h2>
 
       <div className="flex items-center gap-4 mt-2">
-        <span className="text-3xl font-bold text-slate-900">R {total}k</span>
+        {title === "Customer Count" ? (<span className="text-3xl font-bold text-slate-900">{total}</span>) : (<span className="text-3xl font-bold text-slate-900">R {total}k</span>)}
+
         <div className="flex flex-col items-center justify-center">
           {percent >= 0 ? (
             <span className="text-green-600 flex items-center text-sm font-medium">▲ {percent}%</span>
           ) : (
             <span className="text-red-600 flex items-center text-sm font-medium">▼ {Math.abs(percent)}%</span>
           )}
-          <span className="text-xs text-slate-500">{previousLabel}</span>
+          <span className="text-xs text-slate-500">{durationLabel}</span>
         </div>
       </div>
 
-      <div className="w-full space-y-2 mt-3">
+      <div className="w-full space-y-2 rounded-full mt-3">
         {outlets.map((o) => {
           const percentWidth = total ? (o.value / total) * 100 : 0;
           return (
-            <div key={o.outletId} className="relative w-full h-4 rounded bg-gray-200 overflow-hidden">
+            <div key={o.outletId} className="relative w-full h-5 rounded-full bg-gray-200 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
@@ -213,6 +227,65 @@ const ViewReatailDashboardPage = () => {
     </div>
   );
 
+const handleExportExcelRetailDashboard = () => {
+  if (!data?.data || !data?.data?.outlets || data?.data?.outlets.length === 0) {
+    alert("No data to export!");
+    return;
+  }
+
+  const exportData = data.data.outlets.map((row: any) => ({
+    Outlet: row.outletName,
+    CustomerCount: row.customerCount,
+    Revenue: row.revenue,
+    SaleCount: row.saleCount,
+    GrossProfit: row.grossProfit,
+    RevenuePercent: row.revenuePercent,
+    SaleCountPercent: row.saleCountPercent,
+    GrossProfitPercent: row.grossProfitPercent,
+    CustomerCountPercent: row.customerCountPercent,
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+  // Add top info rows
+  // XLSX.utils.sheet_add_aoa(worksheet, [["Retail Dashboard Report"]], { origin: "A1" });
+  // XLSX.utils.sheet_add_aoa(
+  //   worksheet,
+  //   [[`Date Range: ${dateFilter?.start_date || ""} to ${dateFilter?.end_date || ""}`]],
+  //   { origin: "A2" }
+  // );
+
+  // Set column widths
+worksheet['!cols'] = [
+  { wch: 30 }, // Column A (Outlet) width 30
+  { wch: 15 }, // Column B
+  { wch: 15 }, // Column C
+  { wch: 15 }, // Column D
+  { wch: 15 }, // Column E
+  { wch: 15 }, // Column F
+  { wch: 15 }, // Column G
+  { wch: 15 }, // Column H
+  { wch: 15 }, // Column I
+];
+
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "RetailDashboard");
+
+  const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+
+  // Filename with duration & date
+  const durationLabel = appliedFilters?.[2]?.value || "";
+  const startDateStr = dateFilter?.start_date || "";
+  const endDateStr = dateFilter?.end_date || "";
+  const fileName = `RetailDashboard_${durationLabel}_${startDateStr}_to_${endDateStr}.xlsx`;
+
+  saveAs(blob, fileName);
+};
+
+
+
 
 
   return (
@@ -220,10 +293,11 @@ const ViewReatailDashboardPage = () => {
       <div className="flex flex-col h-full gap-2 p-4">
         <ATMPageHeader
           heading="Retail Dashboard"
-          hideButton={true}
+          // hideButton={true}
           buttonProps={{
-            label: 'Back',
-            onClick: () => navigate('/outlets'), // Navigate to previous page
+            label: 'Export',
+            onClick:()=>handleExportExcelRetailDashboard()
+            // onClick: () => navigate('/outlets'), // Navigate to previous page
             // position: 'left', // if your ATMPageHeader supports it
           }}
         />

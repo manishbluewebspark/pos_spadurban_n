@@ -25,6 +25,7 @@ const AddCustomerFormWrapper = ({ onClose }: Props) => {
     taxNo: '',
     dateOfBirth: null,
     gender: '',
+    outlets: []
   };
 
   const validationSchema = object().shape({
@@ -45,6 +46,7 @@ const AddCustomerFormWrapper = ({ onClose }: Props) => {
       ...values,
       gender: values?.gender?.value,
       country: values?.country?.label,
+      outlets: values?.outlets?.map((outlet) => outlet?._id)
     };
 
     addCustomer(formattedValues).then((res: any) => {

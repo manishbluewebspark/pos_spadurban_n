@@ -3185,10 +3185,39 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
 
 
   // 🔹 Aggregate customers per outlet
-  const customerAgg = await Customer.aggregate([
-    { $match: { outletId: { $in: outletObjectIds }, createdAt: { $gte: start, $lte: end } } },
-    { $group: { _id: "$outletId", customerCount: { $sum: 1 } } },
-  ]);
+  // const customerAgg = await Customer.aggregate([
+  //   { $match: { outlets: { $in: outletObjectIds }, createdAt: { $gte: start, $lte: end } } },
+  //   { $group: { _id: "$outletId", customerCount: { $sum: 1 } } },
+  // ]);
+const customerAgg = await Customer.aggregate([
+  { $unwind: "$outlets" },
+
+  { $addFields: { 
+      createdAtDate: { 
+        $cond: [
+          { $eq: [ { $type: "$createdAt" }, "string" ] },  // agar string
+          { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
+          "$createdAt"  // agar already Date
+        ]
+      }
+    } 
+  },
+
+  { $match: { 
+      outlets: { $in: outletObjectIds }, 
+      createdAtDate: { $gte: start, $lte: end } 
+    } 
+  },
+
+  { $group: { 
+      _id: "$outlets",       // <- yaha outletId nahi, unwind se outlet mil raha hai
+      customerCount: { $sum: 1 } 
+    } 
+  }
+]);
+
+
+console.log('--------customerAgg',customerAgg)
 
   // 🔹 Previous day stats
   const prevStart = new Date(start);
@@ -3213,10 +3242,33 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
   ]);
 
   // 🔹 Previous customers
-  const prevCustomerAgg = await Customer.aggregate([
-    { $match: { outletId: { $in: outletObjectIds }, createdAt: { $gte: prevStart, $lte: prevEnd } } },
-    { $group: { _id: "$outletId", customerCount: { $sum: 1 } } },
-  ]);
+ const prevCustomerAgg = await Customer.aggregate([
+  { $unwind: "$outlets" },
+
+  { $addFields: { 
+      createdAtDate: { 
+        $cond: [
+          { $eq: [ { $type: "$createdAt" }, "string" ] },
+          { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
+          "$createdAt"
+        ]
+      }
+    } 
+  },
+
+  { $match: { 
+      outlets: { $in: outletObjectIds }, 
+      createdAtDate: { $gte: prevStart, $lte: prevEnd } 
+    } 
+  },
+
+  { $group: { 
+      _id: "$outlets",
+      customerCount: { $sum: 1 } 
+    } 
+  }
+]);
+
 
   // 🔹 Helper for percentage
   const calc = (current: number, previous: number) => {

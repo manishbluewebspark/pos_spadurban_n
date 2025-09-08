@@ -17,7 +17,7 @@ import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
 import { Register, RegisterValue } from 'src/modules/OpenRegister/models/OpenRegister.model';
-
+import { saveAs } from "file-saver";
 
 const salesData = [
   {
@@ -136,11 +136,11 @@ const ViewOutletRegisterPage = () => {
       fieldName: 'totalPayouts',
       headerName: 'Total Payout',
       flex: 'flex-[1_1_0%]',
-       render: (row: any) => {
+      render: (row: any) => {
         return `-${row?.totalPayouts}`
       }
     },
-    
+
     {
       fieldName: 'carryForwardBalance',
       headerName: 'C/F Balance',
@@ -276,40 +276,80 @@ const ViewOutletRegisterPage = () => {
     }
   }, [dateFilter, outlets]);
 
-  const navigate = useNavigate();
+const handleExportExcelClosureSummary = () => {
+  if (!data?.data || data?.data.length === 0) {
+    alert("No closure data to export!");
+    return;
+  }
+
+  // Prepare export rows
+const exportData = data?.data?.map((row: any) => {
+    // outletId se name find karo
+    const outletName =
+      outlets?.find((el: any) => el?._id === row.outletId)?.name || "N/A";
+
+    return {
+      OutletName: outletName, // 👈 outlet ka naam
+      OpeningBalance: row.openingBalance,
+      ClosingBalance: row.carryForwardBalance,
+      BankDeposit: row.bankDeposit,
+      TotalPayments: row.totalPaymentAmount,
+      CashPayments: row.totalCashPayments,
+      CardPayments: row.totalCardPayments,
+      ManualCash: row.totalManualAmount,
+      Variance: row.variance,
+      Date: row.createdAt,
+    };
+  });
 
 
-  const handleExportCSV = () => {
-    const exportData = invoices.map((inv: any) => ({
-      InvoiceNumber: inv.invoiceNumber,
-      CustomerName: inv.customerName,
-      TotalAmount: inv.totalAmount,
-      BalanceDue: inv.balanceDue,
-      Status: inv.status || (inv.balanceDue > 0 ? 'Unpaid' : 'Paid'),
-      Date: formatZonedDate(inv.createdAt), // you can use format() or your global time util
-    }));
+  // Create worksheet
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const csv = XLSX.utils.sheet_to_csv(worksheet);
+  // Add top info
+  XLSX.utils.sheet_add_aoa(
+    worksheet,
+    [["Closure Summary Report"]],
+    { origin: "A1" }
+  );
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'Customer_Sales_Report.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  // Adjust column widths
+  worksheet["!cols"] = [
+    { wch: 28 }, // RegisterID
+    { wch: 20 }, // OutletID
+    { wch: 18 }, // OpeningBalance
+    { wch: 18 }, // ClosingBalance
+    { wch: 15 }, // BankDeposit
+    { wch: 20 }, // TotalCashPayments
+    { wch: 20 }, // TotalCardPayments
+    { wch: 22 }, // ExpectedPhysicalCash
+    { wch: 15 }, // Variance
+    { wch: 15 }, // TotalPayouts
+    { wch: 15 }, // CashUsage
+    { wch: 10 }, // IsClosed
+    { wch: 25 }, // OpenedAt
+    { wch: 25 }, // ClosedAt
+  ];
+
+  // Create workbook
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "ClosureSummary");
+
+  // Save file
+  const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+  saveAs(blob, `ClosureSummary_${new Date().toISOString().slice(0, 10)}.xlsx`);
+};
+
   return (
     <>
       <div className="flex flex-col h-full gap-2 p-4">
         <ATMPageHeader
           heading="Outlet Register Details"
-          hideButton={true}
+          // hideButton={true}
           buttonProps={{
-            label: 'Back',
-            onClick: () => navigate('/outlets'), // Navigate to previous page
+            label: 'Export',
+            onClick: () => handleExportExcelClosureSummary()
             // position: 'left', // if your ATMPageHeader supports it
           }}
         />

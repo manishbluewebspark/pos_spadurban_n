@@ -16,7 +16,7 @@ import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
-
+import { saveAs } from "file-saver";
 
 const salesData = [
   {
@@ -188,12 +188,12 @@ const ViewOutletGiftCardReportPage = () => {
 
   useEffect(() => {
     const reportDuration = (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
-  
+
     if (!outlets?.length) return;
-  
+
     let startDate: string;
     let endDate: string;
-  
+
     switch (reportDuration) {
       case "MONTHLY":
         startDate = format(subMonths(new Date(), 1), "yyyy-MM-dd");
@@ -209,12 +209,12 @@ const ViewOutletGiftCardReportPage = () => {
         endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
         break;
     }
-  
+
     const currentStart = searchParams.get("startDate");
     const currentEnd = searchParams.get("endDate");
     const currentDuration = searchParams.get("reportDuration");
     const currentOutlet = searchParams.get("outletIds"); // 👈 already selected outlet
-  
+
     // ✅ Agar sab already same hai to kuch mat karo
     if (
       currentStart === startDate &&
@@ -224,18 +224,18 @@ const ViewOutletGiftCardReportPage = () => {
     ) {
       return;
     }
-  
+
     const newSearchParams = new URLSearchParams(searchParams.toString());
     newSearchParams.set("startDate", startDate);
     newSearchParams.set("endDate", endDate);
-  
+
     // ✅ Sirf tabhi default outlet set karo jab user ne abhi tak outlet select nahi किया
     if (!currentOutlet) {
       newSearchParams.set("outletIds", outlets?.[0]?._id || "");
     }
-  
+
     newSearchParams.set("reportDuration", reportDuration);
-  
+
     if (newSearchParams.toString() !== searchParams.toString()) {
       setSearchParams(newSearchParams);
     }
@@ -243,6 +243,38 @@ const ViewOutletGiftCardReportPage = () => {
 
   const navigate = useNavigate();
 
+  const handleExportExcelGiftCard = (chartData: any) => {
+    if (!chartData?.data?.labels || !chartData?.data?.datasets) {
+      alert("No data to export!");
+      return;
+    }
+
+    const { labels, datasets } = chartData?.data;
+
+    // Convert chart data into tabular format
+    const exportData = labels.map((label: string, idx: number) => {
+      const row: any = { Date: label };
+      datasets.forEach((ds: any) => {
+        row[ds.label] = ds.data[idx] || 0;
+      });
+      return row;
+    });
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "GiftCard");
+
+    // Generate filename
+    const fileName = `GiftCard_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    // Write and save
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+    saveAs(blob, fileName);
+  };
 
   // const handleExportCSV = () => {
   //   const exportData = invoices.map((inv: any) => ({
@@ -271,10 +303,10 @@ const ViewOutletGiftCardReportPage = () => {
       <div className="flex flex-col h-full gap-2 p-4">
         <ATMPageHeader
           heading="Gift Card Report"
-          hideButton={true}
+          // hideButton={true}
           buttonProps={{
-            label: 'Back',
-            onClick: () => navigate('/outlets'), // Navigate to previous page
+            label: 'Export',
+            onClick: () => handleExportExcelGiftCard, // Navigate to previous page
             // position: 'left', // if your ATMPageHeader supports it
           }}
         />
@@ -319,44 +351,44 @@ const ViewOutletGiftCardReportPage = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mx-10">
               {/* 1️⃣ Customer Insights */}
-             <div>
-               <ATMChart
-                type="pie"
-                data={{
-                  labels: customerInsights.map((item: any) => item.name || "Unknown"),
-                  datasets: [
-                    {
-                      label: "Total Purchased",
-                      data: customerInsights.map((item: any) => item.totalAmount), // 💰 ya phir item.totalPurchased bhi le sakte ho
-                      backgroundColor: ["#2196f3", "#4caf50", "#ff9800", "#f44336"],
-                    },
-                  ],
-                }}
-                options={{
-                  responsive: true,
-                  plugins: {
-                    legend: {
-                      display: true,
-                      position: "top", // ✅ labels top par aayenge
-                      labels: {
-                        color: "#333", // aur readable banane ke liye
+              <div>
+                <ATMChart
+                  type="pie"
+                  data={{
+                    labels: customerInsights.map((item: any) => item.name || "Unknown"),
+                    datasets: [
+                      {
+                        label: "Total Purchased",
+                        data: customerInsights.map((item: any) => item.totalAmount), // 💰 ya phir item.totalPurchased bhi le sakte ho
+                        backgroundColor: ["#2196f3", "#4caf50", "#ff9800", "#f44336"],
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    plugins: {
+                      legend: {
+                        display: true,
+                        position: "top", // ✅ labels top par aayenge
+                        labels: {
+                          color: "#333", // aur readable banane ke liye
+                          font: {
+                            size: 12,
+                          },
+                        },
+                      },
+                      title: {
+                        display: true,
+                        text: "Total Purchased",
                         font: {
-                          size: 12,
+                          size: 16,
                         },
                       },
                     },
-                    title: {
-                      display: true,
-                      text: "Total Purchased",
-                      font: {
-                        size: 16,
-                      },
-                    },
-                  },
-                  maintainAspectRatio: false,
-                }}
-              />
-             </div>
+                    maintainAspectRatio: false,
+                  }}
+                />
+              </div>
 
               {/* 2️⃣ Outlet Performance */}
               <ATMChart
