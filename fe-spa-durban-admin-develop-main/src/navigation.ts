@@ -479,6 +479,16 @@ const navigation: (params?: {
           },
           permission: 'CLOSURE_SUMMARY',
         },
+        {
+          title: 'Booking Summary',
+          icon: IconReceiptTax,
+          path: 'outlet/view-booking-data',
+          searchParams: {
+            page: '1',
+            limit: '10',
+          },
+          permission: 'CLOSURE_SUMMARY',
+        }
       ]
     }
   ];

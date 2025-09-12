@@ -10,6 +10,7 @@ import ATMFileUploader from 'src/components/atoms/FormElements/ATMFileUploader/A
 import { showToast } from 'src/utils/showToaster';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import ATMNumberField from 'src/components/atoms/FormElements/ATMNumberField/ATMNumberField';
+import { eachDayOfInterval, format } from 'date-fns';
 
 // types
 
@@ -156,12 +157,28 @@ const CloseRegisterFormLayout = ({
     return acc;
   }, {});
 
-  const lastCashRowInfo = Object.entries(groupedResult)
-    .flatMap(([date, rows]) =>
-      rows.map((row, i) => ({ ...row, date, flatIndex: `${date}_${row._id}` }))
-    )
-    .filter((row) => row.paymentModeName?.toLowerCase() === 'cash')
-    .pop();
+  // const lastCashRowInfo = Object.entries(groupedResult)
+  //   .flatMap(([date, rows]) =>
+  //     rows.map((row, i) => ({ ...row, date, flatIndex: `${date}_${row._id}` }))
+  //   )
+  //   .filter((row) => row.paymentModeName?.toLowerCase() === 'cash')
+  //   .pop();
+
+  const allRows = Object.entries(groupedResult)
+  .flatMap(([date, rows]) =>
+    rows.map((row) => ({ ...row, date, flatIndex: `${date}_${row._id}` }))
+  );
+
+// Step 2: Filter only cash rows
+const cashRows = allRows.filter(
+  (row) => row.paymentModeName?.toLowerCase() === "cash"
+);
+
+// Step 3: Sort by date (and maybe createdAt if available)
+cashRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+// Step 4: Last cash row
+const lastCashRowInfo = cashRows[cashRows.length - 1] || null;
 
   const lastCashRowKey = lastCashRowInfo ? `${lastCashRowInfo._id}_${lastCashRowInfo.date}` : '';
   console.log('------cashManual', parseFloat(values.manual?.[lastCashRowKey] || '0'))
@@ -257,7 +274,46 @@ const CloseRegisterFormLayout = ({
     }
   };
 
+  // 🛠 Utility: Fill missing dates with zero rows
+function fillMissingDates(groupedResult: any, startDate: string, endDate: string) {
+  const allDates = eachDayOfInterval({
+    start: new Date(startDate),
+    end: new Date(endDate),
+  });
 
+  const filledResult: any = {};
+
+  allDates.forEach((date) => {
+    const dateKey = format(date, "yyyy-MM-dd");
+    if (groupedResult[dateKey]) {
+      // agar data already hai to wahi use karo
+      filledResult[dateKey] = groupedResult[dateKey];
+    } else {
+      // agar missing hai to 0 rows banao
+      filledResult[dateKey] = [
+        {
+          _id: "no-sale-cash",
+          paymentModeName: "cash",
+          totalAmount: 0,
+        },
+        {
+          _id: "no-sale-card",
+          paymentModeName: "card",
+          totalAmount: 0,
+        },
+      ];
+    }
+  });
+
+  return filledResult;
+}
+
+const registerStartDate = opningData?.register?.openedAt;
+const today = new Date();
+const todayStr = format(today, "yyyy-MM-dd");
+
+// groupedResult ke andar jo bhi aapka data aaya hai usko fill karo
+const completeResult = fillMissingDates(groupedResult, registerStartDate, todayStr);
 
 
   return (
@@ -627,14 +683,14 @@ const CloseRegisterFormLayout = ({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {/* Left side - 3 items */}
                 <div className="space-y-1">
-                  <p><strong>Sequence No</strong>: {opningData?.register?._id}</p>
+                  {/* <p><strong>Sequence No</strong>: {opningData?.register?._id}</p> */}
                   <p><strong>Open Date</strong>: {new Date(opningData?.register?.openedAt).toLocaleDateString()}</p>
                   <p><strong>Close Date</strong>: {new Date().toLocaleDateString()}</p>
                 </div>
 
                 {/* Right side - 1 item */}
                 <div className="space-y-1">
-                  <p><strong>Outlet</strong>: {opningData?.register?.outletId}</p>
+                  <p><strong>Outlet</strong>: {opningData?.register?.outletId?.name}</p>
                 </div>
               </div>
 
@@ -648,64 +704,71 @@ const CloseRegisterFormLayout = ({
                 })()}</p>
               </div>
 
-              {Object.keys(groupedResult)
-                .sort((a, b) => new Date(a).getTime() - new Date(b).getTime()) // ✅ dates sorted
-                .map((date) => (
-                  <div key={date}>
-                    <h3 className="text-base font-semibold text-primary-60 mb-2">
-                      {new Date(date).toDateString()}
-                    </h3>
 
-                    <table className="w-full border text-sm mb-4">
-                      <thead className="bg-gray-100 text-gray-700">
-                        <tr>
-                          <th className="p-2 border text-left">Payment Mode</th>
-                          <th className="p-2 border text-right">Expected</th>
-                          <th className="p-2 border text-right">Counted</th>
-                          <th className="p-2 border text-right">Difference</th>
-                          <th className="p-2 border text-left">Reason</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {groupedResult[date].map((row: any) => {
-                          const rowKey = `${row._id}_${date}`;
-                          const manual = formikProps.values.manual?.[rowKey];
-                          const reason = formikProps.values.reasons?.[rowKey];
 
-                          // अगर cash row है तो expected को finalCashTotal से overwrite करो
-                          let expected = parseFloat(row.totalAmount || 0);
-                          if (row.paymentModeName?.toLowerCase() === "cash") {
-                            expected = cashTotal; // ✅ यहाँ final cash total डालो
-                          }
+              {Object.keys(completeResult)
+                .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+                .map((date, idx, arr) => {
+                  const isLastDate = idx === arr.length - 1; // ✅ check if last date
+                  return (
+                    <div key={date}>
+                      <h3 className="text-base font-semibold text-primary-60 mb-2">
+                        {new Date(date).toDateString()}
+                      </h3>
 
-                          const manualNum = parseFloat(manual || '0');
-                          const isMismatch = manual && manualNum !== expected;
-                          const difference = manual ? manualNum - expected : 0;
+                      <table className="w-full border text-sm mb-4">
+                        <thead className="bg-gray-100 text-gray-700">
+                          <tr>
+                            <th className="p-2 border text-left">Payment Mode</th>
+                            <th className="p-2 border text-right">Expected</th>
+                            <th className="p-2 border text-right">Counted</th>
+                            <th className="p-2 border text-right">Difference</th>
+                            <th className="p-2 border text-left">Reason</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {completeResult[date].map((row: any) => {
+                            const rowKey = `${row._id}_${date}`;
+                            const manual = formikProps.values.manual?.[rowKey];
+                            const reason = formikProps.values.reasons?.[rowKey];
 
-                          return (
-                            <tr key={rowKey} className={isMismatch ? 'bg-red-50' : ''}>
-                              <td className="p-2 border capitalize">{row.paymentModeName}</td>
-                              <td className="p-2 border text-right">R {expected.toFixed(2)}</td>
-                              <td className="p-2 border text-right">
-                                {manual ? `R ${manual}` : '-'}
-                              </td>
-                              <td className="p-2 border text-right">
-                                {manual ? `R ${difference.toFixed(2)}` : '-'}
-                              </td>
-                              <td className="p-2 border">
-                                {isMismatch && reason ? (
-                                  <span className="text-orange-600">{reason}</span>
-                                ) : (
-                                  '-'
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ))}
+                            // ✅ अगर cash है और ये last date है तो total डालो
+                            let expected = parseFloat(row.totalAmount || 0);
+                            if (row.paymentModeName?.toLowerCase() === "cash" && isLastDate) {
+                              expected = cashTotal;
+                            }
+
+                            const manualNum = parseFloat(manual || "0");
+                            const isMismatch = manual && manualNum !== expected;
+                            const difference = manual ? manualNum - expected : 0;
+
+                            return (
+                              <tr key={rowKey} className={isMismatch ? "bg-red-50" : ""}>
+                                <td className="p-2 border capitalize">{row.paymentModeName}</td>
+                                <td className="p-2 border text-right">R {expected.toFixed(2)}</td>
+                                <td className="p-2 border text-right">
+                                  {manual ? `R ${manual}` : "-"}
+                                </td>
+                                <td className="p-2 border text-right">
+                                  {manual ? `R ${difference.toFixed(2)}` : "-"}
+                                </td>
+                                <td className="p-2 border">
+                                  {isMismatch && reason ? (
+                                    <span className="text-orange-600">{reason}</span>
+                                  ) : (
+                                    "-"
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+
+
               <div>
                 <h4 className='my-2 text-bold'><strong>Cash Movement</strong></h4>
                 <table className="w-full border text-sm mb-4">

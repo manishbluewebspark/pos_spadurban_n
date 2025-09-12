@@ -701,7 +701,7 @@ const updateService = catchAsync(
         // throw new ApiError(httpStatus.NOT_FOUND, "Invalid tax.");
       }
     }
-    
+
 
     // finally update
     const service = await serviceService.updateServiceById(
@@ -954,7 +954,7 @@ const toggleServiceStatus = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllBookings = catchAsync(async (req: Request, res: Response) => {
-  const { storeId, mobile, email, serviceName, startDate, endDate, page = 1, limit = 10 } = req.query;
+  const { mobile, email, searchValue = "", serviceName, startDate, endDate, page = 1, limit = 10 } = req.query;
 
   const offset = (Number(page) - 1) * Number(limit);
 
@@ -962,10 +962,18 @@ const getAllBookings = catchAsync(async (req: Request, res: Response) => {
   let values: any[] = [];
   let idx = 1;
 
-  if (storeId) {
-    conditions.push(`b."StoreId" = $${idx++}`);
-    values.push(storeId);
+  if (searchValue) {
+    conditions.push(`(
+    (c."firstName" || ' ' || c."lastName") ILIKE $${idx} OR
+    c."email" ILIKE $${idx} OR
+    c."mobile" ILIKE $${idx} OR
+    b."bookingNumber" ILIKE $${idx}
+  )`);
+    values.push(`%${searchValue}%`);
+    idx++;
   }
+
+
 
   if (mobile) {
     conditions.push(`c."mobile" ILIKE $${idx++}`);
@@ -991,6 +999,12 @@ const getAllBookings = catchAsync(async (req: Request, res: Response) => {
     conditions.push(`b."bookingDateTimeStamp" <= $${idx++}`);
     values.push(endDate);
   }
+
+//   if (outletId) {
+//   // outletId me ab branch name text aayega
+//   conditions.push(`s."name" ILIKE $${idx++}`);
+//   values.push(`%${outletId}%`); // partial match ke liye % use kiya
+// }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
@@ -1025,7 +1039,7 @@ const getAllBookings = catchAsync(async (req: Request, res: Response) => {
     LEFT JOIN public."Treatments" t ON t."id" = bt."TreatmentId"
     ${whereClause}
     GROUP BY b."id", c."firstName", c."lastName", c."email", c."mobile", s."name"
-    ORDER BY b."bookingDateTimeStamp" DESC
+    ORDER BY b."createdAt" DESC
     LIMIT $${idx++} OFFSET $${idx++};
   `;
 

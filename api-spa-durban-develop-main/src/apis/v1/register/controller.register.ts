@@ -1112,14 +1112,19 @@ const getRegisterCurentDate = catchAsync(
       // isClosed: true,      // ✅ last closed chahiye
       // isDeleted: false,  // agar deleted skip karna ho
     })
-      .sort({ createdAt: -1 }) // ✅ latest closed date ke hisaab se sort
+      .sort({ closedAt: -1 }) // ✅ latest closed date ke hisaab se sort
       .lean();
+
+      console.log('------dddd',lastClosedRegister)
 
     const dddd = lastClosedRegister?.closedAt ? lastClosedRegister?.closedAt : lastClosedRegister?.openedAt
 
+    // const startDate = dddd
+    //   ? new Date(dddd.getTime() + 1)
+    //   : new Date(new Date().setHours(0, 0, 0, 0));
     const startDate = dddd
-      ? new Date(dddd.getTime() + 1)
-      : new Date(new Date().setHours(0, 0, 0, 0));
+  ? new Date(dddd.getTime() + 1)   // <- This +1ms may include invoices immediately after close
+  : new Date(new Date().setHours(0, 0, 0, 0));
 
     const endDate = new Date();
     endDate.setHours(23, 59, 59, 999);
@@ -1202,8 +1207,11 @@ const getRegisterCurentDate = catchAsync(
       createdBy: userId,
       isDeleted: false,
       isOpened: true,
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 })
+    .populate("outletId", "name")
+    .lean();
 
+    
     return res.status(httpStatus.OK).send({
       message: "Successful.",
       data: {

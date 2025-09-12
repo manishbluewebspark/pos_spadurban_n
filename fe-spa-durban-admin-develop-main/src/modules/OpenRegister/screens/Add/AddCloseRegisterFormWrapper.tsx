@@ -27,6 +27,7 @@ const AddCloseRegisterFormWrapper = ({ onClose }: Props) => {
   const [sendPdfBYEmail] = useSendPdfBYEmailMutation();
   const [showSummary, setShowSummary] = useState(false);
 
+  console.log('-----onClose',onClose)
   const { userData, outlet, outlets } = useSelector(
     (state: RootState) => state.auth,
   );

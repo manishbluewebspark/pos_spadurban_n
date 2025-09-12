@@ -11,12 +11,12 @@ import { useFilterPagination } from 'src/hooks/useFilterPagination';
 import { SalesReport } from 'src/modules/Invoices/models/Invoices.model';
 import { RootState } from 'src/store';
 import { isAuthorized } from 'src/utils/authorization';
-import { useGetRegisterChartDataQuery, useGetRegisterDataQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
+import { useGetAllBookingsQuery, useGetRegisterChartDataQuery, useGetRegisterDataQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
 import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
-import { Register, RegisterValue } from 'src/modules/OpenRegister/models/OpenRegister.model';
+import { BookingValue, Register, RegisterValue } from 'src/modules/OpenRegister/models/OpenRegister.model';
 import { saveAs } from "file-saver";
 
 const salesData = [
@@ -34,7 +34,7 @@ const salesData = [
   },
 ];
 
-const ViewOutletRegisterPage = () => {
+const ViewBookingDataPage = () => {
   const { id } = useParams(); // outletId from URL
 
 
@@ -42,15 +42,16 @@ const ViewOutletRegisterPage = () => {
     useFilterPagination(['outletsId', 'customerId']);
   const [searchParams, setSearchParams] = useSearchParams();
   const { outlets } = useSelector((state: RootState) => state.auth);
-  const { data, isLoading, error } = useGetRegisterDataQuery({
-    outletId: appliedFilters?.[0]?.value,
+  const { data, isLoading, error } = useGetAllBookingsQuery({
+    // outletId: appliedFilters?.[0]?.value,
     startDate: dateFilter?.start_date,
     endDate: dateFilter?.end_date,
-    page: page,
-    limit: limit,
-    sortBy: orderBy || 'createdAt',
-    sortOrder: orderValue || 'desc',
+    searchValue: searchQuery,
+    page,
+    limit,
   });
+
+  console.log('-----data', data)
 
   const { data: chartData } = useGetRegisterChartDataQuery({
     outletId: appliedFilters?.[0]?.value,
@@ -84,166 +85,91 @@ const ViewOutletRegisterPage = () => {
 
 
 
-  const tableHeaders: TableHeader<RegisterValue>[] = [
+  const tableHeaders: TableHeader<BookingValue>[] = [
     {
-      fieldName: 'openedAt',
-      headerName: 'Open Date',
-      flex: 'flex-[1_1_0%]',
-      sortable: true,
-      sortKey: 'openedAt',
-      extraClasses: () => '',
-      stopPropagation: true,
-      render: (row: any) => {
-        const date = row.openedAt ? new Date(row.openedAt) : null;
-        return date ? formatZonedDate(date) : '-';
+      fieldName: 'bookingNumber',
+      headerName: 'Booking Number',
+      flex: 'flex-[2_1_0%]'
+    },
+    {
+      fieldName: 'invoiceNumber',
+      headerName: 'Invoice Number',
+      flex: 'flex-[1_1_0%]'
+    },
+    {
+      fieldName: 'duration',
+      headerName: 'Duration',
+      flex: 'flex-[1_1_0%]'
+    },
+    {
+      fieldName: 'startTime',
+      headerName: 'Start Time',
+      flex: 'flex-[1_1_0%]'
+    },
+    {
+      fieldName: 'endTime',
+      headerName: 'End Time',
+      flex: 'flex-[1_1_0%]'
+    },
+    {
+      fieldName: 'customerName',
+      headerName: 'Customer Name',
+      flex: 'flex-[3_1_0%]'
+    },
+    {
+      fieldName: 'customerEmail',
+      headerName: 'Customer Email',
+      flex: 'flex-[3_1_0%]'
+    },
+    {
+      fieldName: 'customerPhone',
+      headerName: 'Customer Phone',
+      flex: 'flex-[2_1_0%]'
+    },
+    {
+      fieldName: 'branchName',
+      headerName: 'Branch Name',
+      flex: 'flex-[3_1_0%]'
+    },
+    {
+      fieldName: 'services',
+      headerName: 'Services',
+      flex: 'flex-[3_1_0%]', // wider column if services have long names
+      renderCell: (row) => {
+        // row.services is an array, join with comma or line break
+        return row.services?.length ? row.services.join(', ') : '-';
       }
     },
     {
-      fieldName: 'closedAt',
-      headerName: 'Close Date',
-      flex: 'flex-[1_1_0%]',
-      sortable: true,
-      sortKey: 'closedAt',
-      extraClasses: () => '',
-      stopPropagation: true,
-      render: (row: any) => {
-        const date = row.closedAt ? new Date(row.closedAt) : null;
-        return date ? formatZonedDate(date) : '-';
-      }
-    },
-    {
-      fieldName: 'openingBalance',
-      headerName: 'Opening Balance',
-      flex: 'flex-[1_1_0%]',
-      // render:(row:any)=>{
-      //   return `${row?.openingBalance} (+${row?.carryForwardBalance})`
-      // }
-    },
-    {
-      fieldName: 'totalManualAmount',
-      headerName: 'Total Manual Cash',
-      flex: 'flex-[1_1_0%]',
-    },
-    {
-      fieldName: 'bankDeposit',
-      headerName: 'Bank Deposite',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => {
-        return `-${row?.bankDeposit}`
-      }
-    },
-    {
-      fieldName: 'totalPayouts',
-      headerName: 'Total Payout',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => {
-        return `-${row?.totalPayouts}`
-      }
-    },
+          fieldName: 'createdAt',
+          headerName: 'Created Date',
+          flex: 'flex-[3_1_0%]',
+          render: (row: any) => {
+            const date = row.createdAt ? new Date(row.createdAt) : null;
+            return date ? formatZonedDate(date) : '-';
+          }
+        }
 
-    {
-      fieldName: 'carryForwardBalance',
-      headerName: 'C/F Balance',
-      flex: 'flex-[1_1_0%]',
-    },
-    // {
-    //   fieldName: 'closeRegister',
-    //   headerName: 'Payment Summary',
-    //   flex: 'flex-[3_1_0%]',
-    //   render: (row: any) => {
-    //     if (!Array.isArray(row?.closeRegister)) return '-';
-
-    //     return (
-    //       <div className="space-y-2 text-sm">
-    //         {row.closeRegister.map((entry: any, index: number) => (
-    //           <div key={index} className="border rounded p-2 bg-gray-50">
-    //             {/* <div className="font-semibold">
-    //             {new Date(entry.date).toLocaleDateString('en-GB')}
-    //           </div> */}
-    //             <ul className="list-disc pl-4 mt-1 space-y-1">
-    //               {entry.payments?.map((payment: any, i: number) => (
-    //                 <li key={i}>
-    //                   <span className="capitalize font-medium">{payment.paymentModeName}</span>:
-    //                   Total: R {payment.totalAmount?.toFixed(2)} | Manual: R {payment.manual || '0'}
-    //                   {payment.reason && (
-    //                     <span className="text-orange-600 ml-1">
-    //                       (Reason: {payment.reason})
-    //                     </span>
-    //                   )}
-    //                 </li>
-    //               ))}
-    //             </ul>
-    //           </div>
-    //         ))}
-    //       </div>
-    //     );
-    //   }
-    // },
-    {
-      fieldName: 'registerStatus',
-      headerName: 'Register Status',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => {
-        if (row.isClosed) return 'Closed';
-        if (row.isOpened) return 'Opened';
-        return 'Not Opened';
-      }
-    },
-    {
-      fieldName: 'closeRegister',
-      headerName: 'Payment Summary',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => (
-        <button
-          className="text-white px-3 py-1 rounded hover:opacity-90"
-          style={{ backgroundColor: '#006972' }}
-          onClick={() => handleViewPayments(row)}
-        >
-          View Payments
-        </button>
-      ),
-    },
-
-
-    // {
-    //   fieldName: 'cashUsageReason',
-    //   headerName: 'Cash Usage Reason',
-    //   flex: 'flex-[1_1_0%]',
-    // },
-    {
-      fieldName: 'actions',
-      headerName: 'Payouts',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => (
-        <button
-          className="text-white px-3 py-1 rounded hover:opacity-90"
-          style={{ backgroundColor: '#006972' }}
-          onClick={() => handleViewPayouts(row)}
-        >
-          View Payouts
-        </button>
-      ),
-    }
   ];
 
 
   const filters: FilterType[] = [
-    {
-      filterType: 'single-select',
-      label: 'Outlet',
-      fieldName: 'outletsId',
-      options:
-        outlets?.map((el: any) => {
-          return {
-            label: el?.name,
-            value: el?._id,
-          };
-        }) || [],
-      renderOption: (option) => option.label,
-      isOptionEqualToSearchValue: (option, value) => {
-        return option?.label.includes(value);
-      },
-    },
+    // {
+    //   filterType: 'single-select',
+    //   label: 'Outlet',
+    //   fieldName: 'outletsId',
+    //   options:
+    //     outlets?.map((el: any) => {
+    //       return {
+    //         label: el?.name,
+    //         value: el?.name,
+    //       };
+    //     }) || [],
+    //   renderOption: (option) => option.label,
+    //   isOptionEqualToSearchValue: (option, value) => {
+    //     return option?.label.includes(value);
+    //   },
+    // },
     {
       filterType: 'date',
       fieldName: 'createdAt',
@@ -345,8 +271,8 @@ const ViewOutletRegisterPage = () => {
     <>
       <div className="flex flex-col h-full gap-2 p-4">
         <ATMPageHeader
-          heading="Outlet Register Details"
-          // hideButton={true}
+          heading="Booking Summary Details"
+          hideButton={true}
           buttonProps={{
             label: 'Export',
             onClick: () => handleExportExcelClosureSummary()
@@ -355,11 +281,11 @@ const ViewOutletRegisterPage = () => {
         />
         <Authorization permission="OUTLET_LIST">
           {/* Table Toolbar */}
-          <MOLFilterBar hideSearch={true} filters={filters} />
+          <MOLFilterBar hideSearch={false} filters={filters} />
           <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">
-            <div className="grid grid-cols-2 gap-4">
+            {/* <div className="grid grid-cols-2 gap-4"> */}
               {/* Chart 4: Daily Summary (Line) */}
-              {dailySummary.length > 0 && (
+              {/* {dailySummary.length > 0 && (
                 <div className="col-span">
                   <ATMChart
                     type="bar"
@@ -393,10 +319,10 @@ const ViewOutletRegisterPage = () => {
                     }}
                   />
                 </div>
-              )}
+              )} */}
 
               {/* Chart 5: Final Cash vs Opening Balance (Bar) */}
-              {finalCashVsOpening.length > 0 && (
+              {/* {finalCashVsOpening.length > 0 && (
                 <div className="col-span">
                   <ATMChart
                     type="pie"
@@ -421,15 +347,15 @@ const ViewOutletRegisterPage = () => {
                     }}
                   />
                 </div>
-              )}
+              )} */}
 
-            </div>
+            {/* </div> */}
 
             <div className="flex-1 mt-3">
-              <MOLTable<RegisterValue>
+              <MOLTable<BookingValue>
                 tableHeaders={tableHeaders}
                 data={invoices || []}
-                getKey={(item) => item?._id}
+                getKey={(item) => item?.bookingId}
                 onEdit={undefined}
                 onDelete={undefined}
                 isLoading={false}
@@ -547,4 +473,4 @@ const ViewOutletRegisterPage = () => {
   )
 };
 
-export default ViewOutletRegisterPage;
+export default ViewBookingDataPage;

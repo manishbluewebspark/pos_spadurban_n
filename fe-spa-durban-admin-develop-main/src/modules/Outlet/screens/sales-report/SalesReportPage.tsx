@@ -81,7 +81,7 @@ const periodLabel =
     : "";
 
 
-  const salesByDate = chartData?.data?.salesByDate || [];
+  // const salesByDate = chartData?.data?.salesByDate || [];
   const salesByPaymentMode = chartData?.data?.salesByPaymentMode || [];
   const topCustomers = chartData?.data?.topCustomers || [];
   const datasets = chartData?.data?.datasets || [];
@@ -348,34 +348,13 @@ useEffect(() => {
 
             )}
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4 mt-5 border border-slate-300 p-2">
               {/* Chart 1: Sales by Date (Bar) */}
-              {salesByDate.length > 0 && (
-                <div className="col-span">
-                  <ATMChart
-                    type="bar"
-                    data={{
-                      labels: salesByDate.map((item: any) => item._id),
-                      datasets: [
-                        {
-                          label: 'Sales',
-                          data: salesByDate.map((item: any) => item.total),
-                          backgroundColor: '#3b82f6',
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: { legend: { position: 'top' } },
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                </div>
-              )}
+              
 
               {/* Chart 2: Sales by Payment Mode (Pie) */}
               {salesByPaymentMode.length > 0 && (
-                <div className="col-span">
+                <div className="col-6">
                   <ATMChart
                     type="pie"
                     data={{
@@ -390,7 +369,7 @@ useEffect(() => {
                     }}
                     options={{
                       responsive: true,
-                      plugins: { legend: { position: 'top' } },
+                      plugins: { legend: { position: 'right' } },
                       maintainAspectRatio: false,
                     }}
                   />
@@ -399,7 +378,7 @@ useEffect(() => {
 
               {/* Chart 3: Top Customers (Doughnut) */}
               {topCustomers.length > 0 && (
-                <div className="col-span">
+                <div className="col-6">
                   <ATMChart
                     type="doughnut"
                     data={{

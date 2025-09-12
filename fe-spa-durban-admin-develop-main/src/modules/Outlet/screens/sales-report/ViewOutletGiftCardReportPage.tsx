@@ -313,7 +313,8 @@ const ViewOutletGiftCardReportPage = () => {
         <Authorization permission="OUTLET_LIST">
           {/* Table Toolbar */}
           <MOLFilterBar hideSearch={true} filters={filters} />
-          <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">
+          {datasets.length > 0 ? (
+            <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">
 
             <div>{datasets.length > 0 && (
               <div className="col-span">
@@ -567,7 +568,9 @@ const ViewOutletGiftCardReportPage = () => {
               rowCount={1}
               rows={invoices || []}
             /> */}
-          </div>
+          </div>) : (<> <p className="text-center text-gray-500 py-8">
+                  No chart data available
+                </p></>)}
         </Authorization>
         {/* {invoices.length > 0 && (
           <div className="flex items-center justify-between px-4 py-3 text-lg font-semibold">

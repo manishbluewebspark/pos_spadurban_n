@@ -46,3 +46,18 @@ export type RegisterValue = {
     createdAt: Date;
   }];
 };
+
+export type BookingValue = {
+  bookingId:string;
+  bookingNumber:string;
+  invoiceNumber:string;
+  startTime:string;
+  endTime:string;
+  duration:string;
+  customerName:string;
+  customerEmail:string;
+  customerPhone:string;
+  branchName:string;
+  services?:[];
+  createdAt:Date;
+}

@@ -83,6 +83,7 @@ import TestQueryPage from './modules/Service/components/TestQueryPage';
 import OutletReportPage from './modules/Outlet/screens/sales-report/OutletReportPage';
 import ViewOutletGiftCardReportPage from './modules/Outlet/screens/sales-report/ViewOutletGiftCardReportPage';
 import ViewReatailDashboardPage from './modules/Outlet/screens/sales-report/ViewReatailDashboardPage';
+import ViewBookingDataPage from './modules/Outlet/screens/view-bookings/ViewBookingDataPage';
 
 type Props = {};
 
@@ -155,6 +156,7 @@ const PageRoutes = (props: Props) => {
         { path: '/outlet/sales-report', element: <SalesReportPage /> },
         { path: '/outlet/outlet-report', element: <OutletReportPage /> },
         { path: '/outlet/view-register', element: <ViewOutletRegisterPage /> },
+        { path: '/outlet/view-booking-data', element: <ViewBookingDataPage /> },
         { path: '/outlet/gift-card-report', element: <ViewOutletGiftCardReportPage /> },
         { path: '/outlet/retail-dashbaord', element: <ViewReatailDashboardPage /> },
         {

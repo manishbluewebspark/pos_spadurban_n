@@ -35,10 +35,10 @@ const salesData = [
 
 const OutletReportPage = () => {
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
-    useFilterPagination(['outletIds', 'customerId','reportDuration']);
+    useFilterPagination(['outletIds', 'customerId', 'reportDuration']);
   const [searchParams, setSearchParams] = useSearchParams();
-   console.log('------appliedFilters',appliedFilters)
-   const outletIdss = appliedFilters?.map(f => f.value); 
+  console.log('------appliedFilters', appliedFilters)
+  const outletIdss = appliedFilters?.map(f => f.value);
   const { outlets } = useSelector((state: RootState) => state.auth);
   const { data, isLoading, error } = useGetSalesReportByOutletQuery({
     outletId: outletIdss,
@@ -48,14 +48,14 @@ const OutletReportPage = () => {
     limit: limit,
     sortBy: orderBy || 'createdAt',
     sortOrder: orderValue || 'desc',
-    reportDuration:appliedFilters?.[2]?.value
+    reportDuration: appliedFilters?.[2]?.value
   });
 
   const { data: chartData } = useGetOutletsChartDataQuery({
     outletIds: appliedFilters?.[0]?.value,
     startDate: dateFilter?.start_date,
     endDate: dateFilter?.end_date,
-    reportDuration:appliedFilters?.[2]?.value
+    reportDuration: appliedFilters?.[2]?.value
   });
 
 
@@ -189,12 +189,12 @@ const OutletReportPage = () => {
   // }, [dateFilter, outlets]);
   useEffect(() => {
     const reportDuration = (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
-  
+
     if (!outlets?.length) return;
-  
+
     let startDate: string;
     let endDate: string;
-  
+
     switch (reportDuration) {
       case "MONTHLY":
         startDate = format(subMonths(new Date(), 1), "yyyy-MM-dd");
@@ -210,12 +210,12 @@ const OutletReportPage = () => {
         endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
         break;
     }
-  
+
     const currentStart = searchParams.get("startDate");
     const currentEnd = searchParams.get("endDate");
     const currentDuration = searchParams.get("reportDuration");
     const currentOutlet = searchParams.get("outletIds"); // 👈 already selected outlet
-  
+
     // ✅ Agar sab already same hai to kuch mat karo
     if (
       currentStart === startDate &&
@@ -225,18 +225,18 @@ const OutletReportPage = () => {
     ) {
       return;
     }
-  
+
     const newSearchParams = new URLSearchParams(searchParams.toString());
     newSearchParams.set("startDate", startDate);
     newSearchParams.set("endDate", endDate);
-  
+
     // ✅ Sirf tabhi default outlet set karo jab user ne abhi tak outlet select nahi किया
     if (!currentOutlet) {
       newSearchParams.set("outletIds", outlets?.[0]?._id || "");
     }
-  
+
     newSearchParams.set("reportDuration", reportDuration);
-  
+
     if (newSearchParams.toString() !== searchParams.toString()) {
       setSearchParams(newSearchParams);
     }
@@ -284,39 +284,44 @@ const OutletReportPage = () => {
           <MOLFilterBar hideSearch={true} filters={filters} />
           <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">
 
-            <div>{datasets.length > 0 && (
-              <div className="col-span">
-                <ATMChart
-                  type="line"
-                  data={{
-                    labels: dataLabel,
-                    datasets: datasets
-                  }}
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      legend: { position: 'top' },
-                      title: {
-                        display: true,
-                        text: 'Outlets Sales Chart',
+            <div>
+              {datasets.length > 0 ? (
+                <div className="col-span">
+                  <ATMChart
+                    type="line"
+                    data={{
+                      labels: dataLabel,
+                      datasets: datasets,
+                    }}
+                    options={{
+                      responsive: true,
+                      plugins: {
+                        legend: { position: "top" },
+                        title: {
+                          display: true,
+                          text: "Outlets Sales Chart",
+                        },
+                        tooltip: {
+                          mode: "index",
+                          intersect: false,
+                        },
                       },
-                      tooltip: {
-                        mode: 'index',
+                      interaction: {
+                        mode: "nearest",
+                        axis: "x",
                         intersect: false,
                       },
-                    },
-                    interaction: {
-                      mode: 'nearest',
-                      axis: 'x',
-                      intersect: false,
-                    },
-                    maintainAspectRatio: false,
-                  }}
-                />
-              </div>
-
-            )}
+                      maintainAspectRatio: false,
+                    }}
+                  />
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-8">
+                  No chart data available
+                </p>
+              )}
             </div>
+
             <div className="grid grid-cols-3 gap-4">
               {/* Chart 1: Sales by Date (Bar) */}
               {/* {salesByDate.length > 0 && (

@@ -659,22 +659,31 @@ const getSalesChartDataReportByOutlet = catchAsync(
         i.toString().padStart(2, "0") + ":00"
       );
     } else if (reportDuration === "WEEKLY") {
-  // 7 din ending at endDate
-  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-  labels = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(end);
-    d.setDate(end.getDate() - (6 - i));
-    return days[d.getDay()];
-  });
-} else if (reportDuration === "MONTHLY") {
-      // Dates of month (01–31)
-      const backOneMonth = new Date(end);
-      backOneMonth.setMonth(end.getMonth() - 1);
-      const daysInRange =
-        Math.ceil((end.getTime() - backOneMonth.getTime()) / (1000 * 60 * 60 * 24));
-      labels = Array.from({ length: daysInRange }, (_, i) =>
-        (i + 1).toString().padStart(2, "0")
-      );
+      // 7 din ending at endDate
+      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      labels = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(end);
+        d.setDate(end.getDate() - (6 - i));
+        return days[d.getDay()];
+      });
+    } else if (reportDuration === "MONTHLY") {
+      const startDateObj = new Date(start);
+      const endDateObj = new Date(end);
+      const labelsArr: string[] = [];
+
+      let tempDate = new Date(startDateObj);
+
+      while (tempDate <= endDateObj) {
+        labelsArr.push(tempDate.getDate().toString().padStart(2, "0"));
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
+
+      // Remove first element if it’s duplicate or not needed
+      if (labelsArr.length > 1 && labelsArr[0] === endDateObj.getDate().toString().padStart(2, "0")) {
+        labelsArr.shift();
+      }
+
+      labels = labelsArr;
     }
 
     // --------------------------
@@ -693,8 +702,8 @@ const getSalesChartDataReportByOutlet = catchAsync(
             reportDuration === "DAILY"
               ? { $hour: "$invoiceDate" }
               : reportDuration === "WEEKLY"
-              ? { $dayOfWeek: "$invoiceDate" }
-              : { $dayOfMonth: "$invoiceDate" },
+                ? { $dayOfWeek: "$invoiceDate" }
+                : { $dayOfMonth: "$invoiceDate" },
           total: { $sum: "$totalAmount" },
         },
       },
@@ -737,29 +746,29 @@ const getSalesChartDataReportByOutlet = catchAsync(
     // --------------------------
     // 📌 Format Data to Labels
     // --------------------------
-   const formatData = (data: any[]) =>
-  labels.map((label) => {
-    let keyVal:any;
-    if (reportDuration === "DAILY") {
-      keyVal = parseInt(label.split(":")[0]); // hour
-    } else if (reportDuration === "WEEKLY") {
-      // convert day name → Mongo dayOfWeek number
-      const mapDay: Record<string, number> = {
-        Sunday: 1,
-        Monday: 2,
-        Tuesday: 3,
-        Wednesday: 4,
-        Thursday: 5,
-        Friday: 6,
-        Saturday: 7,
-      };
-      keyVal = mapDay[label];
-    } else if (reportDuration === "MONTHLY") {
-      keyVal = parseInt(label); // day of month
-    }
-    const found = data.find((d) => d._id === keyVal);
-    return found ? found.total : 0;
-  });
+    const formatData = (data: any[]) =>
+      labels.map((label) => {
+        let keyVal: any;
+        if (reportDuration === "DAILY") {
+          keyVal = parseInt(label.split(":")[0]); // hour
+        } else if (reportDuration === "WEEKLY") {
+          // convert day name → Mongo dayOfWeek number
+          const mapDay: Record<string, number> = {
+            Sunday: 1,
+            Monday: 2,
+            Tuesday: 3,
+            Wednesday: 4,
+            Thursday: 5,
+            Friday: 6,
+            Saturday: 7,
+          };
+          keyVal = mapDay[label];
+        } else if (reportDuration === "MONTHLY") {
+          keyVal = parseInt(label); // day of month
+        }
+        const found = data.find((d) => d._id === keyVal);
+        return found ? found.total : 0;
+      });
 
 
     const lastData = formatData(lastPeriod);
@@ -2272,19 +2281,23 @@ const getSalesChartDataReportByOutlets = catchAsync(
       });
     } else if (reportDuration === "MONTHLY") {
       // 📅 last 1 month
-      const backOneMonth = new Date(end);
-      backOneMonth.setMonth(end.getMonth() - 1);
-      backOneMonth.setDate(backOneMonth.getDate() + 1);
+      const startDateObj = new Date(start);
+      const endDateObj = new Date(end);
+      const labelsArr: string[] = [];
 
-      const daysInRange = Math.ceil(
-        (end.getTime() - backOneMonth.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      let tempDate = new Date(startDateObj);
 
-      labels = Array.from({ length: daysInRange }, (_, i) => {
-        const d = new Date(backOneMonth);
-        d.setDate(backOneMonth.getDate() + i);
-        return d.getDate().toString().padStart(2, "0");
-      });
+      while (tempDate <= endDateObj) {
+        labelsArr.push(tempDate.getDate().toString().padStart(2, "0"));
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
+
+      // Remove first element if it’s duplicate or not needed
+      if (labelsArr.length > 1 && labelsArr[0] === endDateObj.getDate().toString().padStart(2, "0")) {
+        labelsArr.shift();
+      }
+
+      labels = labelsArr;
     }
 
     // 🎨 Chart colors
@@ -2307,7 +2320,7 @@ const getSalesChartDataReportByOutlets = catchAsync(
           // Mongo $dayOfWeek => Sunday=1 ... Saturday=7
           const d = new Date(end);
           d.setDate(end.getDate() - (6 - idx));
-          keyVal = d.getDay() === 0 ? 1 : d.getDay() + 1; 
+          keyVal = d.getDay() === 0 ? 1 : d.getDay() + 1;
         } else if (reportDuration === "MONTHLY") {
           keyVal = parseInt(label, 10);
         } else {
@@ -2434,19 +2447,23 @@ const getGiftCardChartDataReportByOutlets = catchAsync(
       });
     } else if (reportDuration === "MONTHLY") {
       // 📅 Last 1 month
-      const backOneMonth = new Date(end);
-      backOneMonth.setMonth(end.getMonth() - 1);
-      backOneMonth.setDate(backOneMonth.getDate() + 1);
+      const startDateObj = new Date(start);
+      const endDateObj = new Date(end);
+      const labelsArr: string[] = [];
 
-      const daysInRange = Math.ceil(
-        (end.getTime() - backOneMonth.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      let tempDate = new Date(startDateObj);
 
-      labels = Array.from({ length: daysInRange }, (_, i) => {
-        const d = new Date(backOneMonth);
-        d.setDate(backOneMonth.getDate() + i);
-        return d.getDate().toString().padStart(2, "0");
-      });
+      while (tempDate <= endDateObj) {
+        labelsArr.push(tempDate.getDate().toString().padStart(2, "0"));
+        tempDate.setDate(tempDate.getDate() + 1);
+      }
+
+      // Remove first element if it’s duplicate or not needed
+      if (labelsArr.length > 1 && labelsArr[0] === endDateObj.getDate().toString().padStart(2, "0")) {
+        labelsArr.shift();
+      }
+
+      labels = labelsArr;
     }
 
     // 🎨 Chart colors
@@ -3170,16 +3187,16 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
   ]);
 
   // 🔹 Aggregate total payouts per outlet from salesRegisters
- const payoutAgg = await SalesRegister.aggregate([
-  { $match: { outletId: { $in: outletObjectIds }, openedAt: { $gte: start, $lte: end } } },
-  { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: true } },
-  {
-    $group: {
-      _id: "$outletId",
-      totalPayout: { $sum: { $ifNull: ["$cashUsage.amount", 0] } },
+  const payoutAgg = await SalesRegister.aggregate([
+    { $match: { outletId: { $in: outletObjectIds }, openedAt: { $gte: start, $lte: end } } },
+    { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: "$outletId",
+        totalPayout: { $sum: { $ifNull: ["$cashUsage.amount", 0] } },
+      },
     },
-  },
-]);
+  ]);
 
 
 
@@ -3189,35 +3206,38 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
   //   { $match: { outlets: { $in: outletObjectIds }, createdAt: { $gte: start, $lte: end } } },
   //   { $group: { _id: "$outletId", customerCount: { $sum: 1 } } },
   // ]);
-const customerAgg = await Customer.aggregate([
-  { $unwind: "$outlets" },
+  const customerAgg = await Customer.aggregate([
+    { $unwind: "$outlets" },
 
-  { $addFields: { 
-      createdAtDate: { 
-        $cond: [
-          { $eq: [ { $type: "$createdAt" }, "string" ] },  // agar string
-          { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
-          "$createdAt"  // agar already Date
-        ]
+    {
+      $addFields: {
+        createdAtDate: {
+          $cond: [
+            { $eq: [{ $type: "$createdAt" }, "string"] },  // agar string
+            { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
+            "$createdAt"  // agar already Date
+          ]
+        }
       }
-    } 
-  },
+    },
 
-  { $match: { 
-      outlets: { $in: outletObjectIds }, 
-      createdAtDate: { $gte: start, $lte: end } 
-    } 
-  },
+    {
+      $match: {
+        outlets: { $in: outletObjectIds },
+        createdAtDate: { $gte: start, $lte: end }
+      }
+    },
 
-  { $group: { 
-      _id: "$outlets",       // <- yaha outletId nahi, unwind se outlet mil raha hai
-      customerCount: { $sum: 1 } 
-    } 
-  }
-]);
+    {
+      $group: {
+        _id: "$outlets",       // <- yaha outletId nahi, unwind se outlet mil raha hai
+        customerCount: { $sum: 1 }
+      }
+    }
+  ]);
 
 
-console.log('--------customerAgg',customerAgg)
+  console.log('--------customerAgg', customerAgg)
 
   // 🔹 Previous day stats
   const prevStart = new Date(start);
@@ -3242,32 +3262,35 @@ console.log('--------customerAgg',customerAgg)
   ]);
 
   // 🔹 Previous customers
- const prevCustomerAgg = await Customer.aggregate([
-  { $unwind: "$outlets" },
+  const prevCustomerAgg = await Customer.aggregate([
+    { $unwind: "$outlets" },
 
-  { $addFields: { 
-      createdAtDate: { 
-        $cond: [
-          { $eq: [ { $type: "$createdAt" }, "string" ] },
-          { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
-          "$createdAt"
-        ]
+    {
+      $addFields: {
+        createdAtDate: {
+          $cond: [
+            { $eq: [{ $type: "$createdAt" }, "string"] },
+            { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
+            "$createdAt"
+          ]
+        }
       }
-    } 
-  },
+    },
 
-  { $match: { 
-      outlets: { $in: outletObjectIds }, 
-      createdAtDate: { $gte: prevStart, $lte: prevEnd } 
-    } 
-  },
+    {
+      $match: {
+        outlets: { $in: outletObjectIds },
+        createdAtDate: { $gte: prevStart, $lte: prevEnd }
+      }
+    },
 
-  { $group: { 
-      _id: "$outlets",
-      customerCount: { $sum: 1 } 
-    } 
-  }
-]);
+    {
+      $group: {
+        _id: "$outlets",
+        customerCount: { $sum: 1 }
+      }
+    }
+  ]);
 
 
   // 🔹 Helper for percentage
