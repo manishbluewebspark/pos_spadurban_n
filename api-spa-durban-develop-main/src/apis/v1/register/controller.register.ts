@@ -460,7 +460,7 @@ const createRegister = catchAsync(
       throw new ApiError(httpStatus.UNAUTHORIZED, 'Invalid token');
     }
 
-    const { outletId, openingBalance = 0, date } = req.body;
+    const { outletId, openingBalance = 0,reason, date } = req.body;
     const userId = req.userData.Id;
 
     // Validate and parse date
@@ -495,6 +495,7 @@ const createRegister = catchAsync(
       outletId,
       createdBy: userId,
       openingBalance,
+      reason,
       isOpened: true,
       isClosed: false,
       // openedAt: inputDate,

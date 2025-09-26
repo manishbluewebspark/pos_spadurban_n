@@ -7,6 +7,7 @@ export type Register = {
 export type OpenRegisterFormValues = {
   registerId?: any;
   openingBalance: string;
+  reason:string;
 };
 
 export type PaymentMode = {

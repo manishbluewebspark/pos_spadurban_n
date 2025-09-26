@@ -954,7 +954,7 @@ const toggleServiceStatus = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllBookings = catchAsync(async (req: Request, res: Response) => {
-  const { mobile, email, searchValue = "", serviceName, startDate, endDate, page = 1, limit = 10 } = req.query;
+  const { outletId, mobile, email, searchValue = "", serviceName, startDate, endDate, page = 1, limit = 10 } = req.query;
 
   const offset = (Number(page) - 1) * Number(limit);
 
@@ -990,21 +990,28 @@ const getAllBookings = catchAsync(async (req: Request, res: Response) => {
     values.push(`%${serviceName}%`);
   }
 
-  if (startDate) {
-    conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
-    values.push(startDate);
-  }
+if (startDate) {
+  conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
+  values.push(new Date(startDate as string)); // start of day
+}
 
-  if (endDate) {
-    conditions.push(`b."bookingDateTimeStamp" <= $${idx++}`);
-    values.push(endDate);
-  }
+if (endDate) {
+  conditions.push(`b."bookingDateTimeStamp" < $${idx++}`);
+  const end = new Date(endDate as string);
+  end.setDate(end.getDate() + 1); // next day
+  values.push(end);
+}
 
-//   if (outletId) {
-//   // outletId me ab branch name text aayega
-//   conditions.push(`s."name" ILIKE $${idx++}`);
-//   values.push(`%${outletId}%`); // partial match ke liye % use kiya
-// }
+
+if (outletId) {
+  // Direct match outletId with StoreId
+  conditions.push(`b."StoreId" = $${idx++}`);
+  values.push(outletId);
+}
+
+
+
+
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
@@ -1071,6 +1078,75 @@ const getAllBookings = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getCustomerChartData = catchAsync(async (req: Request, res: Response) => {
+  const { startDate, endDate,outletId } = req.query;
+
+  let conditions: string[] = [];
+  let values: any[] = [];
+  let idx = 1;
+
+  if (startDate) {
+    conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
+    values.push(new Date(startDate as string));
+  }
+  if (endDate) {
+    conditions.push(`b."bookingDateTimeStamp" < $${idx++}`);
+    const end = new Date(endDate as string);
+    end.setDate(end.getDate() + 1);
+    values.push(end);
+  }
+
+  if (outletId) {
+  // Direct match outletId with StoreId
+  conditions.push(`b."StoreId" = $${idx++}`);
+  values.push(outletId);
+}
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  // Top Customers by Time Spent
+  const timeQuery = `
+    SELECT 
+  c."id" AS "customerId",
+  c."firstName" || ' ' || c."lastName" AS "customerName",
+  SUM(CAST(b."duration" AS NUMERIC)) AS "totalDuration",
+  COUNT(b."id") AS "totalBookings"
+FROM public."Bookings" b
+LEFT JOIN public."Customers" c ON c."id" = b."CustomerId"
+${whereClause}
+GROUP BY c."id", c."firstName", c."lastName"
+ORDER BY SUM(CAST(b."duration" AS NUMERIC)) DESC
+LIMIT 10;
+
+  `;
+
+  // Top Customers by Services Used
+  const servicesQuery = `
+    SELECT 
+      c."id" AS "customerId",
+      c."firstName" || ' ' || c."lastName" AS "customerName",
+      COUNT(bt."TreatmentId") AS "totalServices"
+    FROM public."Bookings" b
+    LEFT JOIN public."Customers" c ON c."id" = b."CustomerId"
+    LEFT JOIN public."BookingsTreatment" bt ON bt."BookingId" = b."id"
+    ${whereClause}
+    GROUP BY c."id", c."firstName", c."lastName"
+    ORDER BY COUNT(bt."TreatmentId") DESC
+    LIMIT 10;
+  `;
+
+  const timeResult = await pool.query(timeQuery, values);
+  const servicesResult = await pool.query(servicesQuery, values);
+
+  res.status(200).json({
+    success: true,
+    charts: {
+      topByTime: timeResult.rows,
+      topByServices: servicesResult.rows,
+    },
+  });
+});
+
 
 
 
@@ -1085,5 +1161,6 @@ export {
   getAllBookings,
   createBookingSyncService,
   updateBookingSyncService,
-  deleteServiceByBookingId
+  deleteServiceByBookingId,
+  getCustomerChartData
 };

@@ -1,5 +1,5 @@
-import { endOfDay, format, startOfDay, subMonths, subWeeks } from 'date-fns';
-import { useEffect } from 'react';
+import { endOfDay, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns';
+import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ATMPageHeader from 'src/components/atoms/ATMPageHeader/ATMPageHeader';
@@ -16,6 +16,9 @@ import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
+import { useFetchData } from 'src/hooks/useFetchData';
+import { IconEye } from '@tabler/icons-react';
+import ATMDialog from 'src/components/atoms/ATMDialog/ATMDialog';
 
 
 const salesData = [
@@ -34,51 +37,72 @@ const salesData = [
 ];
 
 const SalesReportPage = () => {
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [open, setOpen] = useState(false);
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
-    useFilterPagination(['outletIds', 'customerId','reportDuration']);
+    useFilterPagination(['outletIds', 'customerId', 'reportDuration']);
   const [searchParams, setSearchParams] = useSearchParams();
-   console.log('------appliedFilters',appliedFilters)
+  console.log('------appliedFilters', appliedFilters)
   const { outlets } = useSelector((state: RootState) => state.auth);
-  const { data, isLoading, error } = useGetSalesReportByOutletQuery({
-    outletId: appliedFilters?.[0]?.value,
-    startDate: dateFilter?.start_date,
-    endDate: dateFilter?.end_date,
-    page: page,
-    limit: limit,
-    sortBy: orderBy || 'createdAt',
-    sortOrder: orderValue || 'desc',
-    reportDuration:appliedFilters?.[2]?.value
-  });
+  // const { data, isLoading, error } = useGetSalesReportByOutletQuery({
+  //   outletId: appliedFilters?.[0]?.value,
+  //   startDate: dateFilter?.start_date,
+  //   endDate: dateFilter?.end_date,
+  //   page: page,
+  //   limit: limit,
+  //   sortBy: orderBy || 'createdAt',
+  //   sortOrder: orderValue || 'desc',
+  //   reportDuration:appliedFilters?.[2]?.value
+  // });
 
- const outletId = appliedFilters?.[0]?.value || "";
-const reportDuration = appliedFilters?.[2]?.value || "";
-const startDate = dateFilter?.start_date || "";
-const endDate = dateFilter?.end_date || "";
-
-const { data: chartData, isFetching, refetch } = useGetSalesChartDataReportByOutletQuery(
-  {
-    outletId,
-    startDate,
-    endDate,
-    reportDuration,
-  },
-  {
-    skip: !outletId || !startDate || !endDate || !reportDuration, // ✅ Jab tak sab values na ho query skip karo
-    refetchOnMountOrArgChange: true, // ✅ har arg change par refetch karega
-  }
-);
+  const { data, isLoading, totalData, totalPages } = useFetchData(
+    useGetSalesReportByOutletQuery,
+    {
+      body: {
+        outletId: appliedFilters?.[0]?.value,
+        startDate: dateFilter?.start_date,
+        endDate: dateFilter?.end_date,
+        page,
+        limit,
+        sortBy: orderBy || 'createdAt',
+        sortOrder: orderValue || 'desc',
+        reportDuration: appliedFilters?.[2]?.value,
+      },
+    }
+  );
 
 
-const filterValue = appliedFilters?.[2]?.value; // string[] | undefined
+  console.log('--ssss----data', data)
 
-const periodLabel =
-  filterValue?.includes("MONTHLY")
-    ? "Month"
-    : filterValue?.includes("WEEKLY")
-    ? "Week"
-    : filterValue?.includes("DAILY")
-    ? "Day"
-    : "";
+  const outletId = appliedFilters?.[0]?.value || "";
+  const reportDuration = appliedFilters?.[2]?.value || "";
+  const startDate = dateFilter?.start_date || "";
+  const endDate = dateFilter?.end_date || "";
+
+  const { data: chartData, isFetching, refetch } = useGetSalesChartDataReportByOutletQuery(
+    {
+      outletId,
+      startDate,
+      endDate,
+      reportDuration,
+    },
+    {
+      skip: !outletId || !startDate || !endDate || !reportDuration, // ✅ Jab tak sab values na ho query skip karo
+      refetchOnMountOrArgChange: true, // ✅ har arg change par refetch karega
+    }
+  );
+
+
+  const filterValue = appliedFilters?.[2]?.value; // string[] | undefined
+
+  const periodLabel =
+    filterValue?.includes("MONTHLY")
+      ? "Month"
+      : filterValue?.includes("WEEKLY")
+        ? "Week"
+        : filterValue?.includes("DAILY")
+          ? "Day"
+          : "";
 
 
   // const salesByDate = chartData?.data?.salesByDate || [];
@@ -98,6 +122,11 @@ const periodLabel =
     {
       fieldName: 'customerName',
       headerName: 'Customer Name',
+      flex: 'flex-[1_0_0%]',
+    },
+    {
+      fieldName: 'cashBackDiscount',
+      headerName: 'Discount',
       flex: 'flex-[1_0_0%]',
     },
     {
@@ -149,6 +178,26 @@ const periodLabel =
         </div>
       ),
     },
+    {
+  fieldName: 'actions',
+  headerName: 'Actions',
+  flex: 'flex-[1_0_0%]',
+  align: 'center',
+  renderCell: (item) => (
+    <div className="flex justify-center items-center">
+      <IconEye
+      color='#006972'
+        onClick={() => {
+          setSelectedInvoice(item);
+          setOpen(true);
+        }}
+        size={18}
+        className="cursor-pointer text-blue-600 hover:text-blue-800"
+      />
+    </div>
+  ),
+}
+
   ]
 
   const filters: FilterType[] = [
@@ -194,10 +243,11 @@ const periodLabel =
     },
   ];
 
-  const invoices = data?.data?.invoices || [];
-  const totalAmount = data?.data?.totalSalesData[0]?.totalSalesAmount || [];
+  const invoices = (data as any)?.invoices || [];
+  const totalAmount = (data as any)?.totalSalesData?.[0]?.totalSalesAmount || 0;
 
-  
+
+
   const today = new Date();
   const oneMonthAgo = subMonths(today, 1);
 
@@ -212,60 +262,73 @@ const periodLabel =
   //   }
   // }, [dateFilter, outlets]);
 
-useEffect(() => {
-  const reportDuration = (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
+  useEffect(() => {
+    const reportDuration =
+      (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
 
-  if (!outlets?.length) return;
+    if (!outlets?.length) return;
 
-  let startDate: string;
-  let endDate: string;
+    let startDate = searchParams.get("startDate");
+    let endDate = searchParams.get("endDate");
+    let shouldUpdateDates = false;
 
-  switch (reportDuration) {
-    case "MONTHLY":
-      startDate = format(subMonths(new Date(), 1), "yyyy-MM-dd");
-      endDate = format(new Date(), "yyyy-MM-dd");
-      break;
-    case "WEEKLY":
-      startDate = format(subWeeks(new Date(), 1), "yyyy-MM-dd");
-      endDate = format(new Date(), "yyyy-MM-dd");
-      break;
-    case "DAILY":
-    default:
-      startDate = format(startOfDay(new Date()), "yyyy-MM-dd");
-      endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
-      break;
-  }
+    // ✅ Agar duration dropdown select hua hai toh hamesha dates override karo
+    switch (reportDuration) {
+      case "MONTHLY":
+        startDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
+        endDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+      case "WEEKLY":
+        startDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+        endDate = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+      case "DAILY":
+      default:
+        // ✅ Agar manually set nahi hai toh hi daily set karo
+        if (!startDate || !endDate) {
+          startDate = format(startOfDay(new Date()), "yyyy-MM-dd");
+          endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
+          shouldUpdateDates = true;
+        }
+        break;
+    }
 
-  const currentStart = searchParams.get("startDate");
-  const currentEnd = searchParams.get("endDate");
-  const currentDuration = searchParams.get("reportDuration");
-  const currentOutlet = searchParams.get("outletIds"); // 👈 already selected outlet
+    const currentStart = searchParams.get("startDate");
+    const currentEnd = searchParams.get("endDate");
+    const currentDuration = searchParams.get("reportDuration");
+    const currentOutlet = searchParams.get("outletIds");
 
-  // ✅ Agar sab already same hai to kuch mat karo
-  if (
-    currentStart === startDate &&
-    currentEnd === endDate &&
-    currentDuration === reportDuration &&
-    currentOutlet // 👈 agar outlet already set hai, तो skip
-  ) {
-    return;
-  }
+    // ✅ Agar kuch change hi nahi hai toh skip
+    if (
+      currentStart === startDate &&
+      currentEnd === endDate &&
+      currentDuration === reportDuration &&
+      currentOutlet
+    ) {
+      return;
+    }
 
-  const newSearchParams = new URLSearchParams(searchParams.toString());
-  newSearchParams.set("startDate", startDate);
-  newSearchParams.set("endDate", endDate);
+    const newSearchParams = new URLSearchParams(searchParams.toString());
 
-  // ✅ Sirf tabhi default outlet set karo jab user ne abhi tak outlet select nahi किया
-  if (!currentOutlet) {
-    newSearchParams.set("outletIds", outlets?.[0]?._id || "");
-  }
+    if (shouldUpdateDates || !startDate || !endDate) {
+      newSearchParams.set("startDate", startDate!);
+      newSearchParams.set("endDate", endDate!);
+    }
 
-  newSearchParams.set("reportDuration", reportDuration);
+    if (!currentOutlet) {
+      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
+    }
 
-  if (newSearchParams.toString() !== searchParams.toString()) {
-    setSearchParams(newSearchParams);
-  }
-}, [appliedFilters, outlets, setSearchParams]);
+    newSearchParams.set("reportDuration", reportDuration);
+
+    if (newSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(newSearchParams);
+    }
+  }, [appliedFilters, outlets, setSearchParams]);
+
+
 
 
 
@@ -350,7 +413,7 @@ useEffect(() => {
             </div>
             <div className="grid grid-cols-2 gap-4 mt-5 border border-slate-300 p-2">
               {/* Chart 1: Sales by Date (Bar) */}
-              
+
 
               {/* Chart 2: Sales by Payment Mode (Pie) */}
               {salesByPaymentMode.length > 0 && (
@@ -410,14 +473,14 @@ useEffect(() => {
                 getKey={(item) => item?._id}
                 onEdit={undefined}
                 onDelete={undefined}
-                isLoading={false}
+                isLoading={isLoading}
               />
             </div>
 
             {/* Pagination */}
             <ATMPagination
-              totalPages={1}
-              rowCount={1}
+              totalPages={totalPages}
+              rowCount={(data as any)?.totalCount}
               rows={invoices || []}
             />
           </div>
@@ -430,6 +493,131 @@ useEffect(() => {
             </ATMButton>
           </div>
         )}
+
+
+        {open && selectedInvoice && (
+          <ATMDialog onClose={() => setOpen(false)}>
+            <div className="p-6 w-[600px] max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-lg">
+              {/* Header */}
+              <div className="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 className="text-xl font-bold text-gray-800">Invoice Details</h2>
+                <button
+                  className="text-gray-500 hover:text-gray-700"
+                  onClick={() => setOpen(false)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Customer Info */}
+              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                <div className="space-y-1">
+                  <p><span className="font-medium">Invoice No:</span> {selectedInvoice.invoiceNumber || "-"}</p>
+                  <p><span className="font-medium">Customer:</span> {selectedInvoice.customerName || "Walk-in"}</p>
+                  <p><span className="font-medium">Phone:</span> {selectedInvoice.customerPhone || "-"}</p>
+                </div>
+                <div className="space-y-1 text-right">
+                  <p><span className="font-medium">Date:</span> {new Date(selectedInvoice.createdAt).toLocaleString()}</p>
+                  <p><span className="font-medium">Outlet:</span> {selectedInvoice.outletName}</p>
+                  <p><span className="font-medium">Status:</span>
+                    {selectedInvoice.balanceDue > 0 ? (
+                      <span className="ml-1 text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded text-xs">Unpaid</span>
+                    ) : (
+                      <span className="ml-1 text-green-700 bg-green-100 px-2 py-0.5 rounded text-xs">Paid</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              {selectedInvoice.items?.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="font-semibold mb-2 text-gray-700">Items</h3>
+                  <table className="w-full border text-sm rounded-lg overflow-hidden">
+                    <thead className="bg-gray-100 text-gray-700">
+                      <tr>
+                        <th className="border px-3 py-2 text-left">Name</th>
+                        <th className="border px-3 py-2 text-center">Qty</th>
+                        <th className="border px-3 py-2 text-right">Price</th>
+                        <th className="border px-3 py-2 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedInvoice.items.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="border px-3 py-2">{item.itemName}</td>
+                          <td className="border px-3 py-2 text-center">{item.quantity}</td>
+                          <td className="border px-3 py-2 text-right">{item.sellingPrice}</td>
+                          <td className="border px-3 py-2 text-right">{item.sellingPrice * item.quantity}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Discounts */}
+              <div className="mb-4">
+                <h3 className="font-semibold mb-2 text-gray-700">Discounts</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {[
+                    { label: 'Coupon', value: selectedInvoice.couponDiscount },
+                    { label: 'Gift Card', value: selectedInvoice.giftCardDiscount },
+                    { label: 'Cashback', value: selectedInvoice.cashBackDiscount },
+                    { label: 'Loyalty', value: selectedInvoice.loyaltyPointsDiscount },
+                    { label: 'Referral', value: selectedInvoice.referralDiscount },
+                  ].map((d, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-between px-3 py-1 border rounded-md bg-gray-50"
+                    >
+                      <span>{d.label}</span>
+                      <span className={d.value > 0 ? "font-semibold text-green-600" : "text-gray-400"}>
+                        {d.value > 0 ? `R${d.value}` : "-"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Amount Summary */}
+              <div className="border-t pt-3 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>R {selectedInvoice.totalAmount}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Amount Paid</span>
+                  <span className="text-green-600">R {selectedInvoice.amountPaid}</span>
+                </div>
+                <div className="flex justify-between font-semibold">
+                  <span>Balance Due</span>
+                  <span className={selectedInvoice.balanceDue > 0 ? "text-red-600" : "text-green-600"}>
+                    R {selectedInvoice.balanceDue}
+                  </span>
+                </div>
+              </div>
+
+              {/* Footer Buttons */}
+              {/* <div className="mt-6 flex justify-end gap-3">
+                <ATMButton
+                variant='outlined'
+                  // className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+                  onClick={() => setOpen(false)}
+                >
+                  Close
+                </ATMButton>
+                <ATMButton
+                  // className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Print
+                </ATMButton>
+              </div> */}
+            </div>
+          </ATMDialog>
+        )}
+
+
 
 
       </div>

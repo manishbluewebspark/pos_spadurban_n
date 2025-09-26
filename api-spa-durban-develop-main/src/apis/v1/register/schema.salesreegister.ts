@@ -40,6 +40,7 @@ export interface SalesRegisterDocument extends Document {
     proofUrl: string;
     createdAt: Date;
   }[];
+  reason:string,
   isDeleted: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -144,6 +145,10 @@ const SalesRegisterSchema = new mongoose.Schema<SalesRegisterDocument>(
     cashAmount: {
       type: Number,
       default: 0,
+    },
+    reason:{
+      type:String,
+      default:""
     },
     // Misc
     isDeleted: {

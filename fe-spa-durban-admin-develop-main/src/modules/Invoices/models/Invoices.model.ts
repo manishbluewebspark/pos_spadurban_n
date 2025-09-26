@@ -21,6 +21,7 @@ export type SalesReport = {
   invoiceNumber: string;
   outletName:string;
   customer: string;
+  cashBackDiscount:number;
   customerName: string;
   createdAt: string;
   totalAmount: string;
@@ -30,4 +31,5 @@ export type SalesReport = {
   _id: string;
   cashBackEarned:number;
   showItemModal:string;
+  actions:any;
 };

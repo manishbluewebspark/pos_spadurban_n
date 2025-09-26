@@ -50,7 +50,7 @@ const generateAccessToken = async (user: TokenUser) => {
     },
     config.jwt_secret_access,
     {
-      expiresIn:"24h",
+      expiresIn:"1d",
     }
   )
   return token
@@ -66,7 +66,7 @@ const generateRefreshTokens = async (user: TokenUser) => {
     },
     config.jwt_secret_refresh,
     {
-      expiresIn: "24h",
+      expiresIn: "7d",
     }
   )
   return token

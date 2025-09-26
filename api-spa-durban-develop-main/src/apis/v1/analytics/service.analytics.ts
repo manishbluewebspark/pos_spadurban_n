@@ -753,6 +753,7 @@ const getDailyOutletReportSingleDay = async (outletId: any) => {
         invoiceNumber: { $first: "$invoiceNumber" },
         customerName: { $first: "$customer.name" },
         totalAmount: { $first: "$totalAmount" },
+        cashBackDiscount: { $first: "$cashBackDiscount" },
         paymentStatus: { 
           $first: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, "Paid", "Unpaid"] }
         },
@@ -810,6 +811,7 @@ const getDailyOutletReportSingleDay = async (outletId: any) => {
           status: 1,
           invoiceNumber: 1,
           customerName: 1,
+          cashBackDiscount: 1,
           totalAmount: 1,
           paymentStatus: 1,
           payments: 1

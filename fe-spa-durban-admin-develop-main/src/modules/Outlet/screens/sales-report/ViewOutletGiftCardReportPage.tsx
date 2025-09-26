@@ -1,4 +1,4 @@
-import { endOfDay, format, startOfDay, subMonths, subWeeks } from 'date-fns';
+import { endOfDay, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns';
 import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -186,60 +186,127 @@ const ViewOutletGiftCardReportPage = () => {
   //   }
   // }, [dateFilter, outlets]);
 
+  // useEffect(() => {
+  //   const reportDuration = (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
+
+  //   if (!outlets?.length) return;
+
+  //   let startDate: string;
+  //   let endDate: string;
+
+  //   switch (reportDuration) {
+  //     case "MONTHLY":
+  //       startDate = format(subMonths(new Date(), 1), "yyyy-MM-dd");
+  //       endDate = format(new Date(), "yyyy-MM-dd");
+  //       break;
+  //     case "WEEKLY":
+  //       startDate = format(subWeeks(new Date(), 1), "yyyy-MM-dd");
+  //       endDate = format(new Date(), "yyyy-MM-dd");
+  //       break;
+  //     case "DAILY":
+  //     default:
+  //       startDate = format(startOfDay(new Date()), "yyyy-MM-dd");
+  //       endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
+  //       break;
+  //   }
+
+  //   const currentStart = searchParams.get("startDate");
+  //   const currentEnd = searchParams.get("endDate");
+  //   const currentDuration = searchParams.get("reportDuration");
+  //   const currentOutlet = searchParams.get("outletIds"); // 👈 already selected outlet
+
+  //   // ✅ Agar sab already same hai to kuch mat karo
+  //   if (
+  //     currentStart === startDate &&
+  //     currentEnd === endDate &&
+  //     currentDuration === reportDuration &&
+  //     currentOutlet // 👈 agar outlet already set hai, तो skip
+  //   ) {
+  //     return;
+  //   }
+
+  //   const newSearchParams = new URLSearchParams(searchParams.toString());
+  //   newSearchParams.set("startDate", startDate);
+  //   newSearchParams.set("endDate", endDate);
+
+  //   // ✅ Sirf tabhi default outlet set karo jab user ne abhi tak outlet select nahi किया
+  //   if (!currentOutlet) {
+  //     newSearchParams.set("outletIds", outlets?.[0]?._id || "");
+  //   }
+
+  //   newSearchParams.set("reportDuration", reportDuration);
+
+  //   if (newSearchParams.toString() !== searchParams.toString()) {
+  //     setSearchParams(newSearchParams);
+  //   }
+  // }, [appliedFilters, outlets, setSearchParams]);
+
   useEffect(() => {
-    const reportDuration = (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
+  const reportDuration =
+    (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
 
-    if (!outlets?.length) return;
+  if (!outlets?.length) return;
 
-    let startDate: string;
-    let endDate: string;
+  let startDate = searchParams.get("startDate");
+  let endDate = searchParams.get("endDate");
+  let shouldUpdateDates = false;
 
-    switch (reportDuration) {
-      case "MONTHLY":
-        startDate = format(subMonths(new Date(), 1), "yyyy-MM-dd");
-        endDate = format(new Date(), "yyyy-MM-dd");
-        break;
-      case "WEEKLY":
-        startDate = format(subWeeks(new Date(), 1), "yyyy-MM-dd");
-        endDate = format(new Date(), "yyyy-MM-dd");
-        break;
-      case "DAILY":
-      default:
+  // ✅ Agar duration dropdown select hua hai toh hamesha dates override karo
+  switch (reportDuration) {
+    case "MONTHLY":
+      startDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
+      endDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
+      shouldUpdateDates = true;
+      break;
+    case "WEEKLY":
+      startDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+      endDate = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+      shouldUpdateDates = true;
+      break;
+    case "DAILY":
+    default:
+      // ✅ Agar manually set nahi hai toh hi daily set karo
+      if (!startDate || !endDate) {
         startDate = format(startOfDay(new Date()), "yyyy-MM-dd");
         endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
-        break;
-    }
+        shouldUpdateDates = true;
+      }
+      break;
+  }
 
-    const currentStart = searchParams.get("startDate");
-    const currentEnd = searchParams.get("endDate");
-    const currentDuration = searchParams.get("reportDuration");
-    const currentOutlet = searchParams.get("outletIds"); // 👈 already selected outlet
+  const currentStart = searchParams.get("startDate");
+  const currentEnd = searchParams.get("endDate");
+  const currentDuration = searchParams.get("reportDuration");
+  const currentOutlet = searchParams.get("outletIds");
 
-    // ✅ Agar sab already same hai to kuch mat karo
-    if (
-      currentStart === startDate &&
-      currentEnd === endDate &&
-      currentDuration === reportDuration &&
-      currentOutlet // 👈 agar outlet already set hai, तो skip
-    ) {
-      return;
-    }
+  // ✅ Agar kuch change hi nahi hai toh skip
+  if (
+    currentStart === startDate &&
+    currentEnd === endDate &&
+    currentDuration === reportDuration &&
+    currentOutlet
+  ) {
+    return;
+  }
 
-    const newSearchParams = new URLSearchParams(searchParams.toString());
-    newSearchParams.set("startDate", startDate);
-    newSearchParams.set("endDate", endDate);
+  const newSearchParams = new URLSearchParams(searchParams.toString());
 
-    // ✅ Sirf tabhi default outlet set karo jab user ne abhi tak outlet select nahi किया
-    if (!currentOutlet) {
-      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
-    }
+  if (shouldUpdateDates || !startDate || !endDate) {
+    newSearchParams.set("startDate", startDate!);
+    newSearchParams.set("endDate", endDate!);
+  }
 
-    newSearchParams.set("reportDuration", reportDuration);
+  if (!currentOutlet) {
+    newSearchParams.set("outletIds", outlets?.[0]?._id || "");
+  }
 
-    if (newSearchParams.toString() !== searchParams.toString()) {
-      setSearchParams(newSearchParams);
-    }
-  }, [appliedFilters, outlets, setSearchParams]);
+  newSearchParams.set("reportDuration", reportDuration);
+
+  if (newSearchParams.toString() !== searchParams.toString()) {
+    setSearchParams(newSearchParams);
+  }
+}, [appliedFilters, outlets, setSearchParams]);
+
 
   const navigate = useNavigate();
 

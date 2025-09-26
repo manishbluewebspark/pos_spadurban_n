@@ -12,7 +12,7 @@ type Props = {
   formType: 'OPEN' | 'EDIT';
   isLoading?: boolean;
   opningData?: any;
-  openRegister:any;
+  openRegister: any;
 };
 
 const registerOptions = [
@@ -95,9 +95,23 @@ const OpenRegisterFormLayout = ({
             {!openRegister && opningData && opningData?.carryForwardBalance !== 0 && (
               <>
                 {Number(values.openingBalance) < Number(opningData?.carryForwardBalance) && (
-                  <p className="text-sm text-red-600 mt-1">
-                    Opening balance is less than previous carry forward balance.
-                  </p>
+                  <>
+                    <ATMTextField
+                      name="reason"
+                      value={values.reason}
+                      onChange={(e) => setFieldValue("reason", e.target.value)}
+                      label="Cash Reason"
+                      placeholder="Enter reason to add low cash"
+                      onBlur={handleBlur}
+                      isTouched={touched?.reason}
+                      errorMessage={errors?.reason}
+                      isValid={!errors?.reason}
+                      required
+                    />
+                    <p className="text-sm text-red-600 mt-1">
+                      Opening balance is less than previous carry forward balance.
+                    </p>
+                  </>
                 )}
 
                 {Number(values.openingBalance) > Number(opningData?.carryForwardBalance) && (

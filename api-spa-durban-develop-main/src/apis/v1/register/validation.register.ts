@@ -14,6 +14,7 @@ const Joi = JoiBase.extend(JoiDate);
 export const create: { body: ObjectSchema } = {
   body: Joi.object().keys({
     openingBalance: Joi.number().required(),
+    reason:Joi.string().allow("").optional().default(""),
     // initialCashFloat: Joi.number().required(),
     outletId: Joi.string().custom(objectId).required(),
     isActive: Joi.boolean().default(true),

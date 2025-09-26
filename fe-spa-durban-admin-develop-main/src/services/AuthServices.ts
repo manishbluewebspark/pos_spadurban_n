@@ -41,7 +41,7 @@ export const authApi = apiSlice.injectEndpoints({
     getAccessToken: builder.mutation({
       query: (body) => {
         return {
-          url: '/admin/refresh',
+          url: '/auth/refresh',
           method: 'POST',
           headers: {
             'device-id': deviceId,

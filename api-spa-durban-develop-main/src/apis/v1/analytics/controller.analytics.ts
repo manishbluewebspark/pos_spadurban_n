@@ -384,23 +384,58 @@ const getSalesReportByOutlet = catchAsync(async (req: AuthenticatedRequest, res:
     },
     { $unset: ["paymentModeDetails", "customerDetails", "outlet"] },
     {
-      $project: {
-        invoiceNumber: 1,
-        customerName: 1,
-        invoiceDate: 1,
-        status: 1,
-        createdAt: 1,
-        totalAmount: 1,
-        balanceDue: 1,
-        paymentModes: {
-          $map: {
-            input: "$amountReceived",
-            as: "item",
-            in: "$$item.modeName",
-          },
-        },
+  $project: {
+    // sari fields rakho
+    invoiceNumber: 1,
+    invoiceDate: 1,
+    customerId: 1,
+    employeeId: 1,
+    outletId: 1,
+    items: 1,
+    amountReceived: 1,
+    couponCode: 1,
+    notes: 1,
+    couponDiscount: 1,
+    shippingCharges: 1,
+    giftCardDiscount: 1,
+    giftCardCode: 1,
+    useLoyaltyPoints: 1,
+    loyaltyPointsEarned: 1,
+    loyaltyPointsDiscount: 1,
+    referralCode: 1,
+    referralDiscount: 1,
+    taxes: 1,
+    totalAmount: 1,
+    totalDiscount: 1,
+    amountPaid: 1,
+    balanceDue: 1,
+    isDeleted: 1,
+    isActive: 1,
+    status: 1,
+    voidNote: 1,
+    cashBackEarned: 1,
+    cashBackDiscount: 1,
+    useCashBackAmount: 1,
+    createdAt: 1,
+    updatedAt: 1,
+
+    // jo addFields se nikali thi wo bhi
+    customerName: 1,
+    customerPhone: 1,
+    customerEmail: 1,
+    customerAddress: 1,
+    outletName: 1,
+    outletPhone: 1,
+    outletLogo: 1,
+    paymentModes: {
+      $map: {
+        input: "$amountReceived",
+        as: "item",
+        in: "$$item.modeName",
       },
     },
+  }
+},
     { $skip: skip },
     { $limit: Number(limit) },
   ];
@@ -427,6 +462,7 @@ const getSalesReportByOutlet = catchAsync(async (req: AuthenticatedRequest, res:
       $group: {
         _id: null,
         totalSalesAmount: { $sum: "$totalAmount" },
+        cashBackDiscount:{$sum: "$cashBackDiscount"}
       },
     },
   ]);

@@ -375,8 +375,13 @@ const ATMAppHeader = ({
           </div>
         );
       },
+    }, {
+      fieldName: 'cashBackDiscount',
+      headerName: 'Discount',
+      flex: 'flex-[3_1_0%]',
+      renderCell: (row: any) => row.cashBackDiscount,
     },
-
+    
     {
       fieldName: 'totalAmount',
       headerName: 'Total',

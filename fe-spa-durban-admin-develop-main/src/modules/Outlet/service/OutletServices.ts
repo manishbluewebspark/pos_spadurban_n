@@ -245,7 +245,7 @@ export const outletApi = apiSlice.injectEndpoints({
       },
     }),
     GetAllBookings: builder.query({
-      query: ({ outletId, startDate, endDate, page = 1, limit = 25,searchValue }) => {
+      query: ({ outletId, startDate, endDate, page = 1, limit = 25,searchValue}) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
@@ -256,6 +256,22 @@ export const outletApi = apiSlice.injectEndpoints({
         });
         return {
           url: `/new/get-all-bookings?${params.toString()}`,
+          method: 'GET',
+        };
+      },
+    }),
+    getBookingChartData: builder.query({
+      query: ({ outletId, startDate, endDate, page = 1, limit = 10 }) => {
+        const params = new URLSearchParams({
+          outletId,
+          startDate,
+          endDate,
+          // page: String(page),
+          // limit: String(limit)
+        });
+
+        return {
+          url: `/new/get-chart-data?${params.toString()}`,
           method: 'GET',
         };
       },
@@ -282,5 +298,6 @@ export const {
   useGetGiftCardReportChartDataQuery,
   useGetGiftCardReportByOutletQuery,
   useGetRetailDashboardDataQuery,
-  useGetAllBookingsQuery
+  useGetAllBookingsQuery,
+  useGetBookingChartDataQuery
 } = outletApi;

@@ -443,7 +443,7 @@ const CompanySalesReportPage = () => {
                   <h2 className="text-xl font-semibold mb-4">Invoice Services Details</h2>
 
                   <p><strong>Customer Name:</strong> {selectedRow?.customerName || 'N/A'}</p>
-                  <p><strong>Cashback Earned:</strong> ₹{selectedRow?.cashBackEarned ?? 0}</p>
+                  <p><strong>Cashback Earned:</strong> R {selectedRow?.cashBackEarned ?? 0}</p>
 
                   <div className="mt-4">
                     <h3 className="font-medium mb-2">Services:</h3>

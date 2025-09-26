@@ -11,13 +11,14 @@ import { useFilterPagination } from 'src/hooks/useFilterPagination';
 import { SalesReport } from 'src/modules/Invoices/models/Invoices.model';
 import { RootState } from 'src/store';
 import { isAuthorized } from 'src/utils/authorization';
-import { useGetAllBookingsQuery, useGetRegisterChartDataQuery, useGetRegisterDataQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
+import { useGetAllBookingsQuery, useGetBookingChartDataQuery, useGetRegisterChartDataQuery, useGetRegisterDataQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
 import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
 import { BookingValue, Register, RegisterValue } from 'src/modules/OpenRegister/models/OpenRegister.model';
 import { saveAs } from "file-saver";
+import { useFetchData } from 'src/hooks/useFetchData';
 
 const salesData = [
   {
@@ -42,18 +43,35 @@ const ViewBookingDataPage = () => {
     useFilterPagination(['outletsId', 'customerId']);
   const [searchParams, setSearchParams] = useSearchParams();
   const { outlets } = useSelector((state: RootState) => state.auth);
-  const { data, isLoading, error } = useGetAllBookingsQuery({
-    // outletId: appliedFilters?.[0]?.value,
-    startDate: dateFilter?.start_date,
-    endDate: dateFilter?.end_date,
-    searchValue: searchQuery,
-    page,
-    limit,
-  });
+  console.log('-------outlets',outlets)
+  // const { data, isLoading, error, totalData, totalPages } = useGetAllBookingsQuery({
+  //   // outletId: appliedFilters?.[0]?.value,
+  //   startDate: dateFilter?.start_date,
+  //   endDate: dateFilter?.end_date,
+  //   searchValue: searchQuery,
+  //   page,
+  //   limit,
+  // });
+
+  const { data, isLoading, totalData, totalPages } = useFetchData(
+  useGetAllBookingsQuery,
+  {
+    body: {
+      page,
+      limit,
+      searchValue: searchQuery,
+      startDate: dateFilter?.start_date || format(subMonths(new Date(), 1), 'yyyy-MM-dd'),
+      endDate: dateFilter?.end_date || format(new Date(), 'yyyy-MM-dd'),
+      filterBy: JSON.stringify(appliedFilters),
+      outletId: appliedFilters?.[0]?.value, // agar chahiye
+    },
+  }
+);
+
 
   console.log('-----data', data)
 
-  const { data: chartData } = useGetRegisterChartDataQuery({
+  const { data: chartData } = useGetBookingChartDataQuery({
     outletId: appliedFilters?.[0]?.value,
     startDate: dateFilter?.start_date,
     endDate: dateFilter?.end_date
@@ -62,11 +80,8 @@ const ViewBookingDataPage = () => {
   console.log('-----chartData', chartData)
 
 
-  const dailySummary = chartData?.data?.dailySummary || [];
-  const finalCashVsOpening = chartData?.data?.finalCashVsOpening || [];
-  const paymentModeBreakdown = chartData?.data?.paymentModeBreakdown || [];
-  const allInOneTable = chartData?.data?.allInOneTable || [];
-  // console.log('----chartData', chartData)
+  const topByServices = chartData?.charts?.topByServices || [];
+  const topByTime = chartData?.charts?.topByTime || [];
 
 
   const [selectedRegister, setSelectedRegister] = useState<any>(null);
@@ -154,22 +169,22 @@ const ViewBookingDataPage = () => {
 
 
   const filters: FilterType[] = [
-    // {
-    //   filterType: 'single-select',
-    //   label: 'Outlet',
-    //   fieldName: 'outletsId',
-    //   options:
-    //     outlets?.map((el: any) => {
-    //       return {
-    //         label: el?.name,
-    //         value: el?.name,
-    //       };
-    //     }) || [],
-    //   renderOption: (option) => option.label,
-    //   isOptionEqualToSearchValue: (option, value) => {
-    //     return option?.label.includes(value);
-    //   },
-    // },
+    {
+      filterType: 'single-select',
+      label: 'Outlet',
+      fieldName: 'outletsId',
+      options:
+        outlets?.map((el: any) => {
+          return {
+            label: el?.name,
+            value: el?.bookingStoreId,
+          };
+        }) || [],
+      renderOption: (option) => option.label,
+      isOptionEqualToSearchValue: (option, value) => {
+        return option?.label.includes(value);
+      },
+    },
     {
       filterType: 'date',
       fieldName: 'createdAt',
@@ -186,30 +201,45 @@ const ViewBookingDataPage = () => {
     },
   ];
 
-  const invoices = data?.data || [];
+  const invoices = data as BookingValue[] || [];
   // const totalAmount = data && data?.data?.totalSalesData[0]?.totalSalesAmount || [];
   const today = new Date();
   const oneMonthAgo = subMonths(today, 1);
 
+  // useEffect(() => {
+  //   if (!dateFilter?.start_date && !dateFilter?.end_date) {
+  //     const newSearchParams = new URLSearchParams(searchParams); // Clone existing searchParams
+  //     newSearchParams.set('startDate', format(oneMonthAgo, 'yyyy-MM-dd') || '');
+  //     newSearchParams.set('endDate', format(new Date(), 'yyyy-MM-dd') || '');
+  //     newSearchParams.set('outletsId', outlets?.[0]._id);
+  //     newSearchParams.set('reportDuration', 'MONTHLY');
+  //     setSearchParams(newSearchParams)
+  //   }
+  // }, [dateFilter, outlets]);
+
   useEffect(() => {
-    if (!dateFilter?.start_date && !dateFilter?.end_date) {
-      const newSearchParams = new URLSearchParams(searchParams); // Clone existing searchParams
-      newSearchParams.set('startDate', format(oneMonthAgo, 'yyyy-MM-dd') || '');
-      newSearchParams.set('endDate', format(new Date(), 'yyyy-MM-dd') || '');
-      newSearchParams.set('outletsId', outlets?.[0]._id);
-      newSearchParams.set('reportDuration', 'MONTHLY');
-      setSearchParams(newSearchParams)
-    }
-  }, [dateFilter, outlets]);
+  if (!dateFilter?.start_date && !dateFilter?.end_date && outlets?.length) {
+    const today = new Date();
+
+    const newSearchParams = new URLSearchParams(searchParams); // Clone existing searchParams
+    newSearchParams.set("startDate", format(today, "yyyy-MM-dd")); // 👈 same day
+    newSearchParams.set("endDate", format(today, "yyyy-MM-dd"));   // 👈 same day
+    newSearchParams.set("outletIds", outlets?.[0].bookingStoreId);
+    newSearchParams.set("reportDuration", "DAILY");
+
+    setSearchParams(newSearchParams);
+  }
+}, [dateFilter]);
+
 
   const handleExportExcelClosureSummary = () => {
-    if (!data?.data || data?.data.length === 0) {
+    if (!(data as any)?.data || (data as any)?.data.length === 0) {
       alert("No closure data to export!");
       return;
     }
 
     // Prepare export rows
-    const exportData = data?.data?.map((row: any) => {
+    const exportData = (data as any)?.data?.map((row: any) => {
       // outletId se name find karo
       const outletName =
         outlets?.find((el: any) => el?._id === row.outletId)?.name || "N/A";
@@ -283,73 +313,81 @@ const ViewBookingDataPage = () => {
           {/* Table Toolbar */}
           <MOLFilterBar hideSearch={false} filters={filters} />
           <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">
-            {/* <div className="grid grid-cols-2 gap-4"> */}
-              {/* Chart 4: Daily Summary (Line) */}
-              {/* {dailySummary.length > 0 && (
-                <div className="col-span">
-                  <ATMChart
-                    type="bar"
-                    data={{
-                      labels: dailySummary.map((item: any) => item.date),
-                      datasets: [
-                        {
-                          label: 'Total Cash',
-                          data: dailySummary.map((item: any) => item.totalCash),
-                          borderColor: '#3b82f6',
-                          backgroundColor: '#3b82f670',
-                        },
-                        {
-                          label: 'Bank Deposit',
-                          data: dailySummary.map((item: any) => item.bankDeposit),
-                          borderColor: '#10b981',
-                          backgroundColor: '#10b98170',
-                        },
-                        {
-                          label: 'Carry Forward',
-                          data: dailySummary.map((item: any) => item.carryForwardBalance),
-                          borderColor: '#f59e0b',
-                          backgroundColor: '#f59e0b70',
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: { legend: { position: 'top' } },
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                </div>
-              )} */}
+           <div className="grid grid-cols-2 gap-4">
 
-              {/* Chart 5: Final Cash vs Opening Balance (Bar) */}
-              {/* {finalCashVsOpening.length > 0 && (
-                <div className="col-span">
-                  <ATMChart
-                    type="pie"
-                    data={{
-                      labels: ['Opening Balance', 'Final Cash', 'Payout Cash'],
-                      datasets: [
-                        {
-                          label: finalCashVsOpening[0].date, // show date in tooltip
-                          data: [
-                            finalCashVsOpening[0].openingBalance,
-                            finalCashVsOpening[0].finalCash,
-                            finalCashVsOpening[0].payoutCash,
-                          ],
-                          backgroundColor: ['#6366f1', '#06b6d4', '#f59e0b'],
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: { legend: { position: 'top' } },
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                </div>
-              )} */}
+  {/* Chart 1: Top 10 Customers */}
+  {topByServices.length > 0 && (
+    <div className="col-span-1">
+      <ATMChart
+        type="bar"
+        data={{
+          labels: topByServices.map((item:any) => item.customerName),
+          datasets: [
+            // {
+            //   label: 'Total Duration (hrs)',
+            //   data: topByServices.map((item:any) => item.totalDuration),
+            //   borderColor: '#3b82f6',
+            //   backgroundColor: '#3b82f670',
+            // },
+            {
+              label: 'Total Services Used',
+              data: topByServices.map((item:any) => item.totalServices),
+              borderColor: '#10b981',
+              backgroundColor: '#10b98170',
+            },
+          ],
+        }}
+        options={{
+          responsive: true,
+          plugins: { legend: { position: 'top' } },
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true },
+            x: { ticks: { autoSkip: false } },
+          },
+        }}
+      />
+    </div>
+  )}
 
-            {/* </div> */}
+  {/* Chart 2: Top Services */}
+ {topByTime.length > 0 && (
+  <div className="col-span-1">
+    <ATMChart
+      type="bar"
+      data={{
+        labels: topByTime.map((item: any) => item.customerName),
+        datasets: [
+          {
+            label: 'Total Duration (mins)',
+            data: topByTime.map((item: any) => Number(item.totalDuration)),
+            borderColor: '#3b82f6',
+            backgroundColor: '#3b82f670',
+          },
+          {
+            label: 'Total Bookings',
+            data: topByTime.map((item: any) => Number(item.totalBookings)),
+            borderColor: '#10b981',
+            backgroundColor: '#10b98170',
+          },
+        ],
+      }}
+      options={{
+        responsive: true,
+        plugins: { legend: { position: 'top' } },
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true },
+          x: { ticks: { autoSkip: false } },
+        },
+      }}
+    />
+  </div>
+)}
+
+
+</div>
+
 
             <div className="flex-1 mt-3">
               <MOLTable<BookingValue>
@@ -358,14 +396,14 @@ const ViewBookingDataPage = () => {
                 getKey={(item) => item?.bookingId}
                 onEdit={undefined}
                 onDelete={undefined}
-                isLoading={false}
+                isLoading={isLoading}
               />
             </div>
 
             {/* Pagination */}
             <ATMPagination
-              totalPages={1}
-              rowCount={1}
+              totalPages={totalPages}
+              rowCount={totalData}
               rows={invoices || []}
             />
           </div>

@@ -11,16 +11,16 @@ import { useFetchData } from 'src/hooks/useFetchData';
 
 type Props = {
   onClose: () => void;
-  opningData:any;
+  opningData: any;
 };
 
 const OpenRegisterFormWrapper = ({ onClose }: Props) => {
   const [openRegister] = useAddRegisterMutation();
 
-const yesterday = new Date();
-yesterday.setDate(yesterday.getDate() - 1);
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
 
-const formattedDate = yesterday.toISOString().split('T')[0]; // "YYYY-MM-DD"
+  const formattedDate = yesterday.toISOString().split('T')[0]; // "YYYY-MM-DD"
 
 
 
@@ -28,26 +28,27 @@ const formattedDate = yesterday.toISOString().split('T')[0]; // "YYYY-MM-DD"
     (state: RootState) => state.auth,
   );
 
-  const { data, isLoading,refetch } = useGetRegisterByDateQuery({
-  outletId: (outlet as any)._id,
-  date: formattedDate, // e.g., '2025-06-08'
-});
+  const { data, isLoading, refetch } = useGetRegisterByDateQuery({
+    outletId: (outlet as any)._id,
+    date: formattedDate, // e.g., '2025-06-08'
+  });
 
-const { data:openRegisterData, refetch:isRefetch } = useFetchData(useGetRegisterByCurrentDateQuery, {
+  const { data: openRegisterData, refetch: isRefetch } = useFetchData(useGetRegisterByCurrentDateQuery, {
     body: (outlet as any)._id,
     dataType: 'VIEW',
   });
 
-  console.log('------openRegisterData',openRegisterData)
+  console.log('------openRegisterData', openRegisterData)
 
-  const initialValues: OpenRegisterFormValues = {
-    registerId: '', // Ensure validation accounts for this
-    openingBalance: '',
-  };
-
-   useEffect(()=>{
+  useEffect(() => {
     refetch()
-  },[])
+  }, [])
+
+    const initialValues: OpenRegisterFormValues = {
+    registerId: '', // Ensure validation accounts for this
+    openingBalance: (data as any)?.data?.carryForwardBalance,
+    reason: '',
+  };
 
   const validationSchema = object().shape({
     openingBalance: number()
@@ -64,6 +65,7 @@ const { data:openRegisterData, refetch:isRefetch } = useFetchData(useGetRegister
     try {
       const formattedValues = {
         // registerId: values.registerId,
+        reason: values?.reason,
         openingBalance: Number(values.openingBalance), // Ensure number format
         outletId: outlet && (outlet as any)._id,
       };

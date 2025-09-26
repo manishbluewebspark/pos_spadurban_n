@@ -27,6 +27,7 @@ const EditRegisterFormWrapper = ({ onClose, registerId }: Props) => {
   const initialValues: OpenRegisterFormValues = {
     registerId: (data as any)?.data?.registerId,
     openingBalance: (data as any)?.data?.openingBalance,
+    reason: (data as any)?.data?.reason
   };
 
   const validationSchema = object().shape({
@@ -43,6 +44,7 @@ const EditRegisterFormWrapper = ({ onClose, registerId }: Props) => {
     const formattedValues = {
       registerId: values?.registerId,
       openingBalance: values?.openingBalance,
+      reason:values?.reason
     };
     updateRegister({ body: formattedValues, registerId: registerId }).then(
       (res: any) => {

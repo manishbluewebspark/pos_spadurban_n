@@ -18,6 +18,7 @@ import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
 import { Register, RegisterValue } from 'src/modules/OpenRegister/models/OpenRegister.model';
 import { saveAs } from "file-saver";
+import { useFetchData } from 'src/hooks/useFetchData';
 
 const salesData = [
   {
@@ -42,15 +43,31 @@ const ViewOutletRegisterPage = () => {
     useFilterPagination(['outletsId', 'customerId']);
   const [searchParams, setSearchParams] = useSearchParams();
   const { outlets } = useSelector((state: RootState) => state.auth);
-  const { data, isLoading, error } = useGetRegisterDataQuery({
-    outletId: appliedFilters?.[0]?.value,
-    startDate: dateFilter?.start_date,
-    endDate: dateFilter?.end_date,
-    page: page,
-    limit: limit,
-    sortBy: orderBy || 'createdAt',
-    sortOrder: orderValue || 'desc',
-  });
+  // const { data, isLoading, error } = useGetRegisterDataQuery({
+  //   outletId: appliedFilters?.[0]?.value,
+  //   startDate: dateFilter?.start_date,
+  //   endDate: dateFilter?.end_date,
+  //   page: page,
+  //   limit: limit,
+  //   sortBy: orderBy || 'createdAt',
+  //   sortOrder: orderValue || 'desc',
+  // });
+
+  const { data, isLoading, totalData, totalPages } = useFetchData(
+  useGetRegisterDataQuery,
+  {
+    body: {
+      outletId: appliedFilters?.[0]?.value,
+      startDate: dateFilter?.start_date,
+      endDate: dateFilter?.end_date,
+      page,
+      limit,
+      sortBy: orderBy || 'createdAt',
+      sortOrder: orderValue || 'desc',
+    },
+  }
+);
+
 
   const { data: chartData } = useGetRegisterChartDataQuery({
     outletId: appliedFilters?.[0]?.value,
@@ -260,7 +277,7 @@ const ViewOutletRegisterPage = () => {
     },
   ];
 
-  const invoices = data?.data || [];
+  const invoices = data as RegisterValue[] || [];
   // const totalAmount = data && data?.data?.totalSalesData[0]?.totalSalesAmount || [];
   const today = new Date();
   const oneMonthAgo = subMonths(today, 1);
@@ -277,13 +294,13 @@ const ViewOutletRegisterPage = () => {
   }, [dateFilter, outlets]);
 
   const handleExportExcelClosureSummary = () => {
-    if (!data?.data || data?.data.length === 0) {
+    if (!(data as any)?.data || (data as any)?.data.length === 0) {
       alert("No closure data to export!");
       return;
     }
 
     // Prepare export rows
-    const exportData = data?.data?.map((row: any) => {
+    const exportData = (data as any)?.data?.map((row: any) => {
       // outletId se name find karo
       const outletName =
         outlets?.find((el: any) => el?._id === row.outletId)?.name || "N/A";
@@ -432,14 +449,14 @@ const ViewOutletRegisterPage = () => {
                 getKey={(item) => item?._id}
                 onEdit={undefined}
                 onDelete={undefined}
-                isLoading={false}
+                isLoading={isLoading}
               />
             </div>
 
             {/* Pagination */}
             <ATMPagination
-              totalPages={1}
-              rowCount={1}
+              totalPages={totalPages}
+              rowCount={totalData}
               rows={invoices || []}
             />
           </div>
