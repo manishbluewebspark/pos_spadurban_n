@@ -176,70 +176,70 @@ const ViewReatailDashboardPage = () => {
 
 
   useEffect(() => {
-  const reportDuration =
-    (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
+    const reportDuration =
+      (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
 
-  if (!outlets?.length) return;
+    if (!outlets?.length) return;
 
-  let startDate = searchParams.get("startDate");
-  let endDate = searchParams.get("endDate");
-  let shouldUpdateDates = false;
+    let startDate = searchParams.get("startDate");
+    let endDate = searchParams.get("endDate");
+    let shouldUpdateDates = false;
 
-  // ✅ Agar duration dropdown select hua hai toh hamesha dates override karo
-  switch (reportDuration) {
-    case "MONTHLY":
-      startDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
-      endDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
-      shouldUpdateDates = true;
-      break;
-    case "WEEKLY":
-      startDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-      endDate = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-      shouldUpdateDates = true;
-      break;
-    case "DAILY":
-    default:
-      // ✅ Agar manually set nahi hai toh hi daily set karo
-      if (!startDate || !endDate) {
-        startDate = format(startOfDay(new Date()), "yyyy-MM-dd");
-        endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
+    // ✅ Agar duration dropdown select hua hai toh hamesha dates override karo
+    switch (reportDuration) {
+      case "MONTHLY":
+        startDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
+        endDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
         shouldUpdateDates = true;
-      }
-      break;
-  }
+        break;
+      case "WEEKLY":
+        startDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+        endDate = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+      case "DAILY":
+      default:
+        // ✅ Agar manually set nahi hai toh hi daily set karo
+        if (!startDate || !endDate) {
+          startDate = format(startOfDay(new Date()), "yyyy-MM-dd");
+          endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
+          shouldUpdateDates = true;
+        }
+        break;
+    }
 
-  const currentStart = searchParams.get("startDate");
-  const currentEnd = searchParams.get("endDate");
-  const currentDuration = searchParams.get("reportDuration");
-  const currentOutlet = searchParams.get("outletIds");
+    const currentStart = searchParams.get("startDate");
+    const currentEnd = searchParams.get("endDate");
+    const currentDuration = searchParams.get("reportDuration");
+    const currentOutlet = searchParams.get("outletIds");
 
-  // ✅ Agar kuch change hi nahi hai toh skip
-  if (
-    currentStart === startDate &&
-    currentEnd === endDate &&
-    currentDuration === reportDuration &&
-    currentOutlet
-  ) {
-    return;
-  }
+    // ✅ Agar kuch change hi nahi hai toh skip
+    if (
+      currentStart === startDate &&
+      currentEnd === endDate &&
+      currentDuration === reportDuration &&
+      currentOutlet
+    ) {
+      return;
+    }
 
-  const newSearchParams = new URLSearchParams(searchParams.toString());
+    const newSearchParams = new URLSearchParams(searchParams.toString());
 
-  if (shouldUpdateDates || !startDate || !endDate) {
-    newSearchParams.set("startDate", startDate!);
-    newSearchParams.set("endDate", endDate!);
-  }
+    if (shouldUpdateDates || !startDate || !endDate) {
+      newSearchParams.set("startDate", startDate!);
+      newSearchParams.set("endDate", endDate!);
+    }
 
-  if (!currentOutlet) {
-    newSearchParams.set("outletIds", outlets?.[0]?._id || "");
-  }
+    if (!currentOutlet) {
+      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
+    }
 
-  newSearchParams.set("reportDuration", reportDuration);
+    newSearchParams.set("reportDuration", reportDuration);
 
-  if (newSearchParams.toString() !== searchParams.toString()) {
-    setSearchParams(newSearchParams);
-  }
-}, [appliedFilters, outlets, setSearchParams]);
+    if (newSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(newSearchParams);
+    }
+  }, [appliedFilters, outlets, setSearchParams]);
 
   const navigate = useNavigate();
 
@@ -257,7 +257,12 @@ const ViewReatailDashboardPage = () => {
       <h2 className="text-lg font-semibold text-slate-700">{title}</h2>
 
       <div className="flex items-center gap-4 mt-2">
-        {title === "Customer Count" ? (<span className="text-3xl font-bold text-slate-900">{total}</span>) : (<span className="text-3xl font-bold text-slate-900">R {total}k</span>)}
+        {title === "Customer Count" || title === "Sale Count" ? (
+          <span className="text-3xl font-bold text-slate-900">{total}</span>
+        ) : (
+          <span className="text-3xl font-bold text-slate-900">R {total}k</span>
+        )}
+
 
         <div className="flex flex-col items-center justify-center">
           {percent >= 0 ? (
@@ -294,62 +299,62 @@ const ViewReatailDashboardPage = () => {
     </div>
   );
 
-const handleExportExcelRetailDashboard = () => {
-  if (!data?.data || !data?.data?.outlets || data?.data?.outlets.length === 0) {
-    alert("No data to export!");
-    return;
-  }
+  const handleExportExcelRetailDashboard = () => {
+    if (!data?.data || !data?.data?.outlets || data?.data?.outlets.length === 0) {
+      alert("No data to export!");
+      return;
+    }
 
-  const exportData = data.data.outlets.map((row: any) => ({
-    Outlet: row.outletName,
-    CustomerCount: row.customerCount,
-    Revenue: row.revenue,
-    SaleCount: row.saleCount,
-    GrossProfit: row.grossProfit,
-    RevenuePercent: row.revenuePercent,
-    SaleCountPercent: row.saleCountPercent,
-    GrossProfitPercent: row.grossProfitPercent,
-    CustomerCountPercent: row.customerCountPercent,
-  }));
+    const exportData = data.data.outlets.map((row: any) => ({
+      Outlet: row.outletName,
+      CustomerCount: row.customerCount,
+      Revenue: row.revenue,
+      SaleCount: row.saleCount,
+      GrossProfit: row.grossProfit,
+      RevenuePercent: row.revenuePercent,
+      SaleCountPercent: row.saleCountPercent,
+      GrossProfitPercent: row.grossProfitPercent,
+      CustomerCountPercent: row.customerCountPercent,
+    }));
 
-  const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
 
-  // Add top info rows
-  // XLSX.utils.sheet_add_aoa(worksheet, [["Retail Dashboard Report"]], { origin: "A1" });
-  // XLSX.utils.sheet_add_aoa(
-  //   worksheet,
-  //   [[`Date Range: ${dateFilter?.start_date || ""} to ${dateFilter?.end_date || ""}`]],
-  //   { origin: "A2" }
-  // );
+    // Add top info rows
+    // XLSX.utils.sheet_add_aoa(worksheet, [["Retail Dashboard Report"]], { origin: "A1" });
+    // XLSX.utils.sheet_add_aoa(
+    //   worksheet,
+    //   [[`Date Range: ${dateFilter?.start_date || ""} to ${dateFilter?.end_date || ""}`]],
+    //   { origin: "A2" }
+    // );
 
-  // Set column widths
-worksheet['!cols'] = [
-  { wch: 30 }, // Column A (Outlet) width 30
-  { wch: 15 }, // Column B
-  { wch: 15 }, // Column C
-  { wch: 15 }, // Column D
-  { wch: 15 }, // Column E
-  { wch: 15 }, // Column F
-  { wch: 15 }, // Column G
-  { wch: 15 }, // Column H
-  { wch: 15 }, // Column I
-];
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 30 }, // Column A (Outlet) width 30
+      { wch: 15 }, // Column B
+      { wch: 15 }, // Column C
+      { wch: 15 }, // Column D
+      { wch: 15 }, // Column E
+      { wch: 15 }, // Column F
+      { wch: 15 }, // Column G
+      { wch: 15 }, // Column H
+      { wch: 15 }, // Column I
+    ];
 
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "RetailDashboard");
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "RetailDashboard");
 
-  const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-  const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
 
-  // Filename with duration & date
-  const durationLabel = appliedFilters?.[2]?.value || "";
-  const startDateStr = dateFilter?.start_date || "";
-  const endDateStr = dateFilter?.end_date || "";
-  const fileName = `RetailDashboard_${durationLabel}_${startDateStr}_to_${endDateStr}.xlsx`;
+    // Filename with duration & date
+    const durationLabel = appliedFilters?.[2]?.value || "";
+    const startDateStr = dateFilter?.start_date || "";
+    const endDateStr = dateFilter?.end_date || "";
+    const fileName = `RetailDashboard_${durationLabel}_${startDateStr}_to_${endDateStr}.xlsx`;
 
-  saveAs(blob, fileName);
-};
+    saveAs(blob, fileName);
+  };
 
 
 
@@ -363,7 +368,7 @@ worksheet['!cols'] = [
           // hideButton={true}
           buttonProps={{
             label: 'Export',
-            onClick:()=>handleExportExcelRetailDashboard()
+            onClick: () => handleExportExcelRetailDashboard()
             // onClick: () => navigate('/outlets'), // Navigate to previous page
             // position: 'left', // if your ATMPageHeader supports it
           }}

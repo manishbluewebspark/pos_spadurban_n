@@ -40,21 +40,6 @@ const CloseRegisterFormLayout = ({
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const [reasonText, setReasonText] = useState('');
   const [previewMode, setPreviewMode] = useState(false);
-  const [showCashUsageModal, setShowCashUsageModal] = useState(false);
-  const [cashUsageReason, setCashUsageReason] = useState('');
-  const [cashUsageProof, setCashUsageProof] = useState<File | null>(null);
-  const [tempCashUsage, setTempCashUsage] = useState({
-    reason: '',
-    amount: '',
-    proofUrl: '',
-  });
-
-  const [cashUsages, setCashUsages] = useState<{ reason: string; amount: string; proofUrl: string; createdAt: Date }[]>([]);
-
-
-
-  console.log('---------values', values)
-
 
 
   let updatedResult: any[] = [];
@@ -110,7 +95,13 @@ const CloseRegisterFormLayout = ({
 
   // payouts से cash usage निकालना (date-wise)
   const payoutTotal = opningData?.register?.cashUsage
-    .reduce((sum: number, p: any) => sum + (parseFloat(p.amount) || 0), 0);
+    .reduce((sum: number, p: any) => {
+      if ((p.paymentMode || '').toLowerCase() === 'cash') {
+        return sum + (parseFloat(p.amount) || 0);
+      }
+      return sum;
+    }, 0);
+
 
   console.log('------payoutTotal', payoutTotal)
   // final cash total
@@ -165,20 +156,20 @@ const CloseRegisterFormLayout = ({
   //   .pop();
 
   const allRows = Object.entries(groupedResult)
-  .flatMap(([date, rows]) =>
-    rows.map((row) => ({ ...row, date, flatIndex: `${date}_${row._id}` }))
+    .flatMap(([date, rows]) =>
+      rows.map((row) => ({ ...row, date, flatIndex: `${date}_${row._id}` }))
+    );
+
+  // Step 2: Filter only cash rows
+  const cashRows = allRows.filter(
+    (row) => row.paymentModeName?.toLowerCase() === "cash"
   );
 
-// Step 2: Filter only cash rows
-const cashRows = allRows.filter(
-  (row) => row.paymentModeName?.toLowerCase() === "cash"
-);
+  // Step 3: Sort by date (and maybe createdAt if available)
+  cashRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-// Step 3: Sort by date (and maybe createdAt if available)
-cashRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-// Step 4: Last cash row
-const lastCashRowInfo = cashRows[cashRows.length - 1] || null;
+  // Step 4: Last cash row
+  const lastCashRowInfo = cashRows[cashRows.length - 1] || null;
 
   const lastCashRowKey = lastCashRowInfo ? `${lastCashRowInfo._id}_${lastCashRowInfo.date}` : '';
   console.log('------cashManual', parseFloat(values.manual?.[lastCashRowKey] || '0'))
@@ -195,9 +186,7 @@ const lastCashRowInfo = cashRows[cashRows.length - 1] || null;
       const openingBalance = parseFloat(updatedResult[0]?.totalAmount || '0');
       const manualCash = parseFloat(values.manual?.[lastCashRowKey]);
 
-      if (!isNaN(manualCash) && manualCash < openingBalance) {
-        setShowCashUsageModal(true);
-      }
+
     }, 1000); // Wait 600ms after typing
 
     return () => clearTimeout(timeout); // Clear on new keystroke
@@ -275,45 +264,45 @@ const lastCashRowInfo = cashRows[cashRows.length - 1] || null;
   };
 
   // 🛠 Utility: Fill missing dates with zero rows
-function fillMissingDates(groupedResult: any, startDate: string, endDate: string) {
-  const allDates = eachDayOfInterval({
-    start: new Date(startDate),
-    end: new Date(endDate),
-  });
+  function fillMissingDates(groupedResult: any, startDate: string, endDate: string) {
+    const allDates = eachDayOfInterval({
+      start: new Date(startDate),
+      end: new Date(endDate),
+    });
 
-  const filledResult: any = {};
+    const filledResult: any = {};
 
-  allDates.forEach((date) => {
-    const dateKey = format(date, "yyyy-MM-dd");
-    if (groupedResult[dateKey]) {
-      // agar data already hai to wahi use karo
-      filledResult[dateKey] = groupedResult[dateKey];
-    } else {
-      // agar missing hai to 0 rows banao
-      filledResult[dateKey] = [
-        {
-          _id: "no-sale-cash",
-          paymentModeName: "cash",
-          totalAmount: 0,
-        },
-        {
-          _id: "no-sale-card",
-          paymentModeName: "card",
-          totalAmount: 0,
-        },
-      ];
-    }
-  });
+    allDates.forEach((date) => {
+      const dateKey = format(date, "yyyy-MM-dd");
+      if (groupedResult[dateKey]) {
+        // agar data already hai to wahi use karo
+        filledResult[dateKey] = groupedResult[dateKey];
+      } else {
+        // agar missing hai to 0 rows banao
+        filledResult[dateKey] = [
+          {
+            _id: "no-sale-cash",
+            paymentModeName: "cash",
+            totalAmount: 0,
+          },
+          {
+            _id: "no-sale-card",
+            paymentModeName: "card",
+            totalAmount: 0,
+          },
+        ];
+      }
+    });
 
-  return filledResult;
-}
+    return filledResult;
+  }
 
-const registerStartDate = opningData?.register?.openedAt;
-const today = new Date();
-const todayStr = format(today, "yyyy-MM-dd");
+  const registerStartDate = opningData?.register?.openedAt;
+  const today = new Date();
+  const todayStr = format(today, "yyyy-MM-dd");
 
-// groupedResult ke andar jo bhi aapka data aaya hai usko fill karo
-const completeResult = fillMissingDates(groupedResult, registerStartDate, todayStr);
+  // groupedResult ke andar jo bhi aapka data aaya hai usko fill karo
+  const completeResult = fillMissingDates(groupedResult, registerStartDate, todayStr);
 
 
   return (
@@ -383,7 +372,7 @@ const completeResult = fillMissingDates(groupedResult, registerStartDate, todayS
                           return (
                             <>
                               <tr key={uniqueKey} className="border hover:bg-gray-50 transition-all">
-                                <td className="p-3 border">{row.paymentModeName?.charAt(0).toUpperCase() + row.paymentModeName?.slice(1)}</td>
+                                <td className="p-3 border">{row.paymentModeName?.charAt(0).toUpperCase() + row.paymentModeName?.slice(1)} Sale</td>
                                 <td className="p-3 border text-center">-</td>
                                 <td className="p-3 border text-blue-600 font-semibold text-center">
                                   R {row?.totalAmount.toFixed(2)}
@@ -456,56 +445,55 @@ const completeResult = fillMissingDates(groupedResult, registerStartDate, todayS
                               {isCashRow && (
                                 <>
                                   {Object.entries(cashUsageTotals).map(([d, total]: any) => {
-  if (d !== date) return null; // sirf current date ka payout show kare
-  const uniqueKey = `payout_${d}`;
-  return (
-    <tr key={uniqueKey}>
-      <td className="p-3 border">Payout</td>
-      <td className="p-3 border text-center"></td>
-      <td className="p-3 border text-blue-600 font-semibold text-center">
-        R {total}
-      </td>
-      <td className="p-3 border">
-        <ATMTextField
-          name={`manual.${uniqueKey}`}
-          value={values.manual?.[uniqueKey] || ''}
-          onChange={(e) =>
-            setFieldValue(`manual.${uniqueKey}`, e.target.value)
-          }
-          onBlur={handleBlur}
-          className="w-full p-2 border border-gray-300 rounded-md text-sm"
-          placeholder="Enter amount"
-        />
+                                    if (d !== date) return null; // sirf current date ka payout show kare
+                                    const uniqueKey = `payout_${d}`;
+                                    return (
+                                      <tr key={uniqueKey}>
+                                        <td className="p-3 border">Payout</td>
+                                        <td className="p-3 border text-center"></td>
+                                        <td className="p-3 border text-blue-600 font-semibold text-center">
+                                          R {total}
+                                        </td>
+                                        <td className="p-3 border">
+                                          <ATMTextField
+                                            name={`manual.${uniqueKey}`}
+                                            value={values.manual?.[uniqueKey] || ''}
+                                            onChange={(e) =>
+                                              setFieldValue(`manual.${uniqueKey}`, e.target.value)
+                                            }
+                                            onBlur={handleBlur}
+                                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                                            placeholder="Enter amount"
+                                          />
 
-        {values.manual?.[uniqueKey] && (
-          <div className="text-xs font-medium">
-            {parseFloat(values.manual[uniqueKey]) === total ? (
-              <span className="text-green-600">✅ Success</span>
-            ) : (
-              <span
-                onClick={() => {
-                  setActiveRowId(uniqueKey);
-                  setShowReasonModal(true);
-                  setReasonText(values.reasons?.[uniqueKey] || '');
-                }}
-                className={`cursor-pointer underline ${
-                  parseFloat(values.manual[uniqueKey]) > total
-                    ? 'text-red-600'
-                    : 'text-orange-600'
-                }`}
-              >
-                {parseFloat(values.manual[uniqueKey]) > total
-                  ? '⬆ Greater'
-                  : '⬇ Less'}{' '}
-                – Add Reason
-              </span>
-            )}
-          </div>
-        )}
-      </td>
-    </tr>
-  );
-})}
+                                          {values.manual?.[uniqueKey] && (
+                                            <div className="text-xs font-medium">
+                                              {parseFloat(values.manual[uniqueKey]) === total ? (
+                                                <span className="text-green-600">✅ Success</span>
+                                              ) : (
+                                                <span
+                                                  onClick={() => {
+                                                    setActiveRowId(uniqueKey);
+                                                    setShowReasonModal(true);
+                                                    setReasonText(values.reasons?.[uniqueKey] || '');
+                                                  }}
+                                                  className={`cursor-pointer underline ${parseFloat(values.manual[uniqueKey]) > total
+                                                    ? 'text-red-600'
+                                                    : 'text-orange-600'
+                                                    }`}
+                                                >
+                                                  {parseFloat(values.manual[uniqueKey]) > total
+                                                    ? '⬆ Greater'
+                                                    : '⬇ Less'}{' '}
+                                                  – Add Reason
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
 
                                 </>
                               )}
@@ -744,7 +732,7 @@ const completeResult = fillMissingDates(groupedResult, registerStartDate, todayS
 
                             return (
                               <tr key={rowKey} className={isMismatch ? "bg-red-50" : ""}>
-                                <td className="p-2 border capitalize">{row.paymentModeName}</td>
+                                <td className="p-2 border capitalize">{row.paymentModeName} Sale</td>
                                 <td className="p-2 border text-right">R {expected.toFixed(2)}</td>
                                 <td className="p-2 border text-right">
                                   {manual ? `R ${manual}` : "-"}
@@ -800,7 +788,7 @@ const completeResult = fillMissingDates(groupedResult, registerStartDate, todayS
                     {(opningData as any)?.register?.cashUsage?.map((item: any, index: any) => (
                       <tr key={index}>
                         {/* Type */}
-                        <td className="p-2 border text-left">Cash Out</td>
+                        <td className="p-2 border text-left">Cash Out ({item?.paymentMode})</td>
 
                         {/* Date and Time */}
                         <td className="p-2 border text-left">

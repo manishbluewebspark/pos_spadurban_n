@@ -986,6 +986,16 @@
           "featureId": "CLOSURE_SUMMARY",
           "featureName": "See Closure Summary",
           "relatedFieldColumn": "CLOSURE_SUMMARY"
+        },
+        {
+          "featureId": "PAYMENT_REPORTS",
+          "featureName": "See Payment Reports",
+          "relatedFieldColumn": "PAYMENT_REPORTS"
+        },
+         {
+          "featureId": "SALES_LEDGER",
+          "featureName": "See Sales Ledger",
+          "relatedFieldColumn": "SALES_LEDGER"
         }
       ],
       "dependencies": [
@@ -993,7 +1003,8 @@
         "REPORT_OUTLET",
         "REPORT_GIFT_CARD",
         "REPORT_RETAIL_DASHBOARD",
-        "CLOSURE_SUMMARY"
+        "CLOSURE_SUMMARY",
+        "PAYMENT_REPORTS"
       ],
       "fields": []
     }

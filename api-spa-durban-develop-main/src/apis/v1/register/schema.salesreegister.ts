@@ -6,6 +6,7 @@ import {
   FilterByItem,
   RangeFilter,
 } from '../../../utils/interface';
+import PaymentMode from '../paymentMode/schema.paymentMode';
 
 export interface PaymentEntry {
   paymentModeName: string;
@@ -135,6 +136,7 @@ const SalesRegisterSchema = new mongoose.Schema<SalesRegisterDocument>(
         reason: { type: String, required: true },
         amount: { type: Number, required: true },
         proofUrl: { type: String, default: '' },
+        paymentMode: { type: String, default: 'cash' },
         createdAt: { type: Date, default: Date.now },
       }
     ],

@@ -27,6 +27,7 @@ import SalesRegister from "../register/schema.salesreegister";
 import { pipeline } from "stream";
 import Outlet from "../outlet/schema.outlet";
 import Customer from "../customer/schema.customer";
+import PaymentMode from "../paymentMode/schema.paymentMode";
 
 //-----------------------------------------------
 
@@ -1842,55 +1843,57 @@ const getRegisterDataByOutlet = catchAsync(async (req: AuthenticatedRequest, res
     },
 
     // 2) Compute totals from allPayments (total, manual, by-mode)
-    {
-      $addFields: {
-        totalPaymentAmount: {
-          $sum: {
-            $map: { input: { $ifNull: ["$allPayments", []] }, as: "p", in: { $ifNull: ["$$p.totalAmount", 0] } }
-          }
-        },
-        totalManualAmount: {
-          $sum: {
-            $map: { input: { $ifNull: ["$allPayments", []] }, as: "p", in: { $toDouble: { $ifNull: ["$$p.manual", "0"] } } }
-          }
-        },
-        totalCashPayments: {
-          $sum: {
-            $map: {
-              input: {
-                $filter: {
-                  input: { $ifNull: ["$allPayments", []] },
-                  as: "p",
-                  cond: { $eq: [{ $toLower: "$$p.paymentModeName" }, "cash"] }
-                }
-              },
-              as: "p",
-              in: { $ifNull: ["$$p.totalAmount", 0] }
-            }
-          }
-        },
-        totalCardPayments: {
-          $sum: {
-            $map: {
-              input: {
-                $filter: {
-                  input: { $ifNull: ["$allPayments", []] },
-                  as: "p",
-                  cond: {
-                    $in: [
-                      { $toLower: "$$p.paymentModeName" },
-                      ["card", "credit", "debit", "debit card", "credit card", "card swipe"]
-                    ]
-                  }
-                }
-              },
-              as: "p",
-              in: { $ifNull: ["$$p.totalAmount", 0] }
-            }
-          }
-        }
-      }
-    },
+    // {
+    //   $addFields: {
+    //     totalPaymentAmount: {
+    //       $sum: {
+    //         $map: { input: { $ifNull: ["$allPayments", []] }, as: "p", in: { $ifNull: ["$$p.totalAmount", 0] } }
+    //       }
+    //     },
+    //     totalManualAmount: {
+    //       $sum: {
+    //         $map: { input: { $ifNull: ["$allPayments", []] }, as: "p", in: { $toDouble: { $ifNull: ["$$p.manual", "0"] } } }
+    //       }
+    //     },
+    //     totalCashPayments: {
+    //       $sum: {
+    //         $map: {
+    //           input: {
+    //             $filter: {
+    //               input: { $ifNull: ["$allPayments", []] },
+    //               as: "p",
+    //               cond: { $eq: [{ $toLower: "$$p.paymentModeName" }, "cash"] }
+    //             }
+    //           },
+    //           as: "p",
+    //           in: { $ifNull: ["$$p.totalAmount", 0] }
+    //         }
+    //       }
+    //     },
+    //     totalCardPayments: {
+    //       $sum: {
+    //         $map: {
+    //           input: {
+    //             $filter: {
+    //               input: { $ifNull: ["$allPayments", []] },
+    //               as: "p",
+    //               cond: {
+    //                 $in: [
+    //                   { $toLower: "$$p.paymentModeName" },
+    //                   ["card", "credit", "debit", "debit card", "credit card", "card swipe"]
+    //                 ]
+    //               }
+    //             }
+    //           },
+    //           as: "p",
+    //           in: { $ifNull: ["$$p.totalAmount", 0] }
+    //         }
+    //       }
+    //     }
+    //   }
+    // },
+
+    
 
     // 3) Compute expected cash and variance
     {
@@ -3394,6 +3397,125 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
 
 
 
+const getPaymentReports = catchAsync(
+  async (req: any, res: any) => {
+    const { startDate, endDate, outletId } = req.query;
+
+    if (!startDate || !endDate || !outletId) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "startDate, endDate, and outletId are required"
+      );
+    }
+
+    const start = new Date(startDate as string);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(endDate as string);
+    end.setHours(23, 59, 59, 999);
+
+    const matchFilter = {
+      isDeleted: false,
+      outletId: new mongoose.Types.ObjectId(outletId),
+      invoiceDate: { $gte: start, $lte: end },
+    };
+
+    // 1️⃣ Aggregate invoices by week (Monday start) & payment mode
+    const weeklyData = await Invoice.aggregate([
+      { $match: matchFilter },
+      { $unwind: "$amountReceived" },
+      {
+        $addFields: {
+          weekStartDate: {
+            $dateTrunc: {
+              date: "$invoiceDate",
+              unit: "week",
+              startOfWeek: "Mon",
+              timezone: "Asia/Kolkata", // adjust your local timezone
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            weekStartDate: "$weekStartDate",
+            paymentModeId: "$amountReceived.paymentModeId",
+          },
+          totalAmount: { $sum: "$amountReceived.amount" },
+        },
+      },
+      {
+        $lookup: {
+          from: "paymentmodes",
+          localField: "_id.paymentModeId",
+          foreignField: "_id",
+          as: "paymentMode",
+        },
+      },
+      { $unwind: "$paymentMode" },
+      {
+        $project: {
+          _id: 0,
+          weekStartDate: "$_id.weekStartDate",
+          paymentModeId: "$_id.paymentModeId",
+          paymentModeName: "$paymentMode.modeName",
+          totalAmount: 1,
+        },
+      },
+      { $sort: { paymentModeName: 1, weekStartDate: 1 } },
+    ]);
+
+    // 2️⃣ Generate all weeks between start and end (Monday start)
+    const weeks: string[] = [];
+    let tempDate = new Date(start);
+    while (tempDate <= end) {
+      const day = tempDate.getDay(); // 0=Sun,1=Mon
+      const diff = day === 0 ? -6 : 1 - day; // Monday start
+      const weekStart = new Date(tempDate);
+      weekStart.setDate(weekStart.getDate() + diff);
+      const weekStr = weekStart.toISOString().split("T")[0];
+      if (!weeks.includes(weekStr)) weeks.push(weekStr);
+      tempDate.setDate(tempDate.getDate() + 7);
+    }
+
+    // 3️⃣ Get all active payment modes
+    const paymentModes = await PaymentMode.find({
+      isDeleted: false,
+      isActive: true,
+    }).lean();
+
+    // 4️⃣ Pivot table: Payment Mode x Week
+    const pivotTable = paymentModes.map((pm: any) => {
+      const row: any = { paymentMode: pm.modeName };
+      let rowTotal = 0;
+
+      weeks.forEach((w) => {
+        const weekData = weeklyData.find(
+          (d) =>
+            d.paymentModeId.toString() === pm._id.toString() &&
+            new Date(d.weekStartDate).toISOString().split("T")[0] === w
+        );
+        row[w] = weekData ? weekData.totalAmount : 0;
+        rowTotal += weekData ? weekData.totalAmount : 0;
+      });
+
+      row.total = rowTotal;
+      return row;
+    });
+
+    res.status(httpStatus.OK).json({
+      success: true,
+      startDate,
+      endDate,
+      weeks,
+      data: pivotTable,
+    });
+  }
+);
+
+
+
 
 
 
@@ -3413,5 +3535,6 @@ export {
   getSalesChartDataReportByOutlets,
   getGiftCardChartDataReportByOutlets,
   getGiftCardDataReportByOutlets,
-  getRetailDashboardData
+  getRetailDashboardData,
+  getPaymentReports
 };

@@ -953,8 +953,20 @@ const toggleServiceStatus = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+
 const getAllBookings = catchAsync(async (req: Request, res: Response) => {
-  const { outletId, mobile, email, searchValue = "", serviceName, startDate, endDate, page = 1, limit = 10 } = req.query;
+  const {
+    outletId,
+    mobile,
+    email,
+    searchValue = "",
+    serviceName,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 10,
+  } = req.query;
+  console.log('---------reeee',req.body,req.query)
 
   const offset = (Number(page) - 1) * Number(limit);
 
@@ -962,29 +974,31 @@ const getAllBookings = catchAsync(async (req: Request, res: Response) => {
   let values: any[] = [];
   let idx = 1;
 
+  // 🔍 Search across multiple fields
   if (searchValue) {
     conditions.push(`(
-    (c."firstName" || ' ' || c."lastName") ILIKE $${idx} OR
-    c."email" ILIKE $${idx} OR
-    c."mobile" ILIKE $${idx} OR
-    b."bookingNumber" ILIKE $${idx}
-  )`);
+      (c."firstName" || ' ' || c."lastName") ILIKE $${idx} OR
+      c."email" ILIKE $${idx} OR
+      c."mobile" ILIKE $${idx} OR
+      b."bookingNumber" ILIKE $${idx}
+    )`);
     values.push(`%${searchValue}%`);
     idx++;
   }
 
-
-
+  // 📱 Filter by mobile
   if (mobile) {
     conditions.push(`c."mobile" ILIKE $${idx++}`);
     values.push(`%${mobile}%`);
   }
 
+  // 📧 Filter by email
   if (email) {
     conditions.push(`c."email" ILIKE $${idx++}`);
     values.push(`%${email}%`);
   }
 
+  // 🧾 Filter by service name
   if (serviceName) {
     conditions.push(`t."name" ILIKE $${idx++}`);
     values.push(`%${serviceName}%`);
@@ -992,30 +1006,37 @@ const getAllBookings = catchAsync(async (req: Request, res: Response) => {
 
 if (startDate) {
   conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
-  values.push(new Date(startDate as string)); // start of day
+  values.push(`${startDate} 00:00:00`);
 }
 
 if (endDate) {
-  conditions.push(`b."bookingDateTimeStamp" < $${idx++}`);
-  const end = new Date(endDate as string);
-  end.setDate(end.getDate() + 1); // next day
-  values.push(end);
-}
-
-
-if (outletId) {
-  // Direct match outletId with StoreId
-  conditions.push(`b."StoreId" = $${idx++}`);
-  values.push(outletId);
+  conditions.push(`b."bookingDateTimeStamp" <= $${idx++}`);
+  values.push(`${endDate} 23:59:59`);
 }
 
 
 
 
 
-  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  // main query with pagination
+  // 🏪 Outlet filter
+  if (outletId) {
+    conditions.push(`b."StoreId" = $${idx++}`);
+    values.push(outletId);
+  }
+
+  // ✅ Construct WHERE clause
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  // 🧾 Copy values for count query (before adding limit & offset)
+  const countValues = [...values];
+
+  // Add pagination params at the end
+  values.push(limit);
+  values.push(offset);
+
+  // 🧩 Main query (paginated)
   const query = `
     SELECT 
       b."id" AS "bookingId",
@@ -1050,10 +1071,7 @@ if (outletId) {
     LIMIT $${idx++} OFFSET $${idx++};
   `;
 
-  values.push(limit);
-  values.push(offset);
-
-  // total count query (without pagination)
+  // 🧾 Count query (no limit or offset)
   const countQuery = `
     SELECT COUNT(DISTINCT b."id") AS total
     FROM public."Bookings" b
@@ -1064,8 +1082,9 @@ if (outletId) {
     ${whereClause};
   `;
 
+  // 🧠 Execute both queries
   const result = await pool.query(query, values);
-  const countResult = await pool.query(countQuery, values.slice(0, idx - 3)); // count query me limit+offset nahi dena
+  const countResult = await pool.query(countQuery, countValues);
 
   const totalCount = Number(countResult.rows[0].total);
 
@@ -1078,29 +1097,167 @@ if (outletId) {
   });
 });
 
+
+// const getAllBookings = catchAsync(async (req: Request, res: Response) => {
+//   const { outletId, mobile, email, searchValue = "", serviceName, startDate, endDate, page = 1, limit = 10 } = req.query;
+
+//   const offset = (Number(page) - 1) * Number(limit);
+
+//   let conditions: string[] = [];
+//   let values: any[] = [];
+//   let idx = 1;
+
+//   if (searchValue) {
+//     conditions.push(`(
+//     (c."firstName" || ' ' || c."lastName") ILIKE $${idx} OR
+//     c."email" ILIKE $${idx} OR
+//     c."mobile" ILIKE $${idx} OR
+//     b."bookingNumber" ILIKE $${idx}
+//   )`);
+//     values.push(`%${searchValue}%`);
+//     idx++;
+//   }
+
+
+
+//   if (mobile) {
+//     conditions.push(`c."mobile" ILIKE $${idx++}`);
+//     values.push(`%${mobile}%`);
+//   }
+
+//   if (email) {
+//     conditions.push(`c."email" ILIKE $${idx++}`);
+//     values.push(`%${email}%`);
+//   }
+
+//   if (serviceName) {
+//     conditions.push(`t."name" ILIKE $${idx++}`);
+//     values.push(`%${serviceName}%`);
+//   }
+
+// // if (startDate) {
+// //   conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
+// //   values.push(new Date(startDate as string)); // start of day
+// // }
+
+// // if (endDate) {
+// //   conditions.push(`b."bookingDateTimeStamp" < $${idx++}`);
+// //   const end = new Date(endDate as string);
+// //   end.setDate(end.getDate() + 1); // next day
+// //   values.push(end);
+// // }
+
+// if (startDate) {
+//   const start = new Date(`${startDate}T00:00:00.000Z`); // ensures full-day UTC start
+//   conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
+//   values.push(start);
+// }
+
+// if (endDate) {
+//   const end = new Date(`${endDate}T23:59:59.999Z`); // end of that day
+//   conditions.push(`b."bookingDateTimeStamp" <= $${idx++}`);
+//   values.push(end);
+// }
+
+
+
+// if (outletId) {
+//   // Direct match outletId with StoreId
+//   conditions.push(`b."StoreId" = $${idx++}`);
+//   values.push(outletId);
+// }
+
+
+
+//  values.push(limit);
+//   values.push(offset);
+
+//   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+//   // main query with pagination
+//   const query = `
+//     SELECT 
+//       b."id" AS "bookingId",
+//       b."bookingNumber",
+//       b."invoiceNumber",
+//       b."duration",
+//       b."bookingDateTimeStamp",
+//       b."startTime",
+//       b."endTime",
+//       b."createdAt",
+//       b."createdByUser",
+
+//       -- customer info
+//       c."firstName" || ' ' || c."lastName" AS "customerName",
+//       c."email" AS "customerEmail",
+//       c."mobile" AS "customerPhone",
+
+//       -- branch/store info
+//       s."name" AS "branchName",
+
+//       -- treatment info
+//       json_agg(t."name") AS "services"
+
+//     FROM public."Bookings" b
+//     LEFT JOIN public."Customers" c ON c."id" = b."CustomerId"
+//     LEFT JOIN public."Stores" s ON s."id" = b."StoreId"
+//     LEFT JOIN public."BookingsTreatment" bt ON bt."BookingId" = b."id"
+//     LEFT JOIN public."Treatments" t ON t."id" = bt."TreatmentId"
+//     ${whereClause}
+//     GROUP BY b."id", c."firstName", c."lastName", c."email", c."mobile", s."name"
+//     ORDER BY b."createdAt" DESC
+//     LIMIT $${idx++} OFFSET $${idx++};
+//   `;
+
+
+
+//   // total count query (without pagination)
+//   const countQuery = `
+//     SELECT COUNT(DISTINCT b."id") AS total
+//     FROM public."Bookings" b
+//     LEFT JOIN public."Customers" c ON c."id" = b."CustomerId"
+//     LEFT JOIN public."Stores" s ON s."id" = b."StoreId"
+//     LEFT JOIN public."BookingsTreatment" bt ON bt."BookingId" = b."id"
+//     LEFT JOIN public."Treatments" t ON t."id" = bt."TreatmentId"
+//     ${whereClause};
+//   `;
+
+//   const result = await pool.query(query, values);
+//   const countResult = await pool.query(countQuery, values.slice(0, idx - 3)); // count query me limit+offset nahi dena
+
+//   const totalCount = Number(countResult.rows[0].total);
+
+//   res.status(200).json({
+//     success: true,
+//     count: totalCount,
+//     currentPage: Number(page),
+//     totalPages: Math.ceil(totalCount / Number(limit)),
+//     data: result.rows,
+//   });
+// });
+
 const getCustomerChartData = catchAsync(async (req: Request, res: Response) => {
-  const { startDate, endDate,outletId } = req.query;
+  const { startDate, endDate, outletId } = req.query;
 
   let conditions: string[] = [];
   let values: any[] = [];
   let idx = 1;
 
-  if (startDate) {
-    conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
-    values.push(new Date(startDate as string));
-  }
-  if (endDate) {
-    conditions.push(`b."bookingDateTimeStamp" < $${idx++}`);
-    const end = new Date(endDate as string);
-    end.setDate(end.getDate() + 1);
-    values.push(end);
-  }
+ if (startDate) {
+  conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
+  values.push(`${startDate} 00:00:00`);
+}
+
+if (endDate) {
+  conditions.push(`b."bookingDateTimeStamp" <= $${idx++}`);
+  values.push(`${endDate} 23:59:59`);
+}
 
   if (outletId) {
-  // Direct match outletId with StoreId
-  conditions.push(`b."StoreId" = $${idx++}`);
-  values.push(outletId);
-}
+    // Direct match outletId with StoreId
+    conditions.push(`b."StoreId" = $${idx++}`);
+    values.push(outletId);
+  }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 

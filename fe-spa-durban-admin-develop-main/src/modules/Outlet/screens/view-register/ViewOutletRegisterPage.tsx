@@ -54,19 +54,19 @@ const ViewOutletRegisterPage = () => {
   // });
 
   const { data, isLoading, totalData, totalPages } = useFetchData(
-  useGetRegisterDataQuery,
-  {
-    body: {
-      outletId: appliedFilters?.[0]?.value,
-      startDate: dateFilter?.start_date,
-      endDate: dateFilter?.end_date,
-      page,
-      limit,
-      sortBy: orderBy || 'createdAt',
-      sortOrder: orderValue || 'desc',
-    },
-  }
-);
+    useGetRegisterDataQuery,
+    {
+      body: {
+        outletId: appliedFilters?.[0]?.value,
+        startDate: dateFilter?.start_date,
+        endDate: dateFilter?.end_date,
+        page,
+        limit,
+        sortBy: orderBy || 'createdAt',
+        sortOrder: orderValue || 'desc',
+      },
+    }
+  );
 
 
   const { data: chartData } = useGetRegisterChartDataQuery({
@@ -132,36 +132,32 @@ const ViewOutletRegisterPage = () => {
       fieldName: 'openingBalance',
       headerName: 'Opening Balance',
       flex: 'flex-[1_1_0%]',
-      // render:(row:any)=>{
-      //   return `${row?.openingBalance} (+${row?.carryForwardBalance})`
-      // }
+      render: (row: any) => (row?.openingBalance ? row.openingBalance : '-'),
     },
     {
       fieldName: 'totalManualAmount',
       headerName: 'Total Manual Cash',
       flex: 'flex-[1_1_0%]',
+      render: (row: any) => (row?.totalManualAmount ? row.totalManualAmount : '-'),
     },
     {
       fieldName: 'bankDeposit',
       headerName: 'Bank Deposite',
       flex: 'flex-[1_1_0%]',
-      render: (row: any) => {
-        return `-${row?.bankDeposit}`
-      }
+      render: (row: any) => (row?.bankDeposit ? row.bankDeposit : '-'),
     },
     {
       fieldName: 'totalPayouts',
       headerName: 'Total Payout',
       flex: 'flex-[1_1_0%]',
-      render: (row: any) => {
-        return `-${row?.totalPayouts}`
-      }
+      render: (row: any) => (row?.totalPayouts ? row.totalPayouts : '-'),
     },
 
     {
       fieldName: 'carryForwardBalance',
       headerName: 'C/F Balance',
       flex: 'flex-[1_1_0%]',
+      render: (row: any) => (row?.carryForwardBalance ? row.carryForwardBalance : '-'),
     },
     // {
     //   fieldName: 'closeRegister',

@@ -479,6 +479,26 @@ const navigation: (params?: {
           },
           permission: 'CLOSURE_SUMMARY',
         },
+          {
+          title: 'Payment Reports',
+          icon: IconReceiptTax,
+          path: 'outlet/payment-reports',
+          searchParams: {
+            page: '1',
+            limit: '10',
+          },
+          permission: 'PAYMENT_REPORTS',
+        },
+         {
+          title: 'Sales Ledger',
+          icon: IconReceiptTax,
+          path: 'outlet/sales-ledger',
+          searchParams: {
+            page: '1',
+            limit: '10',
+          },
+          permission: 'SALES_LEDGER',
+        },
         {
           title: 'Booking Summary',
           icon: IconReceiptTax,

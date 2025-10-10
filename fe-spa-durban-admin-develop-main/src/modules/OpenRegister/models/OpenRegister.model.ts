@@ -61,4 +61,5 @@ export type BookingValue = {
   branchName:string;
   services?:[];
   createdAt:Date;
+  bookingDateTimeStamp:Date;
 }

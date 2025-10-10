@@ -43,7 +43,7 @@ const ViewBookingDataPage = () => {
     useFilterPagination(['outletsId', 'customerId']);
   const [searchParams, setSearchParams] = useSearchParams();
   const { outlets } = useSelector((state: RootState) => state.auth);
-  console.log('-------outlets',outlets)
+  console.log('-------outlets', outlets)
   // const { data, isLoading, error, totalData, totalPages } = useGetAllBookingsQuery({
   //   // outletId: appliedFilters?.[0]?.value,
   //   startDate: dateFilter?.start_date,
@@ -54,27 +54,27 @@ const ViewBookingDataPage = () => {
   // });
 
   const { data, isLoading, totalData, totalPages } = useFetchData(
-  useGetAllBookingsQuery,
-  {
-    body: {
-      page,
-      limit,
-      searchValue: searchQuery,
-      startDate: dateFilter?.start_date || format(subMonths(new Date(), 1), 'yyyy-MM-dd'),
-      endDate: dateFilter?.end_date || format(new Date(), 'yyyy-MM-dd'),
-      filterBy: JSON.stringify(appliedFilters),
-      outletId: appliedFilters?.[0]?.value, // agar chahiye
-    },
-  }
-);
+    useGetAllBookingsQuery,
+    {
+      body: {
+        page,
+        limit,
+        searchValue: searchQuery,
+        startDate: dateFilter?.start_date || format(new Date(), 'yyyy-MM-dd'),
+        endDate: dateFilter?.end_date || format(new Date(), 'yyyy-MM-dd'),
+        filterBy: JSON.stringify(appliedFilters),
+        outletId: appliedFilters?.[0]?.value, // agar chahiye
+      },
+    }
+  );
 
 
   console.log('-----data', data)
 
   const { data: chartData } = useGetBookingChartDataQuery({
     outletId: appliedFilters?.[0]?.value,
-    startDate: dateFilter?.start_date,
-    endDate: dateFilter?.end_date
+    startDate: dateFilter?.start_date || format(new Date(), 'yyyy-MM-dd'),
+    endDate: dateFilter?.end_date || format(new Date(), 'yyyy-MM-dd'),
   });
 
   console.log('-----chartData', chartData)
@@ -156,14 +156,23 @@ const ViewBookingDataPage = () => {
       }
     },
     {
-          fieldName: 'createdAt',
-          headerName: 'Created Date',
-          flex: 'flex-[3_1_0%]',
-          render: (row: any) => {
-            const date = row.createdAt ? new Date(row.createdAt) : null;
-            return date ? formatZonedDate(date) : '-';
-          }
-        }
+      fieldName: 'bookingDateTimeStamp',
+      headerName: 'Booking Date',
+      flex: 'flex-[3_1_0%]',
+      render: (row: any) => {
+        const date = row.bookingDateTimeStamp ? new Date(row.bookingDateTimeStamp) : null;
+        return date ? formatZonedDate(date) : '-';
+      }
+    },
+    {
+      fieldName: 'createdAt',
+      headerName: 'Created Date',
+      flex: 'flex-[3_1_0%]',
+      render: (row: any) => {
+        const date = row.createdAt ? new Date(row.createdAt) : null;
+        return date ? formatZonedDate(date) : '-';
+      }
+    }
 
   ];
 
@@ -218,18 +227,18 @@ const ViewBookingDataPage = () => {
   // }, [dateFilter, outlets]);
 
   useEffect(() => {
-  if (!dateFilter?.start_date && !dateFilter?.end_date && outlets?.length) {
-    const today = new Date();
+    if (!dateFilter?.start_date && !dateFilter?.end_date && outlets?.length) {
+      const today = new Date();
 
-    const newSearchParams = new URLSearchParams(searchParams); // Clone existing searchParams
-    newSearchParams.set("startDate", format(today, "yyyy-MM-dd")); // 👈 same day
-    newSearchParams.set("endDate", format(today, "yyyy-MM-dd"));   // 👈 same day
-    newSearchParams.set("outletIds", outlets?.[0].bookingStoreId);
-    newSearchParams.set("reportDuration", "DAILY");
+      const newSearchParams = new URLSearchParams(searchParams); // Clone existing searchParams
+      newSearchParams.set("startDate", format(today, "yyyy-MM-dd")); // 👈 same day
+      newSearchParams.set("endDate", format(today, "yyyy-MM-dd"));   // 👈 same day
+      newSearchParams.set("outletIds", outlets?.[0].bookingStoreId);
+      newSearchParams.set("reportDuration", "DAILY");
 
-    setSearchParams(newSearchParams);
-  }
-}, [dateFilter]);
+      setSearchParams(newSearchParams);
+    }
+  }, [dateFilter]);
 
 
   const handleExportExcelClosureSummary = () => {
@@ -313,80 +322,80 @@ const ViewBookingDataPage = () => {
           {/* Table Toolbar */}
           <MOLFilterBar hideSearch={false} filters={filters} />
           <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">
-           <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
 
-  {/* Chart 1: Top 10 Customers */}
-  {topByServices.length > 0 && (
-    <div className="col-span-1">
-      <ATMChart
-        type="bar"
-        data={{
-          labels: topByServices.map((item:any) => item.customerName),
-          datasets: [
-            // {
-            //   label: 'Total Duration (hrs)',
-            //   data: topByServices.map((item:any) => item.totalDuration),
-            //   borderColor: '#3b82f6',
-            //   backgroundColor: '#3b82f670',
-            // },
-            {
-              label: 'Total Services Used',
-              data: topByServices.map((item:any) => item.totalServices),
-              borderColor: '#10b981',
-              backgroundColor: '#10b98170',
-            },
-          ],
-        }}
-        options={{
-          responsive: true,
-          plugins: { legend: { position: 'top' } },
-          maintainAspectRatio: false,
-          scales: {
-            y: { beginAtZero: true },
-            x: { ticks: { autoSkip: false } },
-          },
-        }}
-      />
-    </div>
-  )}
+              {/* Chart 1: Top 10 Customers */}
+              {topByServices.length > 0 && (
+                <div className="col-span-1">
+                  <ATMChart
+                    type="bar"
+                    data={{
+                      labels: topByServices.map((item: any) => item.customerName),
+                      datasets: [
+                        // {
+                        //   label: 'Total Duration (hrs)',
+                        //   data: topByServices.map((item:any) => item.totalDuration),
+                        //   borderColor: '#3b82f6',
+                        //   backgroundColor: '#3b82f670',
+                        // },
+                        {
+                          label: 'Total Services Used',
+                          data: topByServices.map((item: any) => item.totalServices),
+                          borderColor: '#10b981',
+                          backgroundColor: '#10b98170',
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      plugins: { legend: { position: 'top' } },
+                      maintainAspectRatio: false,
+                      scales: {
+                        y: { beginAtZero: true },
+                        x: { ticks: { autoSkip: false } },
+                      },
+                    }}
+                  />
+                </div>
+              )}
 
-  {/* Chart 2: Top Services */}
- {topByTime.length > 0 && (
-  <div className="col-span-1">
-    <ATMChart
-      type="bar"
-      data={{
-        labels: topByTime.map((item: any) => item.customerName),
-        datasets: [
-          {
-            label: 'Total Duration (mins)',
-            data: topByTime.map((item: any) => Number(item.totalDuration)),
-            borderColor: '#3b82f6',
-            backgroundColor: '#3b82f670',
-          },
-          {
-            label: 'Total Bookings',
-            data: topByTime.map((item: any) => Number(item.totalBookings)),
-            borderColor: '#10b981',
-            backgroundColor: '#10b98170',
-          },
-        ],
-      }}
-      options={{
-        responsive: true,
-        plugins: { legend: { position: 'top' } },
-        maintainAspectRatio: false,
-        scales: {
-          y: { beginAtZero: true },
-          x: { ticks: { autoSkip: false } },
-        },
-      }}
-    />
-  </div>
-)}
+              {/* Chart 2: Top Services */}
+              {topByTime.length > 0 && (
+                <div className="col-span-1">
+                  <ATMChart
+                    type="bar"
+                    data={{
+                      labels: topByTime.map((item: any) => item.customerName),
+                      datasets: [
+                        {
+                          label: 'Total Duration (mins)',
+                          data: topByTime.map((item: any) => Number(item.totalDuration)),
+                          borderColor: '#3b82f6',
+                          backgroundColor: '#3b82f670',
+                        },
+                        {
+                          label: 'Total Bookings',
+                          data: topByTime.map((item: any) => Number(item.totalBookings)),
+                          borderColor: '#10b981',
+                          backgroundColor: '#10b98170',
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      plugins: { legend: { position: 'top' } },
+                      maintainAspectRatio: false,
+                      scales: {
+                        y: { beginAtZero: true },
+                        x: { ticks: { autoSkip: false } },
+                      },
+                    }}
+                  />
+                </div>
+              )}
 
 
-</div>
+            </div>
 
 
             <div className="flex-1 mt-3">

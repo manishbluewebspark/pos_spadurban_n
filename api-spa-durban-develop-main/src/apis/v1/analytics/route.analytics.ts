@@ -318,5 +318,11 @@ router.get(
   authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
   analyticsController.getRetailDashboardData
 );
+router.get(
+  '/new/payment-reports-data',
+  parseBodyAndQuery,
+  authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
+  analyticsController.getPaymentReports
+);
 
 export default router;

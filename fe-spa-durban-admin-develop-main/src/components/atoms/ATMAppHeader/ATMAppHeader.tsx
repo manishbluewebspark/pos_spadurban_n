@@ -115,6 +115,7 @@ const ATMAppHeader = ({
     reason: '',
     amount: '',
     proofUrl: '',
+    paymentMode:'',
     createdAt: new Date()
   });
 
@@ -124,6 +125,7 @@ const ATMAppHeader = ({
     body: outlet && (outlet as any)._id,
     dataType: 'VIEW',
   });
+
 
   const buttonRef = useRef<HTMLDivElement>(null);
   const [updateInvoice] = useUpdateInvoiceMutation();
@@ -319,6 +321,7 @@ const ATMAppHeader = ({
           reason: '',
           amount: '',
           proofUrl: '',
+          paymentMode:'',
           createdAt: new Date()
         })
       } else {
@@ -381,7 +384,7 @@ const ATMAppHeader = ({
       flex: 'flex-[3_1_0%]',
       renderCell: (row: any) => row.cashBackDiscount,
     },
-    
+
     {
       fieldName: 'totalAmount',
       headerName: 'Total',
@@ -533,6 +536,7 @@ const ATMAppHeader = ({
               width: '125px',
             }}
             onClick={() => dispatch(setIsOpenAddDialog(true))}
+            disabled={(registerData as any)?.data?.register?.isOpened}
             className="font-semibold rounded-lg w-full h-full flex items-center justify-center text-sm px-4 transition-all duration-300 shadow bg-primary text-white border border-primary hover:bg-primary-30"
           >
             <span>Open Registers</span>
@@ -733,6 +737,24 @@ const ATMAppHeader = ({
                 setTempCashUsage((prev) => ({ ...prev, reason: e.target.value }))
               }
             />
+
+            <ATMSelect
+              value={tempCashUsage.paymentMode}
+              onChange={(val) =>
+                setTempCashUsage((prev) => ({ ...prev, paymentMode: val }))
+              }
+              options={[
+                { _id: "cash", name: "Cash" },
+                { _id: "card", name: "Card" },
+              ]}
+              valueAccessKey="_id"
+              getOptionLabel={(option) =>
+                option?.name ? option.name : ""
+              }
+              placeholder="Select Payment Mode"
+              isClearable={false}
+            />
+
 
             <ATMNumberField label='Enter Amount *' name="cashUsageAmount"
               value={tempCashUsage.amount}
