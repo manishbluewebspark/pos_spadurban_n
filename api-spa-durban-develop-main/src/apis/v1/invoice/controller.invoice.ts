@@ -380,19 +380,20 @@ const createInvoice = catchAsync(
     }
 
     try {
-      const query = `
+      if (bookingId) {
+        const query = `
       UPDATE public."Bookings"
       SET "invoiceNumber" = $1
       WHERE "id" = $2
       RETURNING *;
     `;
+        const values = [newInvoiceNumber, bookingId];
+        const result = await pool.query(query, values);
+      }
 
-    const values = [invoiceNumber, bookingId];
 
-    const result = await pool.query(query, values);
-    console.log('-----result',result)
     } catch (error) {
-      console.log('-----error',error)
+      console.log('-----error', error)
     }
     return res.status(httpStatus.CREATED).send({
       message: "Added successfully!",
