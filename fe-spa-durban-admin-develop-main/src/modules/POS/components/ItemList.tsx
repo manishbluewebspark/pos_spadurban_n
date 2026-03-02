@@ -121,10 +121,11 @@ const ItemList = ({ onItemClick, onAllItemsProcessed, isDisabled }: Props) => {
         //     value: searchValue.trim(),
         //   });
         // }
+        const isTreatmentMode = treatments && treatments.length > 0;
 
         return {
           page,
-          limit: 15,
+          limit: isTreatmentMode ? 1000 : 15,
           searchValue: searchValue?.trim() || "", // empty ho to bhi bhej do
           filterBy: JSON.stringify(filters),
           outletId: (outlet as any)?._id,
@@ -180,28 +181,86 @@ const ItemList = ({ onItemClick, onAllItemsProcessed, isDisabled }: Props) => {
     setShowAction(false); // switch back to pencil
   };
 
-  useEffect(() => {
-    if (items && items?.length > 0) {
-      const prevTreatments = JSON.stringify(prevTreatmentsRef.current);
-      const newTreatments = JSON.stringify(treatments);
+  // useEffect(() => {
+  //   if (items && items?.length > 0) {
+  //     const prevTreatments = JSON.stringify(prevTreatmentsRef.current);
+  //     const newTreatments = JSON.stringify(treatments);
 
-      if (prevTreatments !== newTreatments) {
-        if (treatments?.length > 0) {
-          const matchedObjects = items
-            .filter((item) => treatments.includes(item.bookingTreatmentsId))
-            .map((item) => ({
-              ...item,
-              quantity: 1,
-              sellingPrice: item.sellingPrice ?? 0,
-            }));
+  //     if (prevTreatments !== newTreatments) {
+  //       if (treatments?.length > 0) {
+  //         const matchedObjects = items
+  //           .filter((item) => treatments.includes(item.bookingTreatmentsId))
+  //           .map((item) => ({
+  //             ...item,
+  //             quantity: 1,
+  //             sellingPrice: item.sellingPrice ?? 0,
+  //           }));
 
-          setSelectedItems(matchedObjects);
-        }
+  //         setSelectedItems(matchedObjects);
+  //       }
 
-        prevTreatmentsRef.current = treatments;
-      }
+  //       prevTreatmentsRef.current = treatments;
+  //     }
+  //   }
+  // }, [treatments, items]);
+
+const collectedItemsRef = useRef<any[]>([]);
+const processedRef = useRef(false);
+
+useEffect(() => {
+  if (!treatments?.length) return;
+  if (!items?.length) return;
+  if (!(data as any)?.pagination) return;
+  if (processedRef.current) return;
+
+  const totalPages = (data as any).pagination.totalPages;
+
+
+items.forEach((item) => {
+  console.log(
+    "Item bookingTreatmentsId:",
+    item.bookingTreatmentsId,
+    "Matched:",
+    treatments.includes(item.bookingTreatmentsId)
+  );
+});
+  // ✅ Match current page items
+  const matched = items.filter((item) =>
+    treatments.includes(String(item.bookingTreatmentsId))
+  );
+
+  console.log("Matched This Page:", matched);
+
+  // ✅ Add matched to collected ref (avoid duplicates)
+  matched.forEach((m) => {
+    if (!collectedItemsRef.current.find(i => i._id === m._id)) {
+      collectedItemsRef.current.push(m);
     }
-  }, [treatments, items]);
+  });
+
+  // 🔥 If more pages exist → keep paginating
+  // if (page < totalPages) {
+  //   setPage((prev) => prev + 1);
+  //   return;
+  // }
+
+  // 🔥 Last page reached → finalize
+  const formatted = collectedItemsRef.current.map((item) => ({
+    ...item,
+    quantity: 1,
+    sellingPrice: item.sellingPrice ?? 0,
+  }));
+
+  console.log("Final Selected Items:", formatted);
+
+  setSelectedItems(formatted);
+
+  // ✅ Stop future runs
+  processedRef.current = true;
+
+}, [treatments, items, data, page]);
+
+
   useEffect(() => {
     if (selectedItems.length > 0) {
       onAllItemsProcessed(selectedItems); // Call function when array is updated

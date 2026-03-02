@@ -157,7 +157,6 @@ const CartSummarySection = ({
     null,
   );
 
-  console.log('-----selectedCustomer',selectedCustomer)
   const { values, setFieldValue } = formikProps;
   const [isOpenAddNotesDialog, setIsOpenAddNotesDialog] = useState(false);
   const { userData, outlet, accessToken } = useSelector(
@@ -422,6 +421,7 @@ const fetchOptions = async (inputValue: string): Promise<SelectOption[]> => {
     async (inputValue: any, callback: (arg0: any[]) => void) => {
       setLoading(true);
       const options = await fetchOptions(inputValue);
+      console.log('------options',options)
       setLoading(false);
       callback(options);
     },

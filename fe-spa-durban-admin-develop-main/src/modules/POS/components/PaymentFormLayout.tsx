@@ -134,18 +134,15 @@ const PaymentFormLayout = ({
     refetch()
   }, [])
 
-  const balanceDuee = previewData?.invoiceData?.totalAmount -
-    calculateTotalReceived();
-
-
-  console.log('--------------v', values?.amountReceived)
+const isButtonDisabled =
+  calculateTotalReceived() < previewData?.invoiceData?.totalAmount;
   return (
     <>
       <MOLFormDialog
         title="Payment"
         onClose={onClose}
         isSubmitting={isSubmitting}
-        isSubmitButtonDisabled={balanceDuee !== 0}
+        isSubmitButtonDisabled={isButtonDisabled}
         isDraftSubmitting={isDraftSubmitting}
         draftbtn
         onDraft={() => onDraft(values)}

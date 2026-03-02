@@ -135,10 +135,10 @@ const ViewOutletRegisterPage = () => {
       render: (row: any) => (row?.openingBalance ? row.openingBalance : '-'),
     },
     {
-      fieldName: 'totalManualAmount',
+      fieldName: 'totalCashAmount',
       headerName: 'Total Manual Cash',
       flex: 'flex-[1_1_0%]',
-      render: (row: any) => (row?.totalManualAmount ? row.totalManualAmount : '-'),
+      render: (row: any) => (row?.totalCashAmount ? row.totalCashAmount : '-'),
     },
     {
       fieldName: 'bankDeposit',

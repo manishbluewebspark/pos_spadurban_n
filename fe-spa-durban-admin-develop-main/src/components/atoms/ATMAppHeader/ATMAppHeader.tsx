@@ -46,6 +46,8 @@ import { ATMButton } from '../ATMButton/ATMButton';
 import ATMFileUploader from '../FormElements/ATMFileUploader/ATMFileUploader';
 import ATMNumberField from '../FormElements/ATMNumberField/ATMNumberField';
 import { useGetRegisterByCurrentDateQuery, useUpdateRegisterMutation } from 'src/modules/OpenRegister/service/OpenRegisterServices';
+import MOLLoader from 'src/components/molecules/MOLLoader/MOLLoader';
+import ATMCircularProgress from '../ATMCircularProgress/ATMCircularProgress';
 type Props = {
   hideCollapseMenuButton?: boolean;
   showOutletDropdown?: boolean;
@@ -106,6 +108,7 @@ const ATMAppHeader = ({
   const [isOpenChangePasswordDialog, setIsOpenChangePassword] = useState(false);
   const [isOpenSalseReportDialog, setIsOpenSalseReportDialog] = useState(false);
   const [isOpenRegistertDialog, setIsOpenRegistertDialog] = useState(false);
+  const [loading,setLoading] = useState(false);
   const [showCashUsageModal, setShowCashUsageModal] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({
     top: 0,
@@ -288,20 +291,24 @@ const ATMAppHeader = ({
 
 
   const handlePayout = async () => {
+    setLoading(true)
     const registerId = (registerData as any)?.data?.register?._id;
 
     if (!registerId) {
       showToast('error', 'Please open a register for this outlet');
+       setLoading(false)
       return;
     }
 
     if (!tempCashUsage?.reason) {
       showToast('error', 'Please enter any reason');
+        setLoading(false)
       return
     }
 
     if (!tempCashUsage?.amount) {
       showToast('error', 'Please enter amount');
+        setLoading(false)
       return
     }
 
@@ -327,6 +334,7 @@ const ATMAppHeader = ({
       } else {
         showToast('error', 'Failed to upload pay out');
         setShowCashUsageModal(false);
+          setLoading(false)
       }
       // if (res?.error) {
       //   showToast('error', 'Failed to upload pay out');
@@ -343,6 +351,7 @@ const ATMAppHeader = ({
       console.error(err);
       showToast('error', 'Failed to submit payout');
       setShowCashUsageModal(false);
+        setLoading(false)
     }
   };
 
@@ -783,7 +792,7 @@ const ATMAppHeader = ({
               <ATMButton
                 onClick={() => handlePayout()}
               >
-                Submit
+                {loading ? <ATMCircularProgress/> : "Submit"}
               </ATMButton>
 
             </div>

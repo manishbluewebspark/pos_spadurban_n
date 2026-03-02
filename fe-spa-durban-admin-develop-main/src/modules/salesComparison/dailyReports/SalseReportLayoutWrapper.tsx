@@ -45,10 +45,11 @@ const SalseReportLayoutWrapper = ({
   notes,
   onRefundNoteSave
 }: Props) => {
+  console.log('-----rowData',rowData)
   const da = rowData?.sales;
   return (
     <MOLFormDialog
-      title="Salse Report"
+      title="Sales Report"
       onClose={onClose}
       isSubmitting={false}
       size={'large'}
@@ -61,7 +62,7 @@ const SalseReportLayoutWrapper = ({
 
 
       <div className="flex flex-col h-full gap-2 p-4">
-        <Authorization permission="SALES_COMPARISON_LIST">
+        <Authorization permission="NAV_POS">
           <div className="flex flex-col overflow-auto border rounded border-slate-300">
             {/* Table Toolbar */}
             <MOLFilterBar filters={filter} hideSearch />

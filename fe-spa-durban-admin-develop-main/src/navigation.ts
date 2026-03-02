@@ -403,17 +403,6 @@ const navigation: (params?: {
           },
           permission: 'NAV_ACCOUNT',
         },
-
-        {
-          title: 'POS',
-          icon: IconCashBanknote,
-          path: 'pos',
-          searchParams: {
-            page: '1',
-            limit: '10',
-          },
-          // permission: 'NAV_POS',
-        },
         {
           title: 'Test Get Bookings',
           icon: IconCashBanknote,
@@ -509,6 +498,21 @@ const navigation: (params?: {
           },
           permission: 'CLOSURE_SUMMARY',
         }
+      ]
+    },
+    {
+      groupLable:"POS",
+      items:[
+         {
+          title: 'POS',
+          icon: IconCashBanknote,
+          path: 'pos',
+          searchParams: {
+            page: '1',
+            limit: '10',
+          },
+          // permission: 'NAV_POS',
+        },
       ]
     }
   ];

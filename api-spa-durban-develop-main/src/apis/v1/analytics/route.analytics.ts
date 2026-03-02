@@ -324,5 +324,11 @@ router.get(
   authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
   analyticsController.getPaymentReports
 );
+router.get(
+  '/new/sales-ledger-report-data',
+  parseBodyAndQuery,
+  authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
+  analyticsController.getSalesLedgerReports
+);
 
 export default router;

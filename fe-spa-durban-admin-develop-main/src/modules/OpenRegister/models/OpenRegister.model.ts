@@ -37,6 +37,7 @@ export type RegisterValue = {
   totalPayouts:number;
   totalManualAmount:number;
   cashAmount: number;
+  totalCashAmount:Number;
   cashUsageProofUrl:string;
   cashUsageReason:string;
   actions:any;

@@ -23,7 +23,7 @@ const createCustomer = async (customerBody: any): Promise<CustomerDocument> => {
 
   const existingCustomer = await Customer.findOne({
     $or: [
-      { customerName: customerBody.customerName },
+      // { customerName: customerBody.customerName },
       { email: customerBody.email },
       { phone: customerBody.phone }
     ],
@@ -32,7 +32,7 @@ const createCustomer = async (customerBody: any): Promise<CustomerDocument> => {
   if (existingCustomer) {
     throw new ApiError(
       httpStatus.CONFLICT,
-      "Customer with same name or email or phone already exists."
+      "Customer with same email or phone already exists."
     );
   }
 
@@ -243,6 +243,35 @@ const updateCustomerById = async (
   // const user = await userService.updateUserById(customerId, {
   //   userDataToUpdate,
   // });
+
+  return customerUpdated;
+};
+
+const updateCustomerByBookingCustomerId = async (
+  bookingCustomerId: string | number,
+  updateBody: any
+): Promise<CustomerDocument> => {
+
+  const customer = await Customer.findOne({
+    bookingCustomerId: bookingCustomerId,
+  });
+
+  if (!customer) {
+    throw new ApiError(httpStatus.NOT_FOUND, "Customer not found");
+  }
+
+  const customerUpdated = await Customer.findOneAndUpdate(
+    { bookingCustomerId: bookingCustomerId },   // 🔥 match here
+    { ...updateBody },
+    { new: true }
+  );
+
+  if (!customerUpdated) {
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "Something went wrong while updating customer."
+    );
+  }
 
   return customerUpdated;
 };
@@ -500,5 +529,6 @@ export {
   findCustomerByBookingId,
   importCSV,
   exportCSV,
-  getAllCustomers
+  getAllCustomers,
+  updateCustomerByBookingCustomerId
 };

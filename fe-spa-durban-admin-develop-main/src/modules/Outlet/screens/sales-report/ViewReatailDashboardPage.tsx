@@ -231,6 +231,7 @@ const ViewReatailDashboardPage = () => {
     }
 
     if (!currentOutlet) {
+      
       newSearchParams.set("outletIds", outlets?.[0]?._id || "");
     }
 

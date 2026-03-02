@@ -1131,98 +1131,251 @@ const getRegisterCurentDate = catchAsync(
     endDate.setHours(23, 59, 59, 999);
 
     // Step 2: Aggregate today's invoice data by date and payment mode
-    const pipeline: PipelineStage[] = [
-      {
-        $addFields: {
-          createdAtDate: { $toDate: "$invoiceDate" },
-        },
+    // const pipeline: PipelineStage[] = [
+    //   {
+    //     $addFields: {
+    //       createdAtDate: { $toDate: "$invoiceDate" },
+    //     },
+    //   },
+    //   {
+    //     $match: {
+    //       outletId: new mongoose.Types.ObjectId(outletId),
+    //       status: "",
+    //       invoiceDate: {
+    //         $gte: startDate,
+    //         $lte: endDate,
+    //       },
+    //     },
+    //   },
+    //   { $unwind: "$amountReceived" },
+    //   {
+    //     $group: {
+    //       _id: {
+    //         date: {
+    //           $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" },
+    //         },
+    //         paymentModeId: "$amountReceived.paymentModeId",
+    //       },
+    //       totalAmount: { $sum: "$amountReceived.amount" },
+    //     },
+    //   },
+    //   {
+    //     $lookup: {
+    //       from: "paymentmodes",
+    //       localField: "_id.paymentModeId",
+    //       foreignField: "_id",
+    //       as: "paymentModeData",
+    //     },
+    //   },
+    //   { $unwind: "$paymentModeData" },
+    //   {
+    //     $project: {
+    //       date: "$_id.date",
+    //       paymentModeId: "$_id.paymentModeId",
+    //       totalAmount: 1,
+    //       paymentModeName: "$paymentModeData.modeName",
+    //     },
+    //   },
+    //   {
+    //     $group: {
+    //       _id: "$date",
+    //       payments: {
+    //         $push: {
+    //           _id: "$paymentModeId",
+    //           totalAmount: "$totalAmount",
+    //           paymentModeName: "$paymentModeName",
+    //         },
+    //       },
+    //     },
+    //   },
+    //   {
+    //     $project: {
+    //       _id: 0,
+    //       date: "$_id",
+    //       payments: 1,
+    //     },
+    //   },
+    //   { $sort: { invoiceDate: 1 } },
+    // ];
+
+const pipeline: PipelineStage[] = [
+  {
+    $match: {
+      outletId: new mongoose.Types.ObjectId(outletId),
+      status: "",
+      invoiceDate: {
+        $gte: startDate,
+        $lte: endDate,
       },
-      {
-        $match: {
-          outletId: new mongoose.Types.ObjectId(outletId),
-          status: "",
-          invoiceDate: {
-            $gte: startDate,
-            $lte: endDate,
+    },
+  },
+
+  // 🔥 STEP 1: Convert giftCardDiscount into payment entry
+  {
+    $addFields: {
+      allPayments: {
+        $concatArrays: [
+          "$amountReceived",
+          {
+            $cond: [
+              { $gt: [{ $ifNull: ["$giftCardDiscount", 0] }, 0] },
+              [
+                {
+                  paymentModeId: {
+                    $literal: new mongoose.Types.ObjectId("6895c88c6dff463d0dcb7a72"), // gift card id
+                  },
+                  amount: "$giftCardDiscount",
+                },
+              ],
+              [],
+            ],
+          },
+        ],
+      },
+    },
+  },
+
+  { $unwind: "$allPayments" },
+
+  {
+    $lookup: {
+      from: "paymentmodes",
+      localField: "allPayments.paymentModeId",
+      foreignField: "_id",
+      as: "paymentModeData",
+    },
+  },
+  { $unwind: "$paymentModeData" },
+
+  {
+    $group: {
+      _id: {
+        date: {
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: "$invoiceDate",
           },
         },
+        paymentModeId: "$allPayments.paymentModeId",
       },
-      { $unwind: "$amountReceived" },
-      {
-        $group: {
-          _id: {
-            date: {
-              $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" },
-            },
-            paymentModeId: "$amountReceived.paymentModeId",
-          },
-          totalAmount: { $sum: "$amountReceived.amount" },
+      totalAmount: { $sum: "$allPayments.amount" },
+      paymentModeName: { $first: "$paymentModeData.modeName" },
+    },
+  },
+
+  {
+    $group: {
+      _id: "$_id.date",
+      payments: {
+        $push: {
+          _id: "$_id.paymentModeId",
+          paymentModeName: "$paymentModeName",
+          totalAmount: "$totalAmount",
         },
       },
-      {
-        $lookup: {
-          from: "paymentmodes",
-          localField: "_id.paymentModeId",
-          foreignField: "_id",
-          as: "paymentModeData",
-        },
-      },
-      { $unwind: "$paymentModeData" },
-      {
-        $project: {
-          date: "$_id.date",
-          paymentModeId: "$_id.paymentModeId",
-          totalAmount: 1,
-          paymentModeName: "$paymentModeData.modeName",
-        },
-      },
-      {
-        $group: {
-          _id: "$date",
-          payments: {
-            $push: {
-              _id: "$paymentModeId",
-              totalAmount: "$totalAmount",
-              paymentModeName: "$paymentModeName",
-            },
-          },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          date: "$_id",
-          payments: 1,
-        },
-      },
-      { $sort: { invoiceDate: 1 } },
-    ];
+    },
+  },
+
+  {
+    $project: {
+      _id: 0,
+      date: "$_id",
+      payments: 1,
+    },
+  },
+
+  { $sort: { date: 1 } },
+];
 
 
+  // ... your existing code above ...
 
-    const result = await Invoice.aggregate(pipeline);
+const result = await Invoice.aggregate(pipeline);
+console.log('-------result',JSON.stringify(result, null, 2))
+// latestRegister already fetched below; keep it as-is
+const latestRegister = await SalesRegister.findOne({
+  outletId,
+  createdBy: userId,
+  isDeleted: false,
+  isOpened: true,
+})
+  .sort({ createdAt: -1 })
+  .populate("outletId", "name")
+  .lean();
 
-    // Step 3: Get current register (open or closed today)
-    const latestRegister = await SalesRegister.findOne({
-      outletId,
-      createdBy: userId,
-      isDeleted: false,
-      isOpened: true,
-    }).sort({ createdAt: -1 })
-    .populate("outletId", "name")
-    .lean();
+/** ---------- NEW: adjust result by cashUsage ---------- **/
 
-    
-    return res.status(httpStatus.OK).send({
-      message: "Successful.",
-      data: {
-        register: latestRegister || null,
-        result,
-      },
-      status: true,
-      code: "OK",
-      issue: null,
-    });
+// Normalize helper
+const norm = (s?: string) => (s || "").toLowerCase().trim();
+// Format date to YYYY-MM-DD
+const dstr = (d: Date) =>
+  new Date(d).toISOString().slice(0, 10); // safe for UTC-based store
+
+// 1) Build date+mode → amount map from cashUsage within [startDate, endDate]
+const usageByDateMode: Record<string, Record<string, number>> = {};
+(latestRegister?.cashUsage ?? [])
+  .filter((u: any) => {
+    const ct = u?.createdAt ? new Date(u.createdAt) : null;
+    return (
+      ct &&
+      ct >= startDate &&
+      ct <= endDate &&
+      typeof u?.amount !== "undefined" &&
+      !Number.isNaN(Number(u.amount))
+    );
+  })
+  .forEach((u: any) => {
+    const dateKey = dstr(new Date(u.createdAt));
+    const modeKey = norm(u.paymentMode); // e.g., "cash", "card"
+    if (!usageByDateMode[dateKey]) usageByDateMode[dateKey] = {};
+    usageByDateMode[dateKey][modeKey] =
+      (usageByDateMode[dateKey][modeKey] || 0) + Number(u.amount || 0);
+  });
+
+// 2) Map card → "credit card" for deduction target
+const mapUsageKeyToPaymentName = (modeKey: string) => {
+  if (modeKey === "card") return "credit card";
+  // add other aliases if needed
+  return modeKey;
+};
+
+// 3) Adjust your aggregated `result` per day, per payment
+const adjustedResult = (result || []).map((day: any) => {
+  const dateKey = day?.date; // "YYYY-MM-DD" from your $dateToString
+  const usageForDate = usageByDateMode[dateKey] || {};
+
+  const payments = (day?.payments || []).map((p: any) => {
+    const payName = norm(p.paymentModeName); // e.g., "cash", "credit card"
+    // figure out which usage bucket hits this payment
+    // direct match (cash → cash), or "card" usage hits "credit card"
+    const directDeduct = usageForDate[payName] || 0;
+
+    // if payment is "credit card", also subtract any "card" usage bucket
+    let aliasDeduct = 0;
+    if (payName === "credit card") {
+      aliasDeduct += usageForDate["card"] || 0;
+    }
+    const totalDeduct = directDeduct + aliasDeduct;
+
+    const newAmt = Math.max(0, Number(p.totalAmount || 0) - Number(totalDeduct || 0));
+    return { ...p, totalAmount: newAmt };
+  });
+
+  return { ...day, payments };
+});
+
+// --- send adjusted result back ---
+return res.status(httpStatus.OK).send({
+  message: "Successful.",
+  data: {
+    register: latestRegister || null,
+    result: adjustedResult, // 👈 now net of cash/card usage per day
+  },
+  status: true,
+  code: "OK",
+  issue: null,
+});
+
   }
 );
 

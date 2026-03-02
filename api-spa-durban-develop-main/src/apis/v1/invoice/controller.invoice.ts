@@ -42,6 +42,7 @@ import { getPreview } from "./helper.preinvoice";
 import mongoose from "mongoose";
 import Cashback from "../cashback/schema.cashback";
 import { sendEmail } from "../../../../src/helper/sendEmail";
+import pool from "../../../../database/postgres";
 
 const previewInvoice = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -378,6 +379,21 @@ const createInvoice = catchAsync(
       await sendEmail(emailData, outlet);
     }
 
+    try {
+      const query = `
+      UPDATE public."Bookings"
+      SET "invoiceNumber" = $1
+      WHERE "id" = $2
+      RETURNING *;
+    `;
+
+    const values = [invoiceNumber, bookingId];
+
+    const result = await pool.query(query, values);
+    console.log('-----result',result)
+    } catch (error) {
+      console.log('-----error',error)
+    }
     return res.status(httpStatus.CREATED).send({
       message: "Added successfully!",
       data: invoice,

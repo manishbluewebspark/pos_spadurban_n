@@ -46,12 +46,12 @@ const POSWrapper = (props: Props) => {
       {
         paymentModeId: '',
         amount: 0,
-        txnNumber:''
+        txnNumber: ''
       },
     ],
     giftCardCode: '',
-    promotionCoupanCode:'',
-    rewardCoupan:'',
+    promotionCoupanCode: '',
+    rewardCoupan: '',
     useLoyaltyPoints: false,
     useCashBackAmount: false,
     usedCashBackAmount: 0,
@@ -196,6 +196,45 @@ const POSWrapper = (props: Props) => {
       showToast('error', 'Something went wrong while generating or sending the PDF');
     }
   };
+
+  const validateBooking = (data: any) => {
+    const {
+      giftCardCode,
+      referralCode,
+      promotionCoupanCode,
+      amountReceived,
+    } = data;
+
+    console.log('-----data', data)
+    // 1️⃣ Gift Card validation
+    if (giftCardCode && giftCardCode.trim() !== "") {
+      const hasGiftCardPayment = amountReceived?.some(
+        (p: any) =>
+          p.paymentModeId === "6895c88c6dff463d0dcb7a72"
+      );
+
+      if (!hasGiftCardPayment) {
+        return "If you are using a gift card, you must select ,,,gift card,,, as the payment mode and enter the amount.";
+      }
+    }
+
+    // 2️⃣ Promo / Referral validation
+    if (
+      (referralCode && referralCode.trim() !== "") ||
+      (promotionCoupanCode && promotionCoupanCode.trim() !== "")
+    ) {
+      const hasPromoPayment = amountReceived?.some(
+        (p: any) =>
+          p.paymentModeId === "67b73e8aceeeba3a8b3444fe"
+      );
+
+      if (!hasPromoPayment) {
+        return "A referral or promotion code has been applied. Please select ,,,promo,,, as the payment mode and enter the corresponding amount.";
+      }
+    }
+
+    return null; // ✅ valid
+  };
   //------------------- end new code
 
 
@@ -216,11 +255,11 @@ const POSWrapper = (props: Props) => {
       amountReceived: values?.amountReceived?.map((el: any) => ({
         paymentModeId: el?.paymentModeId?._id,
         amount: el?.amount,
-        txnNumber:el?.txnNumber
+        txnNumber: el?.txnNumber
       })),
       giftCardCode: values?.giftCardCode,
       promotionCoupanCode: values?.promotionCoupanCode,
-      rewardCoupan:values?.rewardCoupan,
+      rewardCoupan: values?.rewardCoupan,
       useLoyaltyPoints: values?.useLoyaltyPoints,
       referralCode: '',
       outletId: (outlet as any)?._id,
@@ -229,6 +268,14 @@ const POSWrapper = (props: Props) => {
       usedCashBackAmount: values?.usedCashBackAmount,
       bookingId: bookingId,
     };
+
+    const error = validateBooking(formattedValues);
+
+    if (error) {
+      showToast('error', error);
+      setSubmitting(false)
+      return;
+    }
 
     setSubmitting(true);
 
@@ -239,9 +286,9 @@ const POSWrapper = (props: Props) => {
       if (res?.error) {
         showToast('error', res?.error?.data?.message);
       } else if (res?.data?.status) {
-        
+
         const createdInvoiceId = res?.data?.data?._id;
-       
+
         const totalAmount = previewData?.invoiceData?.totalAmount || 0;
         const totalReceived = values?.amountReceived?.reduce(
           (sum: number, item: any) => sum + (Number(item.amount) || 0),
@@ -266,9 +313,9 @@ const POSWrapper = (props: Props) => {
         navigate(`/invoice/receipt/${createdInvoiceId}`);
         //--------
         // Then after rendering
-        setTimeout(() => {
-          handleSendEmail(createdInvoiceId);
-        }, 1000); // Wait to ensure DOM is ready
+        // setTimeout(() => {
+        //   handleSendEmail(createdInvoiceId);
+        // }, 1000); // Wait to ensure DOM is ready
         //--------
       } else {
         showToast('error', res?.data?.message);

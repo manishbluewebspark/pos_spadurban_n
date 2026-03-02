@@ -11,7 +11,7 @@ import { useFilterPagination } from 'src/hooks/useFilterPagination';
 import { SalesReport } from 'src/modules/Invoices/models/Invoices.model';
 import { RootState } from 'src/store';
 import { isAuthorized } from 'src/utils/authorization';
-import { useGetPaymentReportsQuery, useGetRegisterChartDataQuery, useGetRegisterDataQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
+import { useGetPaymentReportsQuery, useGetRegisterChartDataQuery, useGetRegisterDataQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesLedgerReportsQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
 import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
@@ -46,28 +46,57 @@ const ViewSalesLedgerPage = () => {
   const endDate = dateFilter?.end_date || format(new Date(), 'yyyy-MM-dd');
   const outletId = appliedFilters?.[0]?.value || id || outlets?.[0]?._id;
 
-  const { data, isLoading } = useGetPaymentReportsQuery({
+  const { data, isLoading } = useGetSalesLedgerReportsQuery({
     outletId,
     startDate,
     endDate,
+    page,
+    limit
   });
 
   const weeks = data?.weeks || [];
   const pivotData = data?.data || [];
 
   const tableHeaders: TableHeader<any>[] = [
-    { fieldName: 'paymentMode', headerName: 'Payment Mode', flex: 'flex-[2_1_0%]' },
-    ...weeks.map((w: string) => ({
-      fieldName: w,
-      headerName: w,
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => `R ${row[w] ?? 0}`,
-    })),
     {
+      fieldName: 'date',
+      headerName: 'Date',
+      flex: 'flex-[1_1_0%]'
+    },
+     {
+      fieldName: 'user',
+      headerName: 'User',
+      flex: 'flex-[1_1_0%]'
+    },
+     {
+      fieldName: 'register',
+      headerName: 'Register',
+      flex: 'flex-[1_1_0%]'
+    },
+     {
+      fieldName: 'customer',
+      headerName: 'Customer',
+      flex: 'flex-[1_1_0%]'
+    },
+     {
+      fieldName: 'note',
+      headerName: 'Note',
+      flex: 'flex-[1_1_0%]'
+    },
+     {
+      fieldName: 'status',
+      headerName: 'Status',
+      flex: 'flex-[1_1_0%]'
+    },
+      {
       fieldName: 'total',
       headerName: 'Total',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => `R ${row.total ?? 0}`,
+      flex: 'flex-[1_1_0%]'
+    },
+    {
+      fieldName: 'invoiceNumber',
+      headerName: 'Invoice No',
+      flex: 'flex-[1_1_0%]'
     },
   ];
 
@@ -91,16 +120,16 @@ const ViewSalesLedgerPage = () => {
     worksheet['!cols'] = [{ wch: 20 }, ...weeks.map(() => ({ wch: 15 })), { wch: 20 }];
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'PaymentReport');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sales Ledger');
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
-    saveAs(blob, `PaymentReport_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    saveAs(blob, `Sales Ledger${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   return (
-    <div className="flex flex-col h-full gap-2 p-4 text-center justify-center text-xl">
-      Coming Soon
-      {/* <ATMPageHeader
+    <div className="flex flex-col gap-2 p-4 text-center justify-center text-xl">
+    
+      <ATMPageHeader
         heading="Sales Ledger"
         buttonProps={{
           label: 'Export',
@@ -111,7 +140,7 @@ const ViewSalesLedgerPage = () => {
       <Authorization permission="OUTLET_LIST">
         <MOLFilterBar hideSearch={true} filters={[
           {
-            filterType: 'multi-select',
+            filterType: 'single-select',
             label: 'Outlet',
             fieldName: 'outletsId',
             options: outlets?.map((o: any) => ({ label: o.name, value: o._id })) || [],
@@ -136,7 +165,7 @@ const ViewSalesLedgerPage = () => {
             isLoading={isLoading}
           />
         </div>
-      </Authorization> */}
+      </Authorization>
     </div>
   );
 };

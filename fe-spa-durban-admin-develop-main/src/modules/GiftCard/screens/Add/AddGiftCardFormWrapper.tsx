@@ -45,7 +45,7 @@ const AddGiftCardFormWrapper = ({ onClose }: Props) => {
     { resetForm, setSubmitting }: FormikHelpers<GiftCardFormValues>,
   ) => {
     let formattedValues;
-
+    console.log('-----,values',values)
     if (values?.type === 'SPECIFIC_CUSTOMER') {
       formattedValues = {
         type: values?.type,

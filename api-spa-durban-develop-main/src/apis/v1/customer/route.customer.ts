@@ -10,6 +10,7 @@ import {
   exportCustomerCsvSheet,
   importCustomerCsvSheet,
   getCustomerDropdown,
+  updateBookingCustomer,
 } from "./controller.customer";
 import validate from "../../../middleware/validate";
 import {
@@ -271,6 +272,12 @@ router.put(
   authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
   // validate(update),
   updateCustomer
+);
+
+router.put(
+  "/booking/update/:customerId",
+  // authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
+  updateBookingCustomer
 );
 
 /**

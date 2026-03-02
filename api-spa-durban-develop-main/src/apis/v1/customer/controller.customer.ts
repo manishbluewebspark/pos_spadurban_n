@@ -205,6 +205,24 @@ const updateCustomer = catchAsync(
   }
 );
 
+const updateBookingCustomer = catchAsync(
+  async (req: AuthenticatedRequest, res: Response) => {
+
+    const customer = await customerService.updateCustomerByBookingCustomerId(
+      req.params.bookingCustomerId,   // 🔥 param name change
+      req.body
+    );
+
+    return res.status(httpStatus.OK).send({
+      message: "Updated successfully!",
+      data: customer,
+      status: true,
+      code: "OK",
+      issue: null,
+    });
+  }
+);
+
 const deleteCustomer = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
     await customerService.deleteCustomerById(req.params.customerId);
@@ -274,5 +292,6 @@ export {
   createCustomerByBooking,
   importCustomerCsvSheet,
   exportCustomerCsvSheet,
-  getCustomerDropdown
+  getCustomerDropdown,
+  updateBookingCustomer
 };

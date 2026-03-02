@@ -292,6 +292,22 @@ export const outletApi = apiSlice.injectEndpoints({
         };
       },
     }),
+    getSalesLedgerReports: builder.query({
+      query: ({ outletId, startDate, endDate,page, limit }) => {
+        const params = new URLSearchParams({
+          outletId,
+          startDate,
+          endDate,
+          page: String(page),
+          limit: String(limit)
+        });
+
+        return {
+          url: `/analytics/new/sales-ledger-report-data?${params.toString()}`,
+          method: 'GET',
+        };
+      },
+    }),
   }),
 });
 
@@ -316,5 +332,6 @@ export const {
   useGetRetailDashboardDataQuery,
   useGetAllBookingsQuery,
   useGetBookingChartDataQuery,
-  useGetPaymentReportsQuery
+  useGetPaymentReportsQuery,
+  useGetSalesLedgerReportsQuery
 } = outletApi;
