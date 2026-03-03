@@ -103,7 +103,7 @@ export const limitAndTotalCount = (
 // };
 
 const generateYearMonths = (start: Date, end: Date) => {
-  let startDate = startOfYear(start); 
+  let startDate = startOfYear(start);
   let endDate = endOfMonth(end);
   let months = [];
 
@@ -748,26 +748,34 @@ const getDailyOutletReportSingleDay = async (outletId: any) => {
       $group: {
         _id: "$_id",
         date: { $first: { $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" } } },
-        rawInvoiceDate: { $first: "$invoiceDate" },
-        status: { $first: "$status" },
-        invoiceNumber: { $first: "$invoiceNumber" },
-        customerName: { $first: "$customer.name" },
-        totalAmount: { $first: "$totalAmount" },
-        cashBackDiscount: { $first: "$cashBackDiscount" },
-        paymentStatus: { 
-          $first: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, "Paid", "Unpaid"] }
-        },
-        outletId: { $first: "$outlet._id" },
-        outletName: { $first: "$outlet.name" },
-        outletPhone: { $first: "$outlet.phone" },
-        payments: {
-          $push: {
-            paymentMode: "$paymentMode.modeName",
-            amount: "$amountReceived.amount"
+        time: {
+          $first: {
+            $dateToString: {
+              format: "%H:%M:%S",
+              date: "$invoiceDate"
+            }
+          }
+          },
+          rawInvoiceDate: { $first: "$invoiceDate" },
+          status: { $first: "$status" },
+          invoiceNumber: { $first: "$invoiceNumber" },
+          customerName: { $first: "$customer.name" },
+          totalAmount: { $first: "$totalAmount" },
+          cashBackDiscount: { $first: "$cashBackDiscount" },
+          paymentStatus: {
+            $first: { $cond: [{ $eq: ["$paymentStatus", "paid"] }, "Paid", "Unpaid"] }
+          },
+          outletId: { $first: "$outlet._id" },
+          outletName: { $first: "$outlet.name" },
+          outletPhone: { $first: "$outlet.phone" },
+          payments: {
+            $push: {
+              paymentMode: "$paymentMode.modeName",
+              amount: "$amountReceived.amount"
+            }
           }
         }
-      }
-    },
+      },
 
     { $sort: { rawInvoiceDate: 1 } },
 
@@ -808,6 +816,7 @@ const getDailyOutletReportSingleDay = async (outletId: any) => {
         sales: {
           _id: 1,
           date: 1,
+          time:1,
           status: 1,
           invoiceNumber: 1,
           customerName: 1,
@@ -1003,7 +1012,7 @@ const getWeeklyOutletReport = async () => {
 const getMonthlyOutletReport = async () => {
   const startYearMonth = new Date(new Date().getFullYear(), 0, 1);
   const endYearMonth = endOfMonth(new Date());
- console.log('------ssssssss',startYearMonth,endYearMonth)
+  console.log('------ssssssss', startYearMonth, endYearMonth)
   // Generate year-month strings for the aggregation pipeline
   const allMonths = generateYearMonths(startYearMonth, endYearMonth);
 
@@ -1127,10 +1136,10 @@ const getMonthlyOutletReport = async () => {
   return result;
 };
 
-const getOutletReportByDateRange = async (start:any,end:any) => {
+const getOutletReportByDateRange = async (start: any, end: any) => {
 
-    const startDate = new Date(start)
-    const endDate = new Date(end)
+  const startDate = new Date(start)
+  const endDate = new Date(end)
   // Generate year-month strings for the aggregation pipeline
   const allMonths = generateYearMonths(startDate, endDate);
 
@@ -1255,7 +1264,7 @@ const getOutletReportByDateRange = async (start:any,end:any) => {
 };
 
 //
-const getOutletReportData = async (reportDuration: string,startDate:string,endDate:string) => {
+const getOutletReportData = async (reportDuration: string, startDate: string, endDate: string) => {
   //
   if (reportDuration === "MONTHLY") {
     return await getMonthlyOutletReport();
@@ -1270,8 +1279,8 @@ const getOutletReportData = async (reportDuration: string,startDate:string,endDa
   if (reportDuration === "DAILY") {
     return await getDailyOutletReport();
   }
-  if(startDate && endDate){
-    return await getOutletReportByDateRange(startDate,endDate)
+  if (startDate && endDate) {
+    return await getOutletReportByDateRange(startDate, endDate)
   }
 };
 //

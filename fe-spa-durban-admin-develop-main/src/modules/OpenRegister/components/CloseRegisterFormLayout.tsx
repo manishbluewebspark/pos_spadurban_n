@@ -1107,6 +1107,11 @@ const CloseRegisterFormLayout = ({
     }
   };
 
+  const carryForwardBalance = (() => {
+                  const deposit = parseFloat(values.bankDeposit) || 0;
+                  const carryForward = Math.max(cashTotal - deposit, 0);
+                  return carryForward.toFixed(2);
+                })()
   return (
     <MOLFormDialog
       title={formHeading}
@@ -1426,11 +1431,7 @@ const CloseRegisterFormLayout = ({
               <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
                 <p><strong>Opening Balance</strong>: R {openingBalance?.toFixed(2) || '0.00'}</p>
                 <p><strong>Bank Deposit</strong>: R {formikProps.values.bankDeposit || '0.00'}</p>
-                <p><strong>Carry Forward</strong>: R {(() => {
-                  const deposit = parseFloat(values.bankDeposit) || 0;
-                  const carryForward = Math.max(cashTotal - deposit, 0);
-                  return carryForward.toFixed(2);
-                })()}</p>
+                <p><strong>Carry Forward</strong>: R {carryForwardBalance}</p>
               </div>
 
               {Object.keys(completeResult)

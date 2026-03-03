@@ -7,6 +7,10 @@ import {
   isBefore,
   startOfMonth,
   endOfMonth,
+  startOfYear,
+  startOfWeek,
+  endOfYear,
+  endOfWeek,
 } from "date-fns";
 import httpStatus from "http-status";
 import ApiError from "../../../../utilities/apiError";
@@ -255,234 +259,143 @@ const getOutletDailyReport = catchAsync(
   }
 );
 
-const getSalesReportByOutlet = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
-  const { outletId, page = 1, limit = 10, startDate, endDate } = req.query;
-  // console.log('-----req.query',req.query)
-  if (!mongoose.Types.ObjectId.isValid(outletId as string)) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid outletId');
-  }
 
-  const skip = (Number(page) - 1) * Number(limit);
+const getSalesReportByOutlet = catchAsync(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const {
+      outletId,
+      page = 1,
+      limit = 10,
+      startDate,
+      endDate,
+      reportDuration,
+    } = req.query;
 
-  // Construct createdAt filter from startDate and endDate
-  const invoiceDateFilter: Record<string, any> = {};
-  if (startDate) {
-    invoiceDateFilter.$gte = new Date(startDate as string);
-  }
-  if (endDate) {
-    const end = new Date(endDate as string);
-    end.setHours(23, 59, 59, 999); // end of the day
-    invoiceDateFilter.$lte = end;
-  }
+    if (!mongoose.Types.ObjectId.isValid(outletId as string)) {
+      throw new ApiError(httpStatus.BAD_REQUEST, "Invalid outletId");
+    }
 
-  const sortKey = (req.query.sortBy as string) || 'createdAt';
-  const sortOrderParam = req.query.sortOrder as string | number;
+    const skip = (Number(page) - 1) * Number(limit);
+    const today = new Date();
 
-  // Convert to number: -1 or 1
-  let sortOrder: 1 | -1 = -1;
-  if (sortOrderParam === 'asc' || sortOrderParam === 1 || sortOrderParam === '1') {
-    sortOrder = 1;
-  }
+    let calculatedStartDate: Date | undefined;
+    let calculatedEndDate: Date | undefined;
 
-  // console.log('-----',invoiceDateFilter)
-  const pipeline: PipelineStage[] = [
-    {
-      $match: {
-        outletId: new mongoose.Types.ObjectId(outletId as string),
-        isDeleted: false,
-        ...(Object.keys(invoiceDateFilter).length > 0 ? { invoiceDate: invoiceDateFilter } : {}),
-      },
-    },
-    {
-      $lookup: {
-        from: "outlets",
-        localField: "outletId",
-        foreignField: "_id",
-        as: "outlet",
-        pipeline: [
-          { $match: { isDeleted: false, isActive: true } },
-          { $project: { phone: 1, name: 1, logo: 1 } },
-        ],
-      },
-    },
-    {
-      $lookup: {
-        from: "customers",
-        localField: "customerId",
-        foreignField: "_id",
-        as: "customerDetails",
-        pipeline: [
-          { $match: { isDeleted: false, isActive: true } },
-          {
-            $project: {
-              phone: 1,
-              email: 1,
-              address: 1,
-              customerName: 1,
-              loyaltyPoints: 1,
-              cashBackAmount: 1,
-            },
-          },
-        ],
-      },
-    },
-    {
-      $lookup: {
-        from: "paymentmodes",
-        localField: "amountReceived.paymentModeId",
-        foreignField: "_id",
-        as: "paymentModeDetails",
-      },
-    },
-    {
-      $addFields: {
-        amountReceived: {
-          $map: {
-            input: "$amountReceived",
-            as: "received",
-            in: {
-              $mergeObjects: [
-                "$$received",
-                {
-                  modeName: {
-                    $let: {
-                      vars: {
-                        paymentMode: {
-                          $arrayElemAt: [
-                            {
-                              $filter: {
-                                input: "$paymentModeDetails",
-                                as: "paymentModeDetail",
-                                cond: {
-                                  $and: [
-                                    { $eq: ["$$paymentModeDetail._id", "$$received.paymentModeId"] },
-                                    { $eq: ["$$paymentModeDetail.isDeleted", false] },
-                                    { $eq: ["$$paymentModeDetail.isActive", true] },
-                                  ],
-                                },
-                              },
-                            },
-                            0,
-                          ],
-                        },
-                      },
-                      in: "$$paymentMode.modeName",
-                    },
-                  },
-                },
-              ],
-            },
-          },
+    // ✅ CUSTOM Handling
+    if (reportDuration === "CUSTUM") {
+      if (!startDate || !endDate) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "startDate and endDate are required for CUSTUM report"
+        );
+      }
+
+      calculatedStartDate = new Date(startDate as string);
+      calculatedEndDate = new Date(endDate as string);
+      calculatedEndDate.setHours(23, 59, 59, 999);
+    }
+
+    // ✅ Other Durations
+    else if (reportDuration && !startDate && !endDate) {
+      switch (reportDuration) {
+        case "YEARLY":
+          calculatedStartDate = startOfYear(today);
+          calculatedEndDate = endOfYear(today);
+          break;
+
+        case "MONTHLY":
+          calculatedStartDate = startOfMonth(today);
+          calculatedEndDate = endOfMonth(today);
+          break;
+
+        case "WEEKLY":
+          calculatedStartDate = startOfWeek(today, { weekStartsOn: 1 });
+          calculatedEndDate = endOfWeek(today, { weekStartsOn: 1 });
+          break;
+
+        case "DAILY":
+        default:
+          calculatedStartDate = startOfDay(today);
+          calculatedEndDate = endOfDay(today);
+          break;
+      }
+    }
+
+    // ✅ Construct invoiceDate filter
+    const invoiceDateFilter: Record<string, any> = {};
+
+    if (startDate && reportDuration !== "CUSTUM") {
+      invoiceDateFilter.$gte = new Date(startDate as string);
+    } else if (calculatedStartDate) {
+      invoiceDateFilter.$gte = calculatedStartDate;
+    }
+
+    if (endDate && reportDuration !== "CUSTUM") {
+      const end = new Date(endDate as string);
+      end.setHours(23, 59, 59, 999);
+      invoiceDateFilter.$lte = end;
+    } else if (calculatedEndDate) {
+      invoiceDateFilter.$lte = calculatedEndDate;
+    }
+
+    const sortKey = (req.query.sortBy as string) || "createdAt";
+    const sortOrderParam = req.query.sortOrder as string | number;
+
+    let sortOrder: 1 | -1 = -1;
+    if (
+      sortOrderParam === "asc" ||
+      sortOrderParam === 1 ||
+      sortOrderParam === "1"
+    ) {
+      sortOrder = 1;
+    }
+
+    const matchStage = {
+      outletId: new mongoose.Types.ObjectId(outletId as string),
+      isDeleted: false,
+      ...(Object.keys(invoiceDateFilter).length > 0
+        ? { invoiceDate: invoiceDateFilter }
+        : {}),
+    };
+
+    // ✅ Pagination Data
+    const pipeline: PipelineStage[] = [
+      { $match: matchStage },
+      { $sort: { [sortKey]: sortOrder } },
+      { $skip: skip },
+      { $limit: Number(limit) },
+    ];
+
+    const data = await Invoice.aggregate(pipeline);
+
+    const totalCount = await Invoice.countDocuments(matchStage);
+
+    const totalSalesData = await Invoice.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: null,
+          totalSalesAmount: { $sum: "$totalAmount" },
+          cashBackDiscount: { $sum: "$cashBackDiscount" },
         },
-        customerName: { $arrayElemAt: ["$customerDetails.customerName", 0] },
-        customerPhone: { $arrayElemAt: ["$customerDetails.phone", 0] },
-        customerEmail: { $arrayElemAt: ["$customerDetails.email", 0] },
-        customerAddress: { $arrayElemAt: ["$customerDetails.address", 0] },
-        outletName: { $arrayElemAt: ["$outlet.name", 0] },
-        outletPhone: { $arrayElemAt: ["$outlet.phone", 0] },
-        outletLogo: { $arrayElemAt: ["$outlet.logo", 0] },
       },
-    },
-    { $unset: ["paymentModeDetails", "customerDetails", "outlet"] },
-    {
-  $project: {
-    // sari fields rakho
-    invoiceNumber: 1,
-    invoiceDate: 1,
-    customerId: 1,
-    employeeId: 1,
-    outletId: 1,
-    items: 1,
-    amountReceived: 1,
-    couponCode: 1,
-    notes: 1,
-    couponDiscount: 1,
-    shippingCharges: 1,
-    giftCardDiscount: 1,
-    giftCardCode: 1,
-    useLoyaltyPoints: 1,
-    loyaltyPointsEarned: 1,
-    loyaltyPointsDiscount: 1,
-    referralCode: 1,
-    referralDiscount: 1,
-    taxes: 1,
-    totalAmount: 1,
-    totalDiscount: 1,
-    amountPaid: 1,
-    balanceDue: 1,
-    isDeleted: 1,
-    isActive: 1,
-    status: 1,
-    voidNote: 1,
-    cashBackEarned: 1,
-    cashBackDiscount: 1,
-    useCashBackAmount: 1,
-    createdAt: 1,
-    updatedAt: 1,
+    ]);
 
-    // jo addFields se nikali thi wo bhi
-    customerName: 1,
-    customerPhone: 1,
-    customerEmail: 1,
-    customerAddress: 1,
-    outletName: 1,
-    outletPhone: 1,
-    outletLogo: 1,
-    paymentModes: {
-      $map: {
-        input: "$amountReceived",
-        as: "item",
-        in: "$$item.modeName",
+    return res.status(httpStatus.OK).send({
+      message: "Outlet Sales fetched successfully.",
+      data: {
+        invoices: data,
+        totalSalesData,
+        page: Number(page),
+        limit: Number(limit),
+        totalCount,
       },
-    },
+      status: true,
+      code: "OK",
+      issue: null,
+    });
   }
-},
-    { $skip: skip },
-    { $limit: Number(limit) },
-  ];
-
-  pipeline.push({ $sort: { [sortKey]: sortOrder } });
-
-  const data = await Invoice.aggregate(pipeline);
-
-  const totalCount = await Invoice.countDocuments({
-    outletId: new mongoose.Types.ObjectId(outletId as string),
-    isDeleted: false,
-    ...(Object.keys(invoiceDateFilter).length > 0 ? { invoiceDate: invoiceDateFilter } : {}),
-  });
-
-  const totalSalesData = await Invoice.aggregate([
-    {
-      $match: {
-        outletId: new mongoose.Types.ObjectId(outletId as string),
-        isDeleted: false,
-        ...(Object.keys(invoiceDateFilter).length > 0 ? { invoiceDate: invoiceDateFilter } : {}),
-      },
-    },
-    {
-      $group: {
-        _id: null,
-        totalSalesAmount: { $sum: "$totalAmount" },
-        cashBackDiscount:{$sum: "$cashBackDiscount"}
-      },
-    },
-  ]);
-
-
-  return res.status(httpStatus.OK).send({
-    message: 'Outlet Sales fetched successfully.',
-    data: {
-      invoices: data,
-      totalSalesData,
-      page: Number(page),
-      limit: Number(limit),
-      totalCount,
-    },
-    status: true,
-    code: 'OK',
-    issue: null,
-  });
-});
+);
 
 const getSalesReportByCustomer = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
   const { customerId, page = 1, limit = 10, startDate, endDate } = req.query;
@@ -671,13 +584,23 @@ const getSalesChartDataReportByOutlet = catchAsync(
     if (!mongoose.Types.ObjectId.isValid(outletId as string)) {
       throw new ApiError(httpStatus.BAD_REQUEST, "Invalid outletId");
     }
+
     if (!startDate || !endDate || !reportDuration) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "startDate, endDate, reportDuration are required");
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "startDate, endDate, reportDuration are required"
+      );
     }
 
     const start = new Date(startDate as string);
     const end = new Date(endDate as string);
     end.setHours(23, 59, 59, 999);
+
+    const differenceInDays =
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    const isCustomDaily =
+      reportDuration === "CUSTUM" && differenceInDays <= 31;
 
     const matchFilter = {
       outletId: new mongoose.Types.ObjectId(outletId as string),
@@ -686,46 +609,69 @@ const getSalesChartDataReportByOutlet = catchAsync(
     };
 
     // --------------------------
-    // 📌 Label Builder
+    // 📌 Labels Builder
     // --------------------------
     let labels: string[] = [];
 
     if (reportDuration === "DAILY") {
-      // 24 hours
       labels = Array.from({ length: 24 }, (_, i) =>
         i.toString().padStart(2, "0") + ":00"
       );
-    } else if (reportDuration === "WEEKLY") {
-      // 7 din ending at endDate
+    }
+
+    else if (reportDuration === "WEEKLY") {
       const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
       labels = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(end);
         d.setDate(end.getDate() - (6 - i));
         return days[d.getDay()];
       });
-    } else if (reportDuration === "MONTHLY") {
-      const startDateObj = new Date(start);
-      const endDateObj = new Date(end);
-      const labelsArr: string[] = [];
+    }
 
-      let tempDate = new Date(startDateObj);
-
-      while (tempDate <= endDateObj) {
-        labelsArr.push(tempDate.getDate().toString().padStart(2, "0"));
-        tempDate.setDate(tempDate.getDate() + 1);
+    else if (reportDuration === "MONTHLY") {
+      let temp = new Date(start);
+      while (temp <= end) {
+        labels.push(temp.getDate().toString().padStart(2, "0"));
+        temp.setDate(temp.getDate() + 1);
       }
+    }
 
-      // Remove first element if it’s duplicate or not needed
-      if (labelsArr.length > 1 && labelsArr[0] === endDateObj.getDate().toString().padStart(2, "0")) {
-        labelsArr.shift();
+    else if (reportDuration === "YEARLY") {
+      labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    }
+
+    else if (reportDuration === "CUSTUM") {
+      if (isCustomDaily) {
+        let temp = new Date(start);
+        while (temp <= end) {
+          labels.push(temp.toISOString().split("T")[0]);
+          temp.setDate(temp.getDate() + 1);
+        }
+      } else {
+        labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       }
-
-      labels = labelsArr;
     }
 
     // --------------------------
-    // 📌 Pipeline Builder
+    // 📌 Group Logic
     // --------------------------
+    const getGroupId = () => {
+      if (reportDuration === "DAILY") return { $hour: "$invoiceDate" };
+      if (reportDuration === "WEEKLY") return { $dayOfWeek: "$invoiceDate" };
+      if (reportDuration === "MONTHLY") return { $dayOfMonth: "$invoiceDate" };
+      if (reportDuration === "YEARLY") return { $month: "$invoiceDate" };
+
+      if (reportDuration === "CUSTUM") {
+        if (isCustomDaily) {
+          return { $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" } };
+        } else {
+          return { $month: "$invoiceDate" };
+        }
+      }
+    };
+
     const pipeline = (s: Date, e: Date): PipelineStage[] => [
       {
         $match: {
@@ -735,12 +681,7 @@ const getSalesChartDataReportByOutlet = catchAsync(
       },
       {
         $group: {
-          _id:
-            reportDuration === "DAILY"
-              ? { $hour: "$invoiceDate" }
-              : reportDuration === "WEEKLY"
-                ? { $dayOfWeek: "$invoiceDate" }
-                : { $dayOfMonth: "$invoiceDate" },
+          _id: getGroupId(),
           total: { $sum: "$totalAmount" },
         },
       },
@@ -748,32 +689,38 @@ const getSalesChartDataReportByOutlet = catchAsync(
     ];
 
     // --------------------------
-    // 📌 Current & Last Period Ranges
+    // 📌 Last Period Calculation (Dynamic)
     // --------------------------
-    let lastStart: Date, lastEnd: Date;
+    let lastStart = new Date(start);
+    let lastEnd = new Date(end);
 
-    if (reportDuration === "DAILY") {
-      // ek din pehle
-      lastStart = new Date(start);
+    if (reportDuration === "CUSTUM") {
+      lastStart.setDate(start.getDate() - differenceInDays);
+      lastEnd.setDate(end.getDate() - differenceInDays);
+    }
+
+    else if (reportDuration === "DAILY") {
       lastStart.setDate(start.getDate() - 1);
-      lastEnd = new Date(end);
       lastEnd.setDate(end.getDate() - 1);
-    } else if (reportDuration === "WEEKLY") {
-      // 7 din pehle
-      lastStart = new Date(start);
+    }
+
+    else if (reportDuration === "WEEKLY") {
       lastStart.setDate(start.getDate() - 7);
-      lastEnd = new Date(end);
       lastEnd.setDate(end.getDate() - 7);
-    } else {
-      // monthly
-      lastStart = new Date(start);
+    }
+
+    else if (reportDuration === "MONTHLY") {
       lastStart.setMonth(start.getMonth() - 1);
-      lastEnd = new Date(end);
       lastEnd.setMonth(end.getMonth() - 1);
     }
 
+    else if (reportDuration === "YEARLY") {
+      lastStart.setFullYear(start.getFullYear() - 1);
+      lastEnd.setFullYear(end.getFullYear() - 1);
+    }
+
     // --------------------------
-    // 📌 Fetch Sales Data
+    // 📌 Fetch Data
     // --------------------------
     const [lastPeriod, currentPeriod] = await Promise.all([
       Invoice.aggregate(pipeline(lastStart, lastEnd)),
@@ -781,79 +728,41 @@ const getSalesChartDataReportByOutlet = catchAsync(
     ]);
 
     // --------------------------
-    // 📌 Format Data to Labels
+    // 📌 Format Data
     // --------------------------
     const formatData = (data: any[]) =>
-      labels.map((label) => {
+      labels.map((label, idx) => {
         let keyVal: any;
-        if (reportDuration === "DAILY") {
-          keyVal = parseInt(label.split(":")[0]); // hour
-        } else if (reportDuration === "WEEKLY") {
-          // convert day name → Mongo dayOfWeek number
-          const mapDay: Record<string, number> = {
-            Sunday: 1,
-            Monday: 2,
-            Tuesday: 3,
-            Wednesday: 4,
-            Thursday: 5,
-            Friday: 6,
-            Saturday: 7,
-          };
-          keyVal = mapDay[label];
-        } else if (reportDuration === "MONTHLY") {
-          keyVal = parseInt(label); // day of month
+
+        if (reportDuration === "DAILY") keyVal = idx;
+        else if (reportDuration === "WEEKLY") keyVal = idx + 1;
+        else if (reportDuration === "MONTHLY") keyVal = parseInt(label);
+        else if (reportDuration === "YEARLY") keyVal = idx + 1;
+
+        else if (reportDuration === "CUSTUM") {
+          if (isCustomDaily) keyVal = label;
+          else keyVal = idx + 1;
         }
+
         const found = data.find((d) => d._id === keyVal);
         return found ? found.total : 0;
       });
 
-
     const lastData = formatData(lastPeriod);
     const currentData = formatData(currentPeriod);
 
-    // --------------------------
-    // 📌 Sales by Payment Mode
-    // --------------------------
-    const salesByPaymentMode = await Invoice.aggregate([
-      { $match: matchFilter },
-      { $unwind: "$amountReceived" },
-      {
-        $lookup: {
-          from: "paymentmodes",
-          localField: "amountReceived.paymentModeId",
-          foreignField: "_id",
-          as: "paymentMode",
-        },
-      },
-      { $addFields: { modeName: { $arrayElemAt: ["$paymentMode.modeName", 0] } } },
-      { $group: { _id: "$modeName", total: { $sum: "$amountReceived.amount" } } },
-      { $sort: { total: -1 } },
-    ]);
-
-    // --------------------------
-    // 📌 Top Customers
-    // --------------------------
-    const topCustomers = await Invoice.aggregate([
-      { $match: matchFilter },
-      { $group: { _id: "$customerId", total: { $sum: "$totalAmount" } } },
-      {
-        $lookup: {
-          from: "customers",
-          localField: "_id",
-          foreignField: "_id",
-          as: "customer",
-        },
-      },
-      { $project: { customerName: { $arrayElemAt: ["$customer.customerName", 0] }, total: 1 } },
-      { $sort: { total: -1 } },
-      { $limit: 5 },
-    ]);
-
-    // --------------------------
-    // 📌 Final Dataset
-    // --------------------------
     const periodLabel =
-      reportDuration === "DAILY" ? "Day" : reportDuration === "WEEKLY" ? "Week" : "Month";
+      reportDuration === "DAILY"
+        ? "Day"
+        : reportDuration === "WEEKLY"
+          ? "Week"
+          : reportDuration === "MONTHLY"
+            ? "Month"
+            : reportDuration === "YEARLY"
+              ? "Year"
+              : reportDuration === "CUSTUM" && !isCustomDaily
+                ? "Month"
+                : "Period";
 
     const datasets = [
       {
@@ -876,7 +785,7 @@ const getSalesChartDataReportByOutlet = catchAsync(
 
     return res.status(httpStatus.OK).send({
       message: "Sales chart data fetched successfully.",
-      data: { salesByPaymentMode, topCustomers, datasets, labels },
+      data: { datasets, labels },
       status: true,
       code: "OK",
       issue: null,
@@ -1545,7 +1454,7 @@ const getSalesChartDataReportByCustomer = catchAsync(async (req: AuthenticatedRe
 
 
 const getRegisterChartDataByOutlet = catchAsync(async (req: Request, res: Response) => {
-  const { outletId, startDate, endDate } = req.query;
+  const { outletId, startDate, endDate, reportDuration } = req.query;
 
   if (!outletId || !startDate || !endDate) {
     return res.status(httpStatus.BAD_REQUEST).json({
@@ -1554,231 +1463,122 @@ const getRegisterChartDataByOutlet = catchAsync(async (req: Request, res: Respon
     });
   }
 
-  const match: any = {
-    isDeleted: false,
-  };
+  const start = new Date(startDate as string);
+  start.setHours(0, 0, 0, 0);
 
-  if (outletId) match.outletId = new mongoose.Types.ObjectId(outletId as string);
+  const end = new Date(endDate as string);
+  end.setHours(23, 59, 59, 999);
 
-  if (startDate && endDate) {
-    const start = new Date(startDate as string);
-    start.setHours(0, 0, 0, 0);
+  const differenceInDays =
+    Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    const end = new Date(endDate as string);
-    end.setHours(23, 59, 59, 999);
+  // 🔹 Decide grouping (AUTO for CUSTUM)
+  let groupFormat: any = "%Y-%m-%d"; // default daily
 
-    match.openedAt = {
-      $gte: start,
-      $lte: end,
-    };
+  if (reportDuration === "YEARLY") {
+    groupFormat = "%Y-%m";
+  } else if (reportDuration === "MONTHLY") {
+    groupFormat = "%Y-%m-%d";
+  } else if (reportDuration === "WEEKLY") {
+    groupFormat = "%Y-%m-%d";
+  } else if (reportDuration === "CUSTUM") {
+    groupFormat = differenceInDays <= 31 ? "%Y-%m-%d" : "%Y-%m";
   }
 
   const pipeline: PipelineStage[] = [
-    { $match: match },
+    {
+      $match: {
+        isDeleted: false,
+        outletId: new mongoose.Types.ObjectId(outletId as string),
+        openedAt: { $gte: start, $lte: end },
+      },
+    },
 
-    // {
-    //   $lookup: {
-    //     from: 'registers', // open register reference
-    //     localField: 'openRegisterId',
-    //     foreignField: '_id',
-    //     as: 'openRegister',
-    //   },
-    // },
-    // {
-    //   $unwind: {
-    //     path: '$openRegister',
-    //     preserveNullAndEmptyArrays: true,
-    //   },
-    // },
-    // {
-    //   $addFields: {
-    //     openingBalance: '$openRegister.openingBalance',
+    {
+      $addFields: {
+        formattedDate: {
+          $dateToString: {
+            format: groupFormat,
+            date: "$openedAt",
+          },
+        },
+      },
+    },
 
-    //     cashAmount: {
-    //       $sum: {
-    //         $map: {
-    //           input: {
-    //             $filter: {
-    //               input: '$closeRegister',
-    //               as: 'entry',
-    //               cond: {
-    //                 $eq: [{ $toLower: '$$entry.paymentModeName' }, 'cash'],
-    //               },
-    //             },
-    //           },
-    //           as: 'entry',
-    //           in: { $ifNull: ['$$entry.totalAmount', 0] },
-    //         },
-    //       },
-    //     },
-    //     upiAmount: {
-    //       $sum: {
-    //         $map: {
-    //           input: {
-    //             $filter: {
-    //               input: '$closeRegister',
-    //               as: 'entry',
-    //               cond: {
-    //                 $eq: [{ $toLower: '$$entry.paymentModeName' }, 'upi'],
-    //               },
-    //             },
-    //           },
-    //           as: 'entry',
-    //           in: { $ifNull: ['$$entry.totalAmount', 0] },
-    //         },
-    //       },
-    //     },
-    //     cardAmount: {
-    //       $sum: {
-    //         $map: {
-    //           input: {
-    //             $filter: {
-    //               input: '$closeRegister',
-    //               as: 'entry',
-    //               cond: {
-    //                 $eq: [{ $toLower: '$$entry.paymentModeName' }, 'credit card'],
-    //               },
-    //             },
-    //           },
-    //           as: 'entry',
-    //           in: { $ifNull: ['$$entry.totalAmount', 0] },
-    //         },
-    //       },
-    //     },
-    //     totalCash: {
-    //       $sum: {
-    //         $map: {
-    //           input: {
-    //             $filter: {
-    //               input: '$closeRegister',
-    //               as: 'entry',
-    //               cond: {
-    //                 $eq: [{ $toLower: '$$entry.paymentModeName' }, 'cash'],
-    //               },
-    //             },
-    //           },
-    //           as: 'entry',
-    //           in: { $ifNull: ['$$entry.totalAmount', 0] },
-    //         },
-    //       },
-    //     },
-    //     finalCash: {
-    //       $add: [
-    //         { $ifNull: ['$openRegister.openingBalance', 0] },
-    //         {
-    //           $sum: {
-    //             $map: {
-    //               input: {
-    //                 $filter: {
-    //                   input: '$closeRegister',
-    //                   as: 'entry',
-    //                   cond: {
-    //                     $eq: [{ $toLower: '$$entry.paymentModeName' }, 'cash'],
-    //                   },
-    //                 },
-    //               },
-    //               as: 'entry',
-    //               in: { $ifNull: ['$$entry.totalAmount', 0] },
-    //             },
-    //           },
-    //         },
-    //       ],
-    //     },
-    //   },
-    // },
-    // {
-    //   $project: {
-    //     _id: 1,
-    //     date: 1,
-    //     openedAt: 1,
-    //     closedAt: 1,
-    //     openingBalance: 1,
-    //     totalCash: 1,
-    //     finalCash: 1,
-    //     bankDeposit: 1,
-    //     carryForwardBalance: 1,
-    //     cashAmount: 1,
-    //     upiAmount: 1,
-    //     cardAmount: 1,
-    //     cashUsageReason: 1,
-    //     cashUsageProofUrl: 1,
-    //   },
-    // },
-    { $sort: { openedAt: 1 } },
+    {
+      $group: {
+        _id: "$formattedDate",
+
+        totalCash: {
+          $sum: {
+            $reduce: {
+              input: "$closeRegister",
+              initialValue: 0,
+              in: {
+                $add: [
+                  "$$value",
+                  {
+                    $sum: {
+                      $map: {
+                        input: {
+                          $filter: {
+                            input: "$$this.payments",
+                            as: "p",
+                            cond: {
+                              $eq: [
+                                { $toLower: "$$p.paymentModeName" },
+                                "cash",
+                              ],
+                            },
+                          },
+                        },
+                        as: "p",
+                        in: { $ifNull: ["$$p.manual", 0] },
+                      },
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+
+        bankDeposit: { $sum: { $ifNull: ["$bankDeposit", 0] } },
+        carryForwardBalance: { $sum: { $ifNull: ["$carryForwardBalance", 0] } },
+
+        openingBalance: { $sum: { $ifNull: ["$openingBalance", 0] } },
+
+        payoutCash: {
+          $sum: {
+            $reduce: {
+              input: "$cashUsage",
+              initialValue: 0,
+              in: { $add: ["$$value", { $toDouble: "$$this.amount" }] },
+            },
+          },
+        },
+      },
+    },
+
+    { $sort: { _id: 1 } },
   ];
 
-  const rawData = await SalesRegister.aggregate(pipeline);
+  const groupedData = await SalesRegister.aggregate(pipeline);
 
+  // 🔹 Response Format (SAME structure as before)
 
-
-  // --- Format 1: Daily Summary ---
-  const dailySummary = rawData.map((item) => ({
-
-   
-
-    date: item.openedAt?.toISOString().split("T")[0],
-    totalCash:     Array.isArray(item?.closeRegister)
-  ? item.closeRegister.reduce((sum:any, reg:any) => {
-      const cashPayments = (reg.payments || []).filter(
-        (p:any) => p.paymentModeName?.toLowerCase() === "cash"
-      );
-      const cashSum = cashPayments.reduce(
-        (acc:any, p:any) => acc + Number(p.manual || 0),
-        0
-      );
-      return sum + cashSum;
-    }, 0)
-  : 0,
-    bankDeposit: item.bankDeposit || 0,
-    carryForwardBalance: item.carryForwardBalance || 0,
+  const dailySummary = groupedData.map((item) => ({
+    date: item._id,
+    totalCash: item.totalCash,
+    bankDeposit: item.bankDeposit,
+    carryForwardBalance: item.carryForwardBalance,
   }));
 
-  // --- Format 2: Final Cash vs Opening ---
-  const finalCashVsOpening = rawData.map((item) => {
-    const payoutCash = Array.isArray(item.cashUsage)
-      ? item.cashUsage.reduce((sum: any, entry: any) => sum + (parseFloat(entry.amount) || 0), 0)
-      : 0;
-
-    return {
-      date: item.openedAt?.toISOString().split("T")[0],
-      openingBalance: item.openingBalance || 0,
-      finalCash: item.cashAmount || 0,
-      payoutCash, // ✅ new field
-    };
-  });
-
-
-  // --- Format 3: Payment Mode Breakdown ---
-  const paymentModeBreakdown = rawData.map((item) => ({
-    date: item.date,
-    cash: item.cashAmount || 0,
-    upi: item.upiAmount || 0,
-    card: item.cardAmount || 0,
-  }));
-
-  // --- Format 4: Manual vs System Cash ---
-  const manualVsSystemCash = rawData.map((item) => ({
-    date: item.date,
-    systemCash: item.totalCash || 0,
-    manualCash: item.cashAmount || 0,
-    difference: (item.totalCash || 0) - (item.cashAmount || 0),
-  }));
-
-  // --- Format 5: Register Timeline ---
-  const registerTimeline = rawData.map((item) => ({
-    date: item.date,
-    openedAt: item.openedAt,
-    closedAt: item.closedAt,
-    durationInMinutes: item.openedAt && item.closedAt
-      ? Math.round((new Date(item.closedAt).getTime() - new Date(item.openedAt).getTime()) / 60000)
-      : null,
-  }));
-
-  // --- Format 6: Cash Usage Summary ---
-  const cashUsageSummary = rawData.map((item) => ({
-    date: item.date,
-    reason: item.cashUsageReason || '',
-    proofUrl: item.cashUsageProofUrl || '',
+  const finalCashVsOpening = groupedData.map((item) => ({
+    date: item._id,
+    openingBalance: item.openingBalance,
+    finalCash: item.totalCash,
+    payoutCash: item.payoutCash,
   }));
 
   return res.status(httpStatus.OK).json({
@@ -1787,11 +1587,7 @@ const getRegisterChartDataByOutlet = catchAsync(async (req: Request, res: Respon
     data: {
       dailySummary,
       finalCashVsOpening,
-      paymentModeBreakdown,
-      manualVsSystemCash,
-      registerTimeline,
-      cashUsageSummary,
-      allInOneTable: rawData,
+      allInOneTable: groupedData,
     },
   });
 });
@@ -1800,22 +1596,65 @@ const getRegisterChartDataByOutlet = catchAsync(async (req: Request, res: Respon
 
 
 const getRegisterDataByOutlet = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
-  const { outletId, startDate, endDate } = req.query;
+  const { outletId, startDate, endDate, reportDuration } = req.query;
 
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 10;
   const skip = (page - 1) * limit;
 
   const match: any = { isDeleted: false };
-  if (outletId) match.outletId = new mongoose.Types.ObjectId(outletId as string);
 
-  if (startDate && endDate) {
-    const start = new Date(startDate as string);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(endDate as string);
-    end.setHours(23, 59, 59, 999);
-    match.openedAt = { $gte: start, $lte: end };
+  if (outletId) {
+    match.outletId = new mongoose.Types.ObjectId(outletId as string);
   }
+
+  let start: Date;
+  let end: Date;
+  const today = new Date();
+
+  // ✅ SMART DATE LOGIC
+  if (startDate && endDate) {
+    start = new Date(startDate as string);
+    start.setHours(0, 0, 0, 0);
+
+    end = new Date(endDate as string);
+    end.setHours(23, 59, 59, 999);
+  } else {
+    switch (reportDuration) {
+
+      case "YEARLY":
+        start = new Date(today.getFullYear(), 0, 1);
+        end = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
+        break;
+
+      case "MONTHLY":
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+        break;
+
+      case "WEEKLY": {
+        const current = new Date();
+        const day = current.getDay();
+        const diff = current.getDate() - day + (day === 0 ? -6 : 1); // Monday start
+        start = new Date(current.setDate(diff));
+        start.setHours(0, 0, 0, 0);
+
+        end = new Date();
+        end.setHours(23, 59, 59, 999);
+        break;
+      }
+
+      case "DAILY":
+      default:
+        start = new Date();
+        start.setHours(0, 0, 0, 0);
+        end = new Date();
+        end.setHours(23, 59, 59, 999);
+        break;
+    }
+  }
+
+  match.openedAt = { $gte: start, $lte: end };
 
   const existingOpenRegister = await SalesRegister.findOne({
     outletId,
@@ -1824,256 +1663,175 @@ const getRegisterDataByOutlet = catchAsync(async (req: AuthenticatedRequest, res
     isDeleted: false,
   });
 
-const pipeline: PipelineStage[] = [
-  // 0) filters
-  { $match: match },
+  const pipeline: PipelineStage[] = [
 
-  // 1) flatten payments + quick sums
-  {
-    $addFields: {
-      // allPayments = concat of every closeRegister[i].payments[]
-      allPayments: {
-        $reduce: {
-          input: { $ifNull: ["$closeRegister", []] },
-          initialValue: [],
-          in: { $concatArrays: ["$$value", { $ifNull: ["$$this.payments", []] }] }
-        }
-      },
+    { $match: match },
 
-      // totalPayouts = sum of payout on each closeRegister
-      totalPayouts: {
-        $sum: {
-          $map: {
+    // 🔹 Flatten Payments
+    {
+      $addFields: {
+        allPayments: {
+          $reduce: {
             input: { $ifNull: ["$closeRegister", []] },
-            as: "cr",
-            in: { $ifNull: ["$$cr.payout", 0] }
+            initialValue: [],
+            in: { $concatArrays: ["$$value", { $ifNull: ["$$this.payments", []] }] }
           }
-        }
-      },
+        },
 
-      // split cashUsage by paymentMode
-      cashUsageCashSum: {
-        $sum: {
-          $map: {
-            input: {
-              $filter: {
-                input: { $ifNull: ["$cashUsage", []] },
-                as: "cu",
-                cond: { $eq: [{ $toLower: "$$cu.paymentMode" }, "cash"] }
-              }
-            },
-            as: "cu",
-            in: { $ifNull: ["$$cu.amount", 0] }
-          }
-        }
-      },
-      cashUsageCardSum: {
-        $sum: {
-          $map: {
-            input: {
-              $filter: {
-                input: { $ifNull: ["$cashUsage", []] },
-                as: "cu",
-                cond: {
-                  $in: [
-                    { $toLower: "$$cu.paymentMode" },
-                    ["card", "credit", "debit", "debit card", "credit card", "card swipe"]
-                  ]
-                }
-              }
-            },
-            as: "cu",
-            in: { $ifNull: ["$$cu.amount", 0] }
-          }
-        }
-      }
-    }
-  },
-
-  // 2) totals from payments
-  {
-    $addFields: {
-      // totalCashAmount = sum of MANUAL (string/number) where paymentModeName == 'cash'
-      totalCashAmount: {
-        $sum: {
-          $map: {
-            input: {
-              $filter: {
-                input: { $ifNull: ["$allPayments", []] },
-                as: "p",
-                cond: { $eq: [{ $toLower: "$$p.paymentModeName" }, "cash"] }
-              }
-            },
-            as: "p",
-            in: {
-              $toDouble: {
-                $replaceAll: {
-                  input: { $toString: { $ifNull: ["$$p.manual", 0] } },
-                  find: ",",
-                  replacement: ""
-                }
-              }
-            }
-          }
-        }
-      },
-
-      // totalCardPayments (gross, before card-usage adjustment)
-      totalCardPayments: {
-        $sum: {
-          $map: {
-            input: {
-              $filter: {
-                input: { $ifNull: ["$allPayments", []] },
-                as: "p",
-                cond: {
-                  $in: [
-                    { $toLower: "$$p.paymentModeName" },
-                    ["card", "credit", "debit", "debit card", "credit card", "card swipe"]
-                  ]
-                }
-              }
-            },
-            as: "p",
-            in: { $ifNull: ["$$p.totalAmount", 0] }
-          }
-        }
-      }
-    }
-  },
-
-  // 3) card usage reduces card sales metric (reporting only)
-  {
-    $addFields: {
-      totalCardPaymentsAdjusted: {
-        $subtract: [{ $ifNull: ["$totalCardPayments", 0] }, { $ifNull: ["$cashUsageCardSum", 0] }]
-      }
-    }
-  },
-
-  // 4) expected cash & variance (use only CASH usage here)
-  {
-    $addFields: {
-      openingBalanceSafe: { $ifNull: ["$openingBalance", 0] },
-      bankDepositSafe: { $ifNull: ["$bankDeposit", 0] },
-      totalPayoutsSafe: { $ifNull: ["$totalPayouts", 0] },
-      cashUsageCashSafe: { $ifNull: ["$cashUsageCashSum", 0] },
-      totalCashAmountSafe: { $ifNull: ["$totalCashAmount", 0] }
-    }
-  },
-  {
-    $addFields: {
-      // cash we expect physically: opening + cash sales - (payout + bankDeposit + cash-usage)
-      expectedPhysicalCash: {
-        $subtract: [
-          { $add: ["$openingBalanceSafe", "$totalCashAmountSafe"] },
-          { $add: ["$totalPayoutsSafe", "$bankDepositSafe", "$cashUsageCashSafe"] }
-        ]
-      },
-      variance: {
-        $subtract: [
-          { $ifNull: ["$cashAmount", 0] },
-          { $ifNull: ["$expectedPhysicalCash", 0] }
-        ]
-      }
-    }
-  },
-
-  // 5) previous closed register (carry-forward)
-  {
-    $lookup: {
-      from: "salesregisters",
-      let: { outlet: "$outletId", openedAt: "$openedAt" },
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $and: [
-                { $eq: ["$outletId", "$$outlet"] },
-                { $lt: ["$closedAt", "$$openedAt"] },
-                { $eq: ["$isClosed", true] },
-                { $eq: ["$isDeleted", false] }
-              ]
+        totalPayouts: {
+          $sum: {
+            $map: {
+              input: { $ifNull: ["$closeRegister", []] },
+              as: "cr",
+              in: { $ifNull: ["$$cr.payout", 0] }
             }
           }
         },
-        { $sort: { closedAt: -1 } },
-        { $limit: 1 },
-        { $project: { carryForwardBalance: 1, closedAt: 1 } }
-      ],
-      as: "previousRegister"
-    }
-  },
-  {
-    $addFields: {
-      previousCarryForwardBalance: {
-        $ifNull: [{ $arrayElemAt: ["$previousRegister.carryForwardBalance", 0] }, 0]
-      },
-      previousClosedAt: {
-        $ifNull: [{ $arrayElemAt: ["$previousRegister.closedAt", 0] }, null]
+
+        cashUsageCashSum: {
+          $sum: {
+            $map: {
+              input: {
+                $filter: {
+                  input: { $ifNull: ["$cashUsage", []] },
+                  as: "cu",
+                  cond: { $eq: [{ $toLower: "$$cu.paymentMode" }, "cash"] }
+                }
+              },
+              as: "cu",
+              in: { $ifNull: ["$$cu.amount", 0] }
+            }
+          }
+        },
+
+        cashUsageCardSum: {
+          $sum: {
+            $map: {
+              input: {
+                $filter: {
+                  input: { $ifNull: ["$cashUsage", []] },
+                  as: "cu",
+                  cond: {
+                    $in: [
+                      { $toLower: "$$cu.paymentMode" },
+                      ["card", "credit", "debit", "debit card", "credit card", "card swipe"]
+                    ]
+                  }
+                }
+              },
+              as: "cu",
+              in: { $ifNull: ["$$cu.amount", 0] }
+            }
+          }
+        }
       }
-    }
-  },
-  { $project: { previousRegister: 0 } },
+    },
 
-  // 6) final projection
-  {
-    $project: {
-      outletId: 1,
-      createdBy: 1,
-      isOpened: 1,
-      isClosed: 1,
-      openedAt: 1,
-      closedAt: 1,
-      createdAt: 1,
-      updatedAt: 1,
+    // 🔹 Payment Totals
+    {
+      $addFields: {
 
-      // raw fields
-      openingBalance: 1,
-      cashAmount: 1,
-      bankDeposit: 1,
-      carryForwardBalance: 1,
+        totalCashAmount: {
+          $sum: {
+            $map: {
+              input: {
+                $filter: {
+                  input: { $ifNull: ["$allPayments", []] },
+                  as: "p",
+                  cond: { $eq: [{ $toLower: "$$p.paymentModeName" }, "cash"] }
+                }
+              },
+              as: "p",
+              in: {
+                $toDouble: {
+                  $replaceAll: {
+                    input: { $toString: { $ifNull: ["$$p.manual", 0] } },
+                    find: ",",
+                    replacement: ""
+                  }
+                }
+              }
+            }
+          }
+        },
 
-      // computed
-      totalPayouts: 1,
-      totalCashAmount: 1,               // <= sum of MANUAL (cash)
-      totalCardPayments: 1,             // gross card
-      totalCardPaymentsAdjusted: 1,     // card minus card-usage
-      cashUsageCashSum: 1,
-      cashUsageCardSum: 1,
-      expectedPhysicalCash: 1,
-      variance: 1,
+        totalCardPayments: {
+          $sum: {
+            $map: {
+              input: {
+                $filter: {
+                  input: { $ifNull: ["$allPayments", []] },
+                  as: "p",
+                  cond: {
+                    $in: [
+                      { $toLower: "$$p.paymentModeName" },
+                      ["card", "credit", "debit", "debit card", "credit card", "card swipe"]
+                    ]
+                  }
+                }
+              },
+              as: "p",
+              in: { $ifNull: ["$$p.totalAmount", 0] }
+            }
+          }
+        }
+      }
+    },
 
-      // details
-      allPayments: 1,
-      closeRegister: 1,
-      cashUsage: 1,
+    {
+      $addFields: {
+        totalCardPaymentsAdjusted: {
+          $subtract: [{ $ifNull: ["$totalCardPayments", 0] }, { $ifNull: ["$cashUsageCardSum", 0] }]
+        }
+      }
+    },
 
-      // previous
-      previousCarryForwardBalance: 1,
-      previousClosedAt: 1
-    }
-  },
+    // 🔹 Expected Cash + Variance
+    {
+      $addFields: {
+        expectedPhysicalCash: {
+          $subtract: [
+            { $add: [{ $ifNull: ["$openingBalance", 0] }, { $ifNull: ["$totalCashAmount", 0] }] },
+            {
+              $add: [
+                { $ifNull: ["$totalPayouts", 0] },
+                { $ifNull: ["$bankDeposit", 0] },
+                { $ifNull: ["$cashUsageCashSum", 0] }
+              ]
+            }
+          ]
+        }
+      }
+    },
 
-  // 7) sort & paginate
-  { $sort: { openedAt: -1 } },
-  { $skip: skip },
-  { $limit: limit }
-];
+    {
+      $addFields: {
+        variance: {
+          $subtract: [
+            { $ifNull: ["$cashAmount", 0] },
+            { $ifNull: ["$expectedPhysicalCash", 0] }
+          ]
+        }
+      }
+    },
 
-
+    { $sort: { openedAt: -1 } },
+    { $skip: skip },
+    { $limit: limit }
+  ];
 
   const registerData = await SalesRegister.aggregate(pipeline);
   const totalCount = await SalesRegister.countDocuments(match);
 
   res.status(200).json({
     success: true,
+    existingOpenRegister,
     data: registerData,
     pagination: {
       total: totalCount,
-      page: Number(page),
-      limit: Number(limit),
-      pages: Math.ceil(totalCount / Number(limit)),
+      page,
+      limit,
+      pages: Math.ceil(totalCount / limit),
     }
   });
 });
@@ -2299,7 +2057,7 @@ const pipeline: PipelineStage[] = [
 
 const getSalesChartDataReportByOutlets = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
-    const { outletIds, startDate, endDate, reportDuration } = req.query;
+    const { outletIds, startDate, endDate, reportDuration = "DAILY" } = req.query;
 
     if (!outletIds) {
       throw new ApiError(httpStatus.BAD_REQUEST, "outletIds are required");
@@ -2310,36 +2068,94 @@ const getSalesChartDataReportByOutlets = catchAsync(
       : (outletIds as string).split(",")
     ).map((id: any) => new mongoose.Types.ObjectId(id));
 
-    // 📌 Dates
-    const start = startDate ? new Date(startDate as string) : new Date();
-    const end = endDate ? new Date(endDate as string) : new Date();
-    end.setHours(23, 59, 59, 999);
+    const today = new Date();
+    let start: Date;
+    let end: Date;
 
-    // 📌 Build invoiceDate filter
-    const invoiceDateFilter: Record<string, any> = {
-      $gte: start,
-      $lte: end,
-    };
+    // ✅ CUSTOM → frontend dates mandatory
+    if (reportDuration === "CUSTUM") {
+      if (!startDate || !endDate) {
+        throw new ApiError(
+          httpStatus.BAD_REQUEST,
+          "startDate and endDate are required for CUSTUM report"
+        );
+      }
+
+      start = new Date(startDate as string);
+      end = new Date(endDate as string);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      switch (reportDuration) {
+        case "YEARLY":
+          start = startOfYear(today);
+          end = endOfYear(today);
+          break;
+
+        case "MONTHLY":
+          start = startOfMonth(today);
+          end = endOfMonth(today);
+          break;
+
+        case "WEEKLY":
+          start = startOfWeek(today, { weekStartsOn: 1 });
+          end = endOfWeek(today, { weekStartsOn: 1 });
+          break;
+
+        case "DAILY":
+        default:
+          start = startOfDay(today);
+          end = endOfDay(today);
+          break;
+      }
+    }
 
     const matchFilter = {
       outletId: { $in: outletArray },
       isDeleted: false,
-      invoiceDate: invoiceDateFilter,
+      invoiceDate: { $gte: start, $lte: end },
     };
 
-    // 📌 Grouping key based on reportDuration
+    const differenceInDays =
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    // ✅ Grouping Logic
     let groupId: any;
-    if (reportDuration === "DAILY") {
-      groupId = { $hour: "$invoiceDate" };
-    } else if (reportDuration === "WEEKLY") {
-      groupId = { $dayOfWeek: "$invoiceDate" }; // 1 = Sunday, 7 = Saturday
-    } else if (reportDuration === "MONTHLY") {
-      groupId = { $dayOfMonth: "$invoiceDate" };
-    } else {
-      groupId = { $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" } };
+
+    switch (reportDuration) {
+      case "DAILY":
+        groupId = { $hour: "$invoiceDate" };
+        break;
+
+      case "WEEKLY":
+        groupId = { $dayOfWeek: "$invoiceDate" };
+        break;
+
+      case "MONTHLY":
+        groupId = { $dayOfMonth: "$invoiceDate" };
+        break;
+
+      case "YEARLY":
+        groupId = { $month: "$invoiceDate" };
+        break;
+
+      case "CUSTUM":
+        if (differenceInDays <= 31) {
+          // ✅ Per Day
+          groupId = {
+            $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" },
+          };
+        } else {
+          // ✅ Month Wise
+          groupId = { $month: "$invoiceDate" };
+        }
+        break;
+
+      default:
+        groupId = {
+          $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" },
+        };
     }
 
-    // 📌 Aggregation
     const salesByOutlets = await Invoice.aggregate([
       { $match: matchFilter },
       {
@@ -2370,67 +2186,93 @@ const getSalesChartDataReportByOutlets = catchAsync(
       },
     ]);
 
-    // 📌 Generate Labels
+    // ✅ Labels Generation
     let labels: string[] = [];
 
-    if (reportDuration === "DAILY") {
-      // ⏰ 24 ghante
-      labels = Array.from({ length: 24 }, (_, i) =>
-        i.toString().padStart(2, "0") + ":00"
-      );
-    } else if (reportDuration === "WEEKLY") {
-      // 📅 last 7 days ending today -> weekday names
-      labels = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(end);
-        d.setDate(end.getDate() - (6 - i));
-        return d.toLocaleDateString("en-US", { weekday: "long" });
-      });
-    } else if (reportDuration === "MONTHLY") {
-      // 📅 last 1 month
-      const startDateObj = new Date(start);
-      const endDateObj = new Date(end);
-      const labelsArr: string[] = [];
+    switch (reportDuration) {
+      case "DAILY":
+        labels = Array.from({ length: 24 }, (_, i) =>
+          i.toString().padStart(2, "0") + ":00"
+        );
+        break;
 
-      let tempDate = new Date(startDateObj);
+      case "WEEKLY":
+        labels = [
+          "Sunday", "Monday", "Tuesday", "Wednesday",
+          "Thursday", "Friday", "Saturday"
+        ];
+        break;
 
-      while (tempDate <= endDateObj) {
-        labelsArr.push(tempDate.getDate().toString().padStart(2, "0"));
-        tempDate.setDate(tempDate.getDate() + 1);
-      }
+      case "MONTHLY":
+        const daysInMonth = end.getDate();
+        labels = Array.from({ length: daysInMonth }, (_, i) =>
+          (i + 1).toString().padStart(2, "0")
+        );
+        break;
 
-      // Remove first element if it’s duplicate or not needed
-      if (labelsArr.length > 1 && labelsArr[0] === endDateObj.getDate().toString().padStart(2, "0")) {
-        labelsArr.shift();
-      }
+      case "YEARLY":
+        labels = [
+          "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        ];
+        break;
 
-      labels = labelsArr;
+      case "CUSTUM":
+        if (differenceInDays <= 31) {
+          // ✅ Per Day Labels
+          const tempDate = new Date(start);
+          while (tempDate <= end) {
+            labels.push(tempDate.toISOString().split("T")[0]);
+            tempDate.setDate(tempDate.getDate() + 1);
+          }
+        } else {
+          // ✅ Month Labels
+          labels = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+          ];
+        }
+        break;
     }
 
-    // 🎨 Chart colors
     const chartColors = [
       "#FF6384", "#36A2EB", "#FFCE56",
       "#4BC0C0", "#9966FF", "#FF9F40",
       "#8BC34A", "#E91E63", "#00BCD4",
     ];
 
-    // 📌 Format datasets
     const outlets = [...new Set(salesByOutlets.map((s) => s.outletName))];
+
     const datasets = outlets.map((outlet, index) => {
       const outletData = salesByOutlets.filter((s) => s.outletName === outlet);
 
       const data = labels.map((label, idx) => {
         let keyVal;
-        if (reportDuration === "DAILY") {
-          keyVal = idx; // 0-23 hours
-        } else if (reportDuration === "WEEKLY") {
-          // Mongo $dayOfWeek => Sunday=1 ... Saturday=7
-          const d = new Date(end);
-          d.setDate(end.getDate() - (6 - idx));
-          keyVal = d.getDay() === 0 ? 1 : d.getDay() + 1;
-        } else if (reportDuration === "MONTHLY") {
-          keyVal = parseInt(label, 10);
-        } else {
-          keyVal = label;
+
+        switch (reportDuration) {
+          case "DAILY":
+            keyVal = idx;
+            break;
+
+          case "WEEKLY":
+            keyVal = idx + 1;
+            break;
+
+          case "MONTHLY":
+          case "YEARLY":
+            keyVal = idx + 1;
+            break;
+
+          case "CUSTUM":
+            if (differenceInDays <= 31) {
+              keyVal = label; // date string
+            } else {
+              keyVal = idx + 1; // month number
+            }
+            break;
+
+          default:
+            keyVal = label;
         }
 
         const found = outletData.find((d) => d.timeKey === keyVal);
@@ -2458,7 +2300,6 @@ const getSalesChartDataReportByOutlets = catchAsync(
   }
 );
 
-
 const getGiftCardChartDataReportByOutlets = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
     const { outletIds, startDate, endDate, reportDuration } = req.query;
@@ -2472,48 +2313,108 @@ const getGiftCardChartDataReportByOutlets = catchAsync(
       : (outletIds as string).split(",")
     ).map((id: any) => new mongoose.Types.ObjectId(id));
 
-    // 📌 Dates
-    const start = startDate ? new Date(startDate as string) : new Date();
-    const end = endDate ? new Date(endDate as string) : new Date();
+    if (!startDate || !endDate || !reportDuration) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "startDate, endDate, reportDuration are required"
+      );
+    }
+
+    const start = new Date(startDate as string);
+    const end = new Date(endDate as string);
     end.setHours(23, 59, 59, 999);
 
-    // 📌 Build invoiceDate filter
-    const invoiceDateFilter: Record<string, any> = {
-      $gte: start,
-      $lte: end,
-    };
+    const differenceInDays =
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    // 📌 Match invoices that have gift cards
+    const isCustomDaily =
+      reportDuration === "CUSTUM" && differenceInDays <= 31;
+
+    // --------------------------
+    // 📌 Match Filter
+    // --------------------------
     const matchFilter = {
       outletId: { $in: outletArray },
       isDeleted: false,
       giftCardCode: { $exists: true, $ne: null },
-      invoiceDate: invoiceDateFilter,
+      invoiceDate: { $gte: start, $lte: end },
     };
 
-    // 📌 Grouping key based on reportDuration
-    let groupId: any;
+    // --------------------------
+    // 📌 Labels Builder
+    // --------------------------
+    let labels: string[] = [];
+
     if (reportDuration === "DAILY") {
-      groupId = { $hour: "$invoiceDate" };
-    } else if (reportDuration === "WEEKLY") {
-      groupId = { $dayOfWeek: "$invoiceDate" }; // 1=Sunday ... 7=Saturday
-    } else if (reportDuration === "MONTHLY") {
-      groupId = { $dayOfMonth: "$invoiceDate" };
-    } else {
-      groupId = { $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" } };
+      labels = Array.from({ length: 24 }, (_, i) =>
+        i.toString().padStart(2, "0") + ":00"
+      );
     }
 
+    else if (reportDuration === "WEEKLY") {
+      labels = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(end);
+        d.setDate(end.getDate() - (6 - i));
+        return d.toLocaleDateString("en-US", { weekday: "long" });
+      });
+    }
+
+    else if (reportDuration === "MONTHLY") {
+      let temp = new Date(start);
+      while (temp <= end) {
+        labels.push(temp.getDate().toString().padStart(2, "0"));
+        temp.setDate(temp.getDate() + 1);
+      }
+    }
+
+    else if (reportDuration === "YEARLY") {
+      labels = ["Jan","Feb","Mar","Apr","May","Jun",
+                "Jul","Aug","Sep","Oct","Nov","Dec"];
+    }
+
+    else if (reportDuration === "CUSTUM") {
+      if (isCustomDaily) {
+        let temp = new Date(start);
+        while (temp <= end) {
+          labels.push(temp.toISOString().split("T")[0]);
+          temp.setDate(temp.getDate() + 1);
+        }
+      } else {
+        labels = ["Jan","Feb","Mar","Apr","May","Jun",
+                  "Jul","Aug","Sep","Oct","Nov","Dec"];
+      }
+    }
+
+    // --------------------------
+    // 📌 Group Logic
+    // --------------------------
+    const getGroupId = () => {
+      if (reportDuration === "DAILY") return { $hour: "$invoiceDate" };
+      if (reportDuration === "WEEKLY") return { $dayOfWeek: "$invoiceDate" };
+      if (reportDuration === "MONTHLY") return { $dayOfMonth: "$invoiceDate" };
+      if (reportDuration === "YEARLY") return { $month: "$invoiceDate" };
+
+      if (reportDuration === "CUSTUM") {
+        if (isCustomDaily) {
+          return { $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" } };
+        } else {
+          return { $month: "$invoiceDate" };
+        }
+      }
+    };
+
+    // --------------------------
     // 📌 Aggregation
+    // --------------------------
     const giftCardSalesByOutlets = await Invoice.aggregate([
       { $match: matchFilter },
       {
         $group: {
           _id: {
             outletId: "$outletId",
-            timeKey: groupId,
+            timeKey: getGroupId(),
           },
           totalGiftCard: { $sum: "$giftCardDiscount" },
-          count: { $sum: 1 },
         },
       },
       { $sort: { "_id.timeKey": 1 } },
@@ -2531,71 +2432,36 @@ const getGiftCardChartDataReportByOutlets = catchAsync(
           outletName: "$outlet.name",
           timeKey: "$_id.timeKey",
           totalGiftCard: 1,
-          count: 1,
         },
       },
     ]);
 
-    // 📌 Generate Labels
-    let labels: string[] = [];
+    // --------------------------
+    // 📌 Dataset Builder
+    // --------------------------
+    const outlets = [...new Set(giftCardSalesByOutlets.map((s) => s.outletName))];
 
-    if (reportDuration === "DAILY") {
-      // ⏰ 24 hours
-      labels = Array.from({ length: 24 }, (_, i) =>
-        i.toString().padStart(2, "0") + ":00"
-      );
-    } else if (reportDuration === "WEEKLY") {
-      // 📅 Last 7 days till end → weekday names
-      labels = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(end);
-        d.setDate(end.getDate() - (6 - i));
-        return d.toLocaleDateString("en-US", { weekday: "long" });
-      });
-    } else if (reportDuration === "MONTHLY") {
-      // 📅 Last 1 month
-      const startDateObj = new Date(start);
-      const endDateObj = new Date(end);
-      const labelsArr: string[] = [];
-
-      let tempDate = new Date(startDateObj);
-
-      while (tempDate <= endDateObj) {
-        labelsArr.push(tempDate.getDate().toString().padStart(2, "0"));
-        tempDate.setDate(tempDate.getDate() + 1);
-      }
-
-      // Remove first element if it’s duplicate or not needed
-      if (labelsArr.length > 1 && labelsArr[0] === endDateObj.getDate().toString().padStart(2, "0")) {
-        labelsArr.shift();
-      }
-
-      labels = labelsArr;
-    }
-
-    // 🎨 Chart colors
     const chartColors = [
-      "#FF6384", "#36A2EB", "#FFCE56",
-      "#4BC0C0", "#9966FF", "#FF9F40",
-      "#8BC34A", "#E91E63", "#00BCD4",
+      "#FF6384","#36A2EB","#FFCE56",
+      "#4BC0C0","#9966FF","#FF9F40",
     ];
 
-    // 📌 Format datasets
-    const outlets = [...new Set(giftCardSalesByOutlets.map((s) => s.outletName))];
     const datasets = outlets.map((outlet, index) => {
-      const outletData = giftCardSalesByOutlets.filter((s) => s.outletName === outlet);
+      const outletData = giftCardSalesByOutlets.filter(
+        (s) => s.outletName === outlet
+      );
 
       const data = labels.map((label, idx) => {
-        let keyVal;
-        if (reportDuration === "DAILY") {
-          keyVal = idx; // 0-23 hours
-        } else if (reportDuration === "WEEKLY") {
-          const d = new Date(end);
-          d.setDate(end.getDate() - (6 - idx));
-          keyVal = d.getDay() === 0 ? 1 : d.getDay() + 1; // Mongo Sunday=1
-        } else if (reportDuration === "MONTHLY") {
-          keyVal = parseInt(label, 10);
-        } else {
-          keyVal = label;
+        let keyVal: any;
+
+        if (reportDuration === "DAILY") keyVal = idx;
+        else if (reportDuration === "WEEKLY") keyVal = idx + 1;
+        else if (reportDuration === "MONTHLY") keyVal = parseInt(label);
+        else if (reportDuration === "YEARLY") keyVal = idx + 1;
+
+        else if (reportDuration === "CUSTUM") {
+          if (isCustomDaily) keyVal = label;
+          else keyVal = idx + 1;
         }
 
         const found = outletData.find((d) => d.timeKey === keyVal);
@@ -2761,22 +2627,70 @@ const getGiftCardChartDataReportByOutlets = catchAsync(
 
 const getGiftCardDataReportByOutlets = catchAsync(
   async (req: Request, res: Response) => {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, reportDuration } = req.query;
 
-    // 📌 Date filter
-    const matchFilter: any = {
-      isDeleted: false,
-      giftCardDiscount: { $gt: 0 }, // ✅ सिर्फ़ giftcard वाले invoices
-    };
-
-    if (startDate && endDate) {
-      matchFilter.invoiceDate = {
-        $gte: new Date(startDate as string),
-        $lte: new Date(endDate as string),
-      };
+    if (!reportDuration) {
+      throw new ApiError(400, "reportDuration is required");
     }
 
-    // 1️⃣ Customer Insights - कितने customers ने कितने giftcards purchase किए
+    let start: Date;
+    let end: Date;
+
+    const today = new Date();
+
+    // --------------------------
+    // 📌 Date Range Builder
+    // --------------------------
+    if (startDate && endDate) {
+      start = new Date(startDate as string);
+      end = new Date(endDate as string);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      switch (reportDuration) {
+        case "DAILY":
+          start = startOfDay(today);
+          end = endOfDay(today);
+          break;
+
+        case "WEEKLY":
+          start = startOfWeek(today, { weekStartsOn: 1 });
+          end = endOfWeek(today, { weekStartsOn: 1 });
+          break;
+
+        case "MONTHLY":
+          start = startOfMonth(today);
+          end = endOfMonth(today);
+          break;
+
+        case "YEARLY":
+          start = startOfYear(today);
+          end = endOfYear(today);
+          break;
+
+        default:
+          start = startOfMonth(today);
+          end = endOfMonth(today);
+      }
+    }
+
+    const differenceInDays =
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    const isCustomDaily =
+      reportDuration === "CUSTUM" && differenceInDays <= 31;
+
+    // --------------------------
+    // 📌 Match Filter
+    // --------------------------
+    const matchFilter: any = {
+      isDeleted: false,
+      giftCardDiscount: { $gt: 0 },
+      invoiceDate: { $gte: start, $lte: end },
+    };
+
+    // --------------------------
+    // 1️⃣ Customer Insights
+    // --------------------------
     const customerInsights = await Invoice.aggregate([
       { $match: matchFilter },
       {
@@ -2802,16 +2716,19 @@ const getGiftCardDataReportByOutlets = catchAsync(
           totalAmount: 1,
         },
       },
+      { $sort: { totalAmount: -1 } },
     ]);
 
-    // 2️⃣ Outlet Performance - किस outlet से कितनी giftcard sales हुई
+    // --------------------------
+    // 2️⃣ Outlet Performance
+    // --------------------------
     const outletPerformance = await Invoice.aggregate([
       { $match: matchFilter },
       {
         $group: {
           _id: "$outletId",
-          totalSales: { $sum: "$giftCardDiscount" }, // 💰 value
-          totalCount: { $sum: 1 }, // 🧾 no. of invoices
+          totalSales: { $sum: "$giftCardDiscount" },
+          totalCount: { $sum: 1 },
         },
       },
       {
@@ -2830,15 +2747,19 @@ const getGiftCardDataReportByOutlets = catchAsync(
           totalCount: 1,
         },
       },
+      { $sort: { totalSales: -1 } },
     ]);
 
-    // 3️⃣ GiftCard Distribution - कितने discount वाले giftcards use हुए
+    // --------------------------
+    // 3️⃣ GiftCard Distribution
+    // --------------------------
     const giftCardDistribution = await Invoice.aggregate([
       { $match: matchFilter },
       {
         $group: {
           _id: "$giftCardDiscount",
           count: { $sum: 1 },
+          totalValue: { $sum: "$giftCardDiscount" },
         },
       },
       {
@@ -2846,6 +2767,7 @@ const getGiftCardDataReportByOutlets = catchAsync(
           _id: 0,
           discount: "$_id",
           count: 1,
+          totalValue: 1,
         },
       },
       { $sort: { discount: 1 } },
@@ -2853,10 +2775,16 @@ const getGiftCardDataReportByOutlets = catchAsync(
 
     return res.status(200).json({
       success: true,
+      period: {
+        reportDuration,
+        start,
+        end,
+        isCustomDaily,
+      },
       data: {
-        customerInsights, // pie chart 1
-        outletPerformance, // pie chart 2
-        giftCardDistribution, // pie chart 3
+        customerInsights,
+        outletPerformance,
+        giftCardDistribution,
       },
     });
   }
@@ -3264,7 +3192,7 @@ const getGiftCardDataReportByOutlets = catchAsync(
 
 
 const getRetailDashboardData = catchAsync(async (req: Request, res: Response) => {
-  const { outletIds, startDate, endDate } = req.query;
+  const { outletIds, startDate, endDate, reportDuration } = req.query;
 
   if (!startDate || !endDate || !outletIds) {
     throw new ApiError(
@@ -3273,104 +3201,72 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
     );
   }
 
-  // 🔹 Set full day range
+  // 🔹 Current Range
   const start = new Date(startDate as string);
   start.setHours(0, 0, 0, 0);
 
   const end = new Date(endDate as string);
   end.setHours(23, 59, 59, 999);
 
-  // 🔹 Convert outlet IDs
-  const outletObjectIds = (outletIds as string).split(",").map(id => new mongoose.Types.ObjectId(id));
+  const differenceInDays =
+    Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  // 🔹 Fetch outlets
+  // 🔹 SMART PREVIOUS PERIOD LOGIC
+  let prevStart = new Date(start);
+  let prevEnd = new Date(end);
+
+  switch (reportDuration) {
+    case "YEARLY":
+      prevStart.setFullYear(prevStart.getFullYear() - 1);
+      prevEnd.setFullYear(prevEnd.getFullYear() - 1);
+      break;
+
+    case "MONTHLY":
+      prevStart.setMonth(prevStart.getMonth() - 1);
+      prevEnd.setMonth(prevEnd.getMonth() - 1);
+      break;
+
+    case "WEEKLY":
+      prevStart.setDate(prevStart.getDate() - 7);
+      prevEnd.setDate(prevEnd.getDate() - 7);
+      break;
+
+    case "CUSTUM":
+      prevStart.setDate(prevStart.getDate() - differenceInDays);
+      prevEnd.setDate(prevEnd.getDate() - differenceInDays);
+      break;
+
+    case "DAILY":
+    default:
+      prevStart.setDate(prevStart.getDate() - 1);
+      prevEnd.setDate(prevEnd.getDate() - 1);
+      break;
+  }
+
+  prevStart.setHours(0, 0, 0, 0);
+  prevEnd.setHours(23, 59, 59, 999);
+
+  // 🔹 Convert outlet IDs
+  const outletObjectIds = (outletIds as string)
+    .split(",")
+    .map(id => new mongoose.Types.ObjectId(id));
+
   const allOutlets = await Outlet.find({ _id: { $in: outletObjectIds } });
 
-  // 🔹 Aggregate invoice revenue per outlet
+  // 🔹 CURRENT DATA
   const invoiceAgg = await Invoice.aggregate([
     { $match: { outletId: { $in: outletObjectIds }, invoiceDate: { $gte: start, $lte: end } } },
     { $group: { _id: "$outletId", revenue: { $sum: "$totalAmount" }, saleCount: { $sum: 1 } } },
   ]);
 
-  // 🔹 Aggregate total payouts per outlet from salesRegisters
   const payoutAgg = await SalesRegister.aggregate([
     { $match: { outletId: { $in: outletObjectIds }, openedAt: { $gte: start, $lte: end } } },
     { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: true } },
-    {
-      $group: {
-        _id: "$outletId",
-        totalPayout: { $sum: { $ifNull: ["$cashUsage.amount", 0] } },
-      },
-    },
+    { $group: { _id: "$outletId", totalPayout: { $sum: { $ifNull: ["$cashUsage.amount", 0] } } } },
   ]);
 
-
-
-
-  // 🔹 Aggregate customers per outlet
-  // const customerAgg = await Customer.aggregate([
-  //   { $match: { outlets: { $in: outletObjectIds }, createdAt: { $gte: start, $lte: end } } },
-  //   { $group: { _id: "$outletId", customerCount: { $sum: 1 } } },
-  // ]);
   const customerAgg = await Customer.aggregate([
     { $unwind: "$outlets" },
-
-    {
-      $addFields: {
-        createdAtDate: {
-          $cond: [
-            { $eq: [{ $type: "$createdAt" }, "string"] },  // agar string
-            { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
-            "$createdAt"  // agar already Date
-          ]
-        }
-      }
-    },
-
-    {
-      $match: {
-        outlets: { $in: outletObjectIds },
-        createdAtDate: { $gte: start, $lte: end }
-      }
-    },
-
-    {
-      $group: {
-        _id: "$outlets",       // <- yaha outletId nahi, unwind se outlet mil raha hai
-        customerCount: { $sum: 1 }
-      }
-    }
-  ]);
-
-
-  console.log('--------customerAgg', customerAgg)
-
-  // 🔹 Previous day stats
-  const prevStart = new Date(start);
-  prevStart.setDate(prevStart.getDate() - 1);
-  prevStart.setHours(0, 0, 0, 0);
-
-  const prevEnd = new Date(start);
-  prevEnd.setDate(prevEnd.getDate() - 1);
-  prevEnd.setHours(23, 59, 59, 999);
-
-  // 🔹 Previous invoices
-  const prevInvoiceAgg = await Invoice.aggregate([
-    { $match: { outletId: { $in: outletObjectIds }, invoiceDate: { $gte: prevStart, $lte: prevEnd } } },
-    { $group: { _id: "$outletId", revenue: { $sum: "$totalAmount" }, saleCount: { $sum: 1 } } },
-  ]);
-
-  // 🔹 Previous payouts
-  const prevPayoutAgg = await SalesRegister.aggregate([
-    { $match: { outletId: { $in: outletObjectIds }, openedAt: { $gte: prevStart, $lte: prevEnd } } },
-    { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: true } },
-    { $group: { _id: "$outletId", totalPayout: { $sum: "$cashUsage.amount" } } },
-  ]);
-
-  // 🔹 Previous customers
-  const prevCustomerAgg = await Customer.aggregate([
-    { $unwind: "$outlets" },
-
     {
       $addFields: {
         createdAtDate: {
@@ -3382,31 +3278,57 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
         }
       }
     },
+    {
+      $match: {
+        outlets: { $in: outletObjectIds },
+        createdAtDate: { $gte: start, $lte: end }
+      }
+    },
+    { $group: { _id: "$outlets", customerCount: { $sum: 1 } } }
+  ]);
 
+  // 🔹 PREVIOUS DATA
+  const prevInvoiceAgg = await Invoice.aggregate([
+    { $match: { outletId: { $in: outletObjectIds }, invoiceDate: { $gte: prevStart, $lte: prevEnd } } },
+    { $group: { _id: "$outletId", revenue: { $sum: "$totalAmount" }, saleCount: { $sum: 1 } } },
+  ]);
+
+  const prevPayoutAgg = await SalesRegister.aggregate([
+    { $match: { outletId: { $in: outletObjectIds }, openedAt: { $gte: prevStart, $lte: prevEnd } } },
+    { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: true } },
+    { $group: { _id: "$outletId", totalPayout: { $sum: "$cashUsage.amount" } } },
+  ]);
+
+  const prevCustomerAgg = await Customer.aggregate([
+    { $unwind: "$outlets" },
+    {
+      $addFields: {
+        createdAtDate: {
+          $cond: [
+            { $eq: [{ $type: "$createdAt" }, "string"] },
+            { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
+            "$createdAt"
+          ]
+        }
+      }
+    },
     {
       $match: {
         outlets: { $in: outletObjectIds },
         createdAtDate: { $gte: prevStart, $lte: prevEnd }
       }
     },
-
-    {
-      $group: {
-        _id: "$outlets",
-        customerCount: { $sum: 1 }
-      }
-    }
+    { $group: { _id: "$outlets", customerCount: { $sum: 1 } } }
   ]);
 
-
-  // 🔹 Helper for percentage
   const calc = (current: number, previous: number) => {
     const diff = current - previous;
-    const percent = previous === 0 ? (current === 0 ? 0 : 100) : parseFloat(((diff / previous) * 100).toFixed(2));
+    const percent =
+      previous === 0 ? (current === 0 ? 0 : 100)
+      : parseFloat(((diff / previous) * 100).toFixed(2));
     return { value: current, diff, percent };
   };
 
-  // 🔹 Merge data per outlet
   const outletsData = allOutlets.map((o: any) => {
     const inv = invoiceAgg.find(i => i._id.toString() === o._id.toString()) || { revenue: 0, saleCount: 0 };
     const payout = payoutAgg.find(p => p._id.toString() === o._id.toString());
@@ -3432,22 +3354,24 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
     };
   });
 
-  // 🔹 Total stats
   const totalRevenueStats = calc(
     outletsData.reduce((sum, o) => sum + o.revenue, 0),
     prevInvoiceAgg.reduce((sum, o) => sum + o.revenue, 0)
   );
+
   const totalSaleCountStats = calc(
     outletsData.reduce((sum, o) => sum + o.saleCount, 0),
     prevInvoiceAgg.reduce((sum, o) => sum + o.saleCount, 0)
   );
+
   const totalCustomerCountStats = calc(
     outletsData.reduce((sum, o) => sum + o.customerCount, 0),
     prevCustomerAgg.reduce((sum, o) => sum + o.customerCount, 0)
   );
+
   const totalGrossProfitStats = calc(
     outletsData.reduce((sum, o) => sum + o.grossProfit, 0),
-    prevInvoiceAgg.reduce((sum, o) => sum + (prevPayoutAgg.find(p => p._id.toString() === o._id.toString())?.totalPayout || 0), 0)
+    prevInvoiceAgg.reduce((sum, o) => sum + o.revenue, 0)
   );
 
   res.status(200).json({
@@ -3582,21 +3506,63 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
 // );
 
 const getPaymentReports = catchAsync(async (req: any, res: any) => {
-  const { startDate, endDate, outletId } = req.query;
+  const { startDate, endDate, outletId, reportDuration } = req.query;
 
-  if (!startDate || !endDate || !outletId) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "startDate, endDate, and outletId are required");
+  if (!outletId) {
+    throw new ApiError(httpStatus.BAD_REQUEST, "outletId is required");
   }
-
-  const start = new Date(startDate as string);
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(endDate as string);
-  end.setHours(23, 59, 59, 999);
 
   const outletObjId = new mongoose.Types.ObjectId(outletId as string);
 
-  // 1) Invoices → weekly sums by payment mode
+  let start: Date;
+  let end: Date;
+  const today = new Date();
+
+  // ✅ SMART DATE LOGIC
+  if (startDate && endDate) {
+    start = new Date(startDate as string);
+    start.setHours(0, 0, 0, 0);
+
+    end = new Date(endDate as string);
+    end.setHours(23, 59, 59, 999);
+  } else {
+    switch (reportDuration) {
+      case "YEARLY":
+        start = new Date(today.getFullYear(), 0, 1);
+        end = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
+        break;
+
+      case "MONTHLY":
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+        break;
+
+      case "WEEKLY": {
+        const current = new Date();
+        const day = current.getDay();
+        const diff = day === 0 ? -6 : 1 - day; // Monday start
+        start = new Date(current.setDate(current.getDate() + diff));
+        start.setHours(0, 0, 0, 0);
+
+        end = new Date();
+        end.setHours(23, 59, 59, 999);
+        break;
+      }
+
+      case "DAILY":
+      default:
+        start = new Date();
+        start.setHours(0, 0, 0, 0);
+        end = new Date();
+        end.setHours(23, 59, 59, 999);
+        break;
+    }
+  }
+
+  /* =========================================================
+     1) INVOICE WEEKLY AGGREGATION
+  ========================================================== */
+
   const weeklyData = await Invoice.aggregate([
     {
       $match: {
@@ -3627,58 +3593,47 @@ const getPaymentReports = catchAsync(async (req: any, res: any) => {
         totalAmount: { $sum: { $ifNull: ["$amountReceived.amount", 0] } },
       },
     },
-    {
-      $lookup: {
-        from: "paymentmodes",
-        localField: "_id.paymentModeId",
-        foreignField: "_id",
-        as: "paymentMode",
-      },
-    },
-    { $unwind: "$paymentMode" },
-    {
-      $project: {
-        _id: 0,
-        weekStartDate: "$_id.weekStartDate",
-        paymentModeId: "$_id.paymentModeId",
-        paymentModeName: "$paymentMode.modeName",
-        totalAmount: 1,
-      },
-    },
-    { $sort: { paymentModeName: 1, weekStartDate: 1 } },
   ]);
 
-  // 2) Build continuous Monday-start weeks between start..end
+  /* =========================================================
+     2) BUILD CONTINUOUS WEEKS
+  ========================================================== */
+
   const weeks: string[] = [];
-  {
-    const first = new Date(start);
-    const day = first.getDay();           // 0=Sun, 1=Mon...
-    const diff = day === 0 ? -6 : 1 - day; // move back/forward to Monday
-    first.setDate(first.getDate() + diff);
-    for (let cur = new Date(first); cur <= end; cur.setDate(cur.getDate() + 7)) {
-      weeks.push(cur.toISOString().split("T")[0]);
-    }
+  const first = new Date(start);
+  const day = first.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  first.setDate(first.getDate() + diff);
+
+  for (let cur = new Date(first); cur <= end; cur.setDate(cur.getDate() + 7)) {
+    weeks.push(cur.toISOString().split("T")[0]);
   }
 
-  // 3) Active payment modes (shape rows)
-  const paymentModes = await PaymentMode.find({ isDeleted: false, isActive: true })
+  /* =========================================================
+     3) PAYMENT MODES
+  ========================================================== */
+
+  const paymentModes = await PaymentMode.find({
+    isDeleted: false,
+    isActive: true,
+  })
     .select({ _id: 1, modeName: 1 })
     .lean();
 
-  // quick maps
-  const pmIdToName = new Map<string, string>();
-  paymentModes.forEach((pm: any) => pmIdToName.set(String(pm._id), pm.modeName));
-
-  // 4) Convert weekly invoice data → totals[pmId][weekStr] = amount
   const totals: Record<string, Record<string, number>> = {};
+
   weeklyData.forEach((d) => {
-    const pmId = String(d.paymentModeId);
-    const w = new Date(d.weekStartDate).toISOString().split("T")[0];
+    const pmId = String(d._id.paymentModeId);
+    const w = new Date(d._id.weekStartDate).toISOString().split("T")[0];
+
     if (!totals[pmId]) totals[pmId] = {};
     totals[pmId][w] = (totals[pmId][w] || 0) + (Number(d.totalAmount) || 0);
   });
 
-  // 5) cashUsage adjustments per week (deduct from the matching mode)
+  /* =========================================================
+     4) CASH USAGE WEEKLY DEDUCTION
+  ========================================================== */
+
   const cashUsageWeekly = await SalesRegister.aggregate([
     {
       $match: {
@@ -3686,7 +3641,7 @@ const getPaymentReports = catchAsync(async (req: any, res: any) => {
         outletId: outletObjId,
       },
     },
-    { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: false } },
+    { $unwind: "$cashUsage" },
     {
       $match: {
         "cashUsage.createdAt": { $gte: start, $lte: end },
@@ -3708,68 +3663,48 @@ const getPaymentReports = catchAsync(async (req: any, res: any) => {
       $group: {
         _id: {
           weekStartDate: "$weekStartDate",
-          paymentMode: { $toLower: "$cashUsage.paymentMode" }, // e.g. 'cash', 'credit card', 'card'
+          paymentMode: { $toLower: "$cashUsage.paymentMode" },
         },
         totalUsage: { $sum: { $ifNull: ["$cashUsage.amount", 0] } },
       },
     },
-    {
-      $project: {
-        _id: 0,
-        weekStartDate: "$_id.weekStartDate",
-        paymentModeLower: "$_id.paymentMode",
-        totalUsage: 1,
-      },
-    },
   ]);
 
-  // find one CASH mode id, and one CARD-ish mode id to apply deductions
-  const isCash = (s: string) => s.toLowerCase() === "cash";
   const isCardish = (s: string) => {
     const t = s.toLowerCase();
-    return t.includes("card") || t.includes("credit") || t.includes("debit") || t.includes("swipe");
+    return t.includes("card") || t.includes("credit") || t.includes("debit");
   };
 
   let cashPmId: string | null = null;
   let cardPmId: string | null = null;
+
   for (const pm of paymentModes) {
-    if (!cashPmId && isCash(pm.modeName)) cashPmId = String(pm._id);
-  }
-  // prefer literal "credit card"
-  for (const pm of paymentModes) {
-    if (pm.modeName.toLowerCase() === "credit card") {
+    if (!cashPmId && pm.modeName.toLowerCase() === "cash") {
+      cashPmId = String(pm._id);
+    }
+    if (!cardPmId && isCardish(pm.modeName)) {
       cardPmId = String(pm._id);
-      break;
-    }
-  }
-  if (!cardPmId) {
-    for (const pm of paymentModes) {
-      if (isCardish(pm.modeName)) {
-        cardPmId = String(pm._id);
-        break;
-      }
     }
   }
 
-  // apply usage → subtract from appropriate mode’s bucket
   cashUsageWeekly.forEach((u) => {
-    const w = new Date(u.weekStartDate).toISOString().split("T")[0];
+    const w = new Date(u._id.weekStartDate).toISOString().split("T")[0];
     const usage = Number(u.totalUsage) || 0;
-    if (!usage) return;
+    const mode = u._id.paymentMode;
 
-    if (u.paymentModeLower === "cash" && cashPmId) {
+    if (mode === "cash" && cashPmId) {
       if (!totals[cashPmId]) totals[cashPmId] = {};
       totals[cashPmId][w] = (totals[cashPmId][w] || 0) - usage;
-    } else if (
-      ["card", "credit", "debit", "credit card", "debit card", "card swipe"].includes(u.paymentModeLower) &&
-      cardPmId
-    ) {
+    } else if (isCardish(mode) && cardPmId) {
       if (!totals[cardPmId]) totals[cardPmId] = {};
       totals[cardPmId][w] = (totals[cardPmId][w] || 0) - usage;
     }
   });
 
-  // 6) Build pivot rows (fill missing week cells with 0)
+  /* =========================================================
+     5) BUILD PIVOT TABLE
+  ========================================================== */
+
   const pivotTable = paymentModes.map((pm: any) => {
     const pmId = String(pm._id);
     const row: any = { paymentMode: pm.modeName };
@@ -3787,9 +3722,9 @@ const getPaymentReports = catchAsync(async (req: any, res: any) => {
 
   return res.status(httpStatus.OK).json({
     success: true,
-    startDate,
-    endDate,
-    weeks,      // ISO yyyy-mm-dd of Mondays
+    startDate: start,
+    endDate: end,
+    weeks,
     data: pivotTable,
   });
 });
@@ -3800,44 +3735,83 @@ const toObjectId = (v?: string) =>
 const getSalesLedgerReports = catchAsync(
   async (req: Request, res: Response) => {
     const {
-      outletId,      // 👈 single outlet
-      outletIds,     // 👈 optional comma-separated list (future safe)
+      outletId,
+      outletIds,
       startDate,
       endDate,
+      reportDuration, // 👈 NEW
       page = "1",
       limit = "20",
       status,
       search = "",
     } = req.query as Record<string, string>;
 
-    // 🔹 Validation
-    if (!startDate || !endDate) {
-      throw new ApiError(
-        httpStatus.BAD_REQUEST,
-        "startDate and endDate are required"
-      );
+    /* =========================================================
+       ✅ SMART DATE LOGIC
+    ========================================================== */
+
+    let start: Date;
+    let end: Date;
+    const today = new Date();
+
+    if (startDate && endDate) {
+      start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      switch (reportDuration) {
+        case "YEARLY":
+          start = new Date(today.getFullYear(), 0, 1);
+          end = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
+          break;
+
+        case "MONTHLY":
+          start = new Date(today.getFullYear(), today.getMonth(), 1);
+          end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+          break;
+
+        case "WEEKLY": {
+          const current = new Date();
+          const day = current.getDay();
+          const diff = day === 0 ? -6 : 1 - day; // Monday start
+          start = new Date(current.setDate(current.getDate() + diff));
+          start.setHours(0, 0, 0, 0);
+
+          end = new Date();
+          end.setHours(23, 59, 59, 999);
+          break;
+        }
+
+        case "DAILY":
+        default:
+          start = new Date();
+          start.setHours(0, 0, 0, 0);
+          end = new Date();
+          end.setHours(23, 59, 59, 999);
+          break;
+      }
     }
 
-    // 🔹 Full day range
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    /* =========================================================
+       🔹 PAGINATION
+    ========================================================== */
 
     const pageNum = Math.max(parseInt(page) || 1, 1);
     const limitNum = Math.max(parseInt(limit) || 20, 1);
 
-    // 🔹 Outlet selection (single + multi both handle)
+    /* =========================================================
+       🔹 OUTLET FILTER
+    ========================================================== */
+
     const outletObjectIds: Types.ObjectId[] = [];
 
-    // single outletId (jo tum bhej rahe ho)
     if (outletId) {
       const oid = toObjectId(outletId);
       if (oid) outletObjectIds.push(oid);
     }
 
-    // agar kabhi multiple outletIds (comma separated) aaye to
     if (outletIds && outletIds.length) {
       outletIds
         .split(",")
@@ -3846,7 +3820,10 @@ const getSalesLedgerReports = catchAsync(
         .forEach((oid) => outletObjectIds.push(oid));
     }
 
-    // 🔹 Base match on Invoice
+    /* =========================================================
+       🔹 BASE MATCH
+    ========================================================== */
+
     const match: Record<string, any> = {
       invoiceDate: { $gte: start, $lte: end },
       isDeleted: { $ne: true },
@@ -3857,153 +3834,204 @@ const getSalesLedgerReports = catchAsync(
     }
 
     if (status) {
-      match.status = status; // "Paid" / "Pending" / "Void" ...
+      match.status = status;
     }
 
-    const pipeline: any[] = [
-      { $match: match },
+    /* =========================================================
+       🔹 PIPELINE
+    ========================================================== */
 
-      // 🔹 JOIN: User (employeeId)
-      {
-        $lookup: {
-          from: "users",
-          localField: "employeeId",
-          foreignField: "_id",
-          as: "user",
-        },
-      },
-      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+  const pipeline: any[] = [
+  { $match: match },
 
-      // 🔹 JOIN: SalesRegister (agar registerId use kar rahe ho)
-      {
-        $lookup: {
-          from: "salesregisters",
-          localField: "registerId",
-          foreignField: "_id",
-          as: "register",
-        },
-      },
-      { $unwind: { path: "$register", preserveNullAndEmptyArrays: true } },
+  // USER
+ {
+  $addFields: {
+    employeeObjectId: {
+      $cond: [
+        { $eq: [{ $type: "$employeeId" }, "objectId"] },
+        "$employeeId",
+        { $toObjectId: "$employeeId" }
+      ]
+    }
+  }
+},
+{
+  $lookup: {
+    from: "users",
+    localField: "employeeObjectId",
+    foreignField: "_id",
+    as: "user",
+  },
+},
+{ $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
 
-      // 🔹 JOIN: Customer
-      {
-        $lookup: {
-          from: "customers",
-          localField: "customerId",
-          foreignField: "_id",
-          as: "customer",
-        },
-      },
-      { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
+  // REGISTER
+  {
+    $lookup: {
+      from: "salesregisters",
+      localField: "registerId",
+      foreignField: "_id",
+      as: "register",
+    },
+  },
+  { $unwind: { path: "$register", preserveNullAndEmptyArrays: true } },
 
-      // 🔹 Search
-      ...(search
-        ? [
-            {
-              $match: {
-                $or: [
-                  { invoiceNumber: { $regex: search, $options: "i" } },
-                  { notes: { $regex: search, $options: "i" } },
-                  { "customer.name": { $regex: search, $options: "i" } },
-                  { "customer.fullName": { $regex: search, $options: "i" } },
-                ],
+  // CUSTOMER
+  {
+    $lookup: {
+      from: "customers",
+      localField: "customerId",
+      foreignField: "_id",
+      as: "customer",
+    },
+  },
+  { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
+
+  // 🔥 FIX 1: SAFE TOTAL CALCULATION
+  {
+    $addFields: {
+      computedTotalAmount: {
+        $cond: [
+          { $gt: ["$totalAmount", 0] },
+          "$totalAmount",
+          {
+            $sum: {
+              $map: {
+                input: { $ifNull: ["$items", []] },
+                as: "item",
+                in: {
+                  $multiply: [
+                    { $ifNull: ["$$item.quantity", 0] },
+                    { $ifNull: ["$$item.sellingPrice", 0] },
+                  ],
+                },
               },
             },
-          ]
-        : []),
+          },
+        ],
+      },
 
-      // 🔹 Compute status: Paid / Pending / Void
-      {
-        $addFields: {
-          computedStatus: {
-            $cond: [
+      computedPaidAmount: {
+        $sum: {
+          $map: {
+            input: { $ifNull: ["$amountReceived", []] },
+            as: "pay",
+            in: { $ifNull: ["$$pay.amount", 0] },
+          },
+        },
+      },
+    },
+  },
+
+  // 🔥 FIX 2: SAFE STATUS LOGIC
+  {
+    $addFields: {
+      finalStatus: {
+        $cond: [
+          {
+            $or: [
+              { $eq: ["$isDeleted", true] },
               {
-                $or: [
-                  { $eq: ["$isDeleted", true] },
-                  {
-                    $and: [
-                      { $ne: [{ $ifNull: ["$voidNote", "" ] }, "" ] },
-                      { $ne: ["$voidNote", null] },
-                    ],
-                  },
-                ],
-              },
-              "Void",
-              {
-                $cond: [
-                  { $gt: ["$balanceDue", 0] },
-                  "Pending",
-                  "Paid",
+                $and: [
+                  { $ne: [{ $ifNull: ["$voidNote", ""] }, ""] },
+                  { $ne: ["$voidNote", null] },
                 ],
               },
             ],
           },
+          "Void",
+          {
+            $cond: [
+              { $gt: ["$balanceDue", 0] },
+              "Pending",
+              "Paid",
+            ],
+          },
+        ],
+      },
+    },
+  },
+
+  // SEARCH
+  ...(search
+    ? [
+        {
+          $match: {
+            $or: [
+              { invoiceNumber: { $regex: search, $options: "i" } },
+              { notes: { $regex: search, $options: "i" } },
+              { "customer.name": { $regex: search, $options: "i" } },
+              { "customer.fullName": { $regex: search, $options: "i" } },
+            ],
+          },
         },
+      ]
+    : []),
+
+  // FINAL PROJECTION
+  {
+    $project: {
+      _id: 1,
+      date: "$invoiceDate",
+      invoiceNumber: 1,
+
+      userName: {
+        $ifNull: ["$user.name", { $ifNull: ["$user.name", "-"] }],
       },
 
-      // 🔹 Final projection
-      {
-        $project: {
-          _id: 1,
-          date: "$invoiceDate",
-          invoiceNumber: "$invoiceNumber",
+      registerCode: {
+        $ifNull: ["$register.code", { $ifNull: ["$register.name", ""] }],
+      },
 
-          userName: {
-            $ifNull: ["$user.fullName", { $ifNull: ["$user.name", ""] }],
-          },
-
-          registerCode: {
-            $ifNull: ["$register.code", { $ifNull: ["$register.name", ""] }],
-          },
-
-          customerName: {
+      customerName: {
+        $ifNull: [
+          "$customer.customerName",
+          {
             $ifNull: [
-              "$customer.name",
-              {
-                $ifNull: [
-                  "$customer.fullName",
-                  { $ifNull: ["$customer.mobile", ""] },
-                ],
-              },
+              "$customer.customerName",
+              { $ifNull: ["$customer.phone", ""] },
             ],
           },
+        ],
+      },
 
-          note: { $ifNull: ["$notes", ""] },
-          status: {
-            $cond: [
-              { $ne: [{ $ifNull: ["$status", "" ] }, "" ] },
-              "$status",
-              "$computedStatus",
-            ],
+      note: { $ifNull: ["$notes", ""] },
+      status: "$finalStatus",
+      totalAmount: "$computedTotalAmount",
+      paidAmount: "$computedPaidAmount",
+      balanceDue: {
+        $subtract: ["$computedTotalAmount", "$computedPaidAmount"],
+      },
+    },
+  },
+
+  { $sort: { date: -1 } },
+
+  {
+    $facet: {
+      rows: [
+        { $skip: (pageNum - 1) * limitNum },
+        { $limit: limitNum },
+      ],
+      meta: [{ $count: "total" }],
+      totals: [
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: "$totalAmount" },
+            totalPaid: { $sum: "$paidAmount" },
           },
-          totalAmount: "$totalAmount",
         },
-      },
-
-      { $sort: { date: -1 } },
-
-      {
-        $facet: {
-          rows: [
-            { $skip: (pageNum - 1) * limitNum },
-            { $limit: limitNum },
-          ],
-          meta: [{ $count: "total" }],
-          totals: [
-            {
-              $group: {
-                _id: null,
-                totalAmount: { $sum: "$totalAmount" },
-              },
-            },
-          ],
-        },
-      },
-    ];
+      ],
+    },
+  },
+];
 
     const agg = await (Invoice as any).aggregate(pipeline);
 
     const rows = agg?.[0]?.rows || [];
+    console.log('-----rows',rows)
     const totalCount = agg?.[0]?.meta?.[0]?.total || 0;
     const totalsDoc = agg?.[0]?.totals?.[0] || { totalAmount: 0 };
 
@@ -4029,8 +4057,9 @@ const getSalesLedgerReports = catchAsync(
       filtersApplied: {
         outletId,
         outletIds,
-        startDate,
-        endDate,
+        reportDuration,
+        startDate: start,
+        endDate: end,
         status,
         search,
       },

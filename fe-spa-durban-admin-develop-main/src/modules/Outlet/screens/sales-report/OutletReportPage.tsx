@@ -20,16 +20,24 @@ import * as XLSX from 'xlsx';
 
 const salesData = [
   {
-    label: 'Monthly',
-    value: 'MONTHLY',
+    label: 'Daily',
+    value: 'DAILY',
   },
   {
     label: 'Weekly',
     value: 'WEEKLY',
   },
   {
-    label: 'Daily',
-    value: 'DAILY',
+    label: 'Monthly',
+    value: 'MONTHLY',
+  },
+  {
+    label: 'Yearly',
+    value: 'YEARLY',
+  },
+   {
+    label: 'Custum',
+    value: 'CUSTUM',
   },
 ];
 
@@ -244,70 +252,95 @@ const OutletReportPage = () => {
 
 
   useEffect(() => {
-  const reportDuration =
-    (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
+    const selectedDuration =
+      (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
 
-  if (!outlets?.length) return;
+    if (!outlets?.length) return;
 
-  let startDate = searchParams.get("startDate");
-  let endDate = searchParams.get("endDate");
-  let shouldUpdateDates = false;
+    const now = new Date();
 
-  // ✅ Agar duration dropdown select hua hai toh hamesha dates override karo
-  switch (reportDuration) {
-    case "MONTHLY":
-      startDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
-      endDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
-      shouldUpdateDates = true;
-      break;
-    case "WEEKLY":
-      startDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-      endDate = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-      shouldUpdateDates = true;
-      break;
-    case "DAILY":
-    default:
-      // ✅ Agar manually set nahi hai toh hi daily set karo
-      if (!startDate || !endDate) {
-        startDate = format(startOfDay(new Date()), "yyyy-MM-dd");
-        endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
+    let startDate = searchParams.get("startDate");
+    let endDate = searchParams.get("endDate");
+
+    let reportDurationToSend = selectedDuration;
+    let shouldUpdateDates = false;
+
+    switch (selectedDuration) {
+      case "YEARLY": {
+        const pastYear = new Date();
+        pastYear.setFullYear(now.getFullYear() - 1);
+
+        startDate = format(pastYear, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
         shouldUpdateDates = true;
+        break;
       }
-      break;
-  }
 
-  const currentStart = searchParams.get("startDate");
-  const currentEnd = searchParams.get("endDate");
-  const currentDuration = searchParams.get("reportDuration");
-  const currentOutlet = searchParams.get("outletIds");
+      case "MONTHLY": {
+        const pastMonth = new Date();
+        pastMonth.setMonth(now.getMonth() - 1);
 
-  // ✅ Agar kuch change hi nahi hai toh skip
-  if (
-    currentStart === startDate &&
-    currentEnd === endDate &&
-    currentDuration === reportDuration &&
-    currentOutlet
-  ) {
-    return;
-  }
+        startDate = format(pastMonth, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+      }
 
-  const newSearchParams = new URLSearchParams(searchParams.toString());
+      case "WEEKLY": {
+        const pastWeek = new Date(now);
+        pastWeek.setDate(now.getDate() - 7);
 
-  if (shouldUpdateDates || !startDate || !endDate) {
-    newSearchParams.set("startDate", startDate!);
-    newSearchParams.set("endDate", endDate!);
-  }
+        startDate = format(pastWeek, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
 
-  if (!currentOutlet) {
-    newSearchParams.set("outletIds", outlets?.[0]?._id || "");
-  }
+        shouldUpdateDates = true;
+        break;
+      }
 
-  newSearchParams.set("reportDuration", reportDuration);
+      case "CUSTUM":
+        // 🔥 Custom case
+        reportDurationToSend = "CUSTUM"; // backend grouping month-wise
+        shouldUpdateDates = false; // dates free
+        break;
 
-  if (newSearchParams.toString() !== searchParams.toString()) {
+      case "DAILY":
+      default:
+        startDate = format(now, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+    }
+
+    const currentStart = searchParams.get("startDate");
+    const currentEnd = searchParams.get("endDate");
+    const currentDuration = searchParams.get("reportDuration");
+    const currentOutlet = searchParams.get("outletIds");
+
+    if (
+      currentStart === startDate &&
+      currentEnd === endDate &&
+      currentDuration === reportDurationToSend &&
+      currentOutlet
+    ) {
+      return;
+    }
+
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+
+    if (shouldUpdateDates && startDate && endDate) {
+      newSearchParams.set("startDate", startDate);
+      newSearchParams.set("endDate", endDate);
+    }
+
+    if (!currentOutlet) {
+      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
+    }
+
+    newSearchParams.set("reportDuration", reportDurationToSend);
+
     setSearchParams(newSearchParams);
-  }
-}, [appliedFilters, outlets, setSearchParams]);
+
+  }, [appliedFilters, outlets]);
 
 
   const navigate = useNavigate();

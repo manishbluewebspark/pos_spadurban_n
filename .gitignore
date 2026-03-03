@@ -46,6 +46,7 @@ fe-spa-durban-admin-develop-main/.turbo
 # ----------------------------
 # Backend specific (API server)
 # ----------------------------
+api-spa-durban-develop-main/.env
 api-spa-durban-develop-main/.cache
 api-spa-durban-develop-main/.turbo
 api-spa-durban-develop-main/pids

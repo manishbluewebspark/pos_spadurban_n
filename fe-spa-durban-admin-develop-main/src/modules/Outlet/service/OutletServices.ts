@@ -146,11 +146,12 @@ export const outletApi = apiSlice.injectEndpoints({
       }),
     }),
     getRegisterChartData: builder.query({
-      query: ({ outletId, startDate, endDate, page = 1, limit = 10 }) => {
+      query: ({ outletId, startDate, endDate, page = 1, limit = 10,reportDuration }) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
           endDate,
+          reportDuration
           // page: String(page),
           // limit: String(limit)
         });
@@ -162,13 +163,14 @@ export const outletApi = apiSlice.injectEndpoints({
       },
     }),
     getRegisterData: builder.query({
-      query: ({ outletId, startDate, endDate, page = 1, limit = 10 }) => {
+      query: ({ outletId, startDate, endDate, page = 1, limit = 10,reportDuration }) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
           endDate,
           page: String(page),
-          limit: String(limit)
+          limit: String(limit),
+          reportDuration
         });
 
         return {
@@ -212,7 +214,7 @@ export const outletApi = apiSlice.injectEndpoints({
       },
     }),
     GetGiftCardReportByOutlet: builder.query({
-      query: ({ outletId, startDate, endDate, page = 1, limit = 10, sortBy, sortOrder }) => {
+      query: ({ outletId, startDate, endDate, page = 1, limit = 10, sortBy, sortOrder, reportDuration }) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
@@ -220,7 +222,8 @@ export const outletApi = apiSlice.injectEndpoints({
           page: String(page),
           limit: String(limit),
           sortBy,
-          sortOrder
+          sortOrder,
+          reportDuration
         });
 
         return {
@@ -277,11 +280,12 @@ export const outletApi = apiSlice.injectEndpoints({
       },
     }),
     getPaymentReports: builder.query({
-      query: ({ outletId, startDate, endDate }) => {
+      query: ({ outletId, startDate, endDate,reportDuration }) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
           endDate,
+          reportDuration
           // page: String(page),
           // limit: String(limit)
         });
@@ -293,13 +297,14 @@ export const outletApi = apiSlice.injectEndpoints({
       },
     }),
     getSalesLedgerReports: builder.query({
-      query: ({ outletId, startDate, endDate,page, limit }) => {
+      query: ({ outletId, startDate, endDate, page, limit,reportDuration }) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
           endDate,
           page: String(page),
-          limit: String(limit)
+          limit: String(limit),
+          reportDuration
         });
 
         return {

@@ -20,25 +20,33 @@ import { Register, RegisterValue } from 'src/modules/OpenRegister/models/OpenReg
 import { saveAs } from "file-saver";
 import { useFetchData } from 'src/hooks/useFetchData';
 
-const salesData = [
+  const salesData = [
   {
-    label: 'Monthly',
-    value: 'MONTHLY',
+    label: 'Daily',
+    value: 'DAILY',
   },
   {
     label: 'Weekly',
     value: 'WEEKLY',
   },
   {
-    label: 'Daily',
-    value: 'DAILY',
+    label: 'Monthly',
+    value: 'MONTHLY',
+  },
+  {
+    label: 'Yearly',
+    value: 'YEARLY',
+  },
+   {
+    label: 'Custum',
+    value: 'CUSTUM',
   },
 ];
 
 const ViewSalesLedgerPage = () => {
   const { id } = useParams(); // outletId
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
-    useFilterPagination(['outletsId', 'customerId']);
+    useFilterPagination(['outletsId', 'customerId','reportDuration']);
   const [searchParams, setSearchParams] = useSearchParams();
   const { outlets } = useSelector((state: RootState) => state.auth);
 
@@ -51,8 +59,100 @@ const ViewSalesLedgerPage = () => {
     startDate,
     endDate,
     page,
-    limit
+    limit,
+     reportDuration: appliedFilters?.[2]?.value
   });
+
+    useEffect(() => {
+    const selectedDuration =
+      (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
+
+    if (!outlets?.length) return;
+
+    const now = new Date();
+
+    let startDate = searchParams.get("startDate");
+    let endDate = searchParams.get("endDate");
+
+    let reportDurationToSend = selectedDuration;
+    let shouldUpdateDates = false;
+
+    switch (selectedDuration) {
+      case "YEARLY": {
+        const pastYear = new Date();
+        pastYear.setFullYear(now.getFullYear() - 1);
+
+        startDate = format(pastYear, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+      }
+
+      case "MONTHLY": {
+        const pastMonth = new Date();
+        pastMonth.setMonth(now.getMonth() - 1);
+
+        startDate = format(pastMonth, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+      }
+
+      case "WEEKLY": {
+        const pastWeek = new Date(now);
+        pastWeek.setDate(now.getDate() - 7);
+
+        startDate = format(pastWeek, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+
+        shouldUpdateDates = true;
+        break;
+      }
+
+      case "CUSTUM":
+        // 🔥 Custom case
+        reportDurationToSend = "CUSTUM"; // backend grouping month-wise
+        shouldUpdateDates = false; // dates free
+        break;
+
+      case "DAILY":
+      default:
+        startDate = format(now, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+    }
+
+    const currentStart = searchParams.get("startDate");
+    const currentEnd = searchParams.get("endDate");
+    const currentDuration = searchParams.get("reportDuration");
+    const currentOutlet = searchParams.get("outletIds");
+
+    if (
+      currentStart === startDate &&
+      currentEnd === endDate &&
+      currentDuration === reportDurationToSend &&
+      currentOutlet
+    ) {
+      return;
+    }
+
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+
+    if (shouldUpdateDates && startDate && endDate) {
+      newSearchParams.set("startDate", startDate);
+      newSearchParams.set("endDate", endDate);
+    }
+
+    if (!currentOutlet) {
+      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
+    }
+
+    newSearchParams.set("reportDuration", reportDurationToSend);
+
+    setSearchParams(newSearchParams);
+
+  }, [appliedFilters, outlets]);
 
   const weeks = data?.weeks || [];
   const pivotData = data?.data || [];
@@ -64,15 +164,18 @@ const ViewSalesLedgerPage = () => {
       flex: 'flex-[1_1_0%]'
     },
      {
-      fieldName: 'user',
-      headerName: 'User',
-      flex: 'flex-[1_1_0%]'
-    },
-     {
-      fieldName: 'register',
-      headerName: 'Register',
-      flex: 'flex-[1_1_0%]'
-    },
+  fieldName: 'user',
+  headerName: 'User',
+  flex: 'flex-[1_1_0%]',
+  renderCell: (record: any): any => {
+    return record.user !== "string" ? record.user : "-";
+  }
+},
+    //  {
+    //   fieldName: 'register',
+    //   headerName: 'Register',
+    //   flex: 'flex-[1_1_0%]'
+    // },
      {
       fieldName: 'customer',
       headerName: 'Customer',
@@ -155,6 +258,16 @@ const ViewSalesLedgerPage = () => {
               { label: 'endDate', value: endDate },
             ],
           },
+          {
+      filterType: 'single-select',
+      label: 'Select',
+      fieldName: 'reportDuration',
+      options: salesData || [],
+      renderOption: (option) => option.label,
+      isOptionEqualToSearchValue: (option, value) => {
+        return option?.label.includes(value);
+      },
+    },
         ]} />
 
         <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1 mt-3">

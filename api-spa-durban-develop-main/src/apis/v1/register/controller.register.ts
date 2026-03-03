@@ -680,8 +680,12 @@ const createCloseRegister = catchAsync(async (req: AuthenticatedRequest, res: Re
     .filter((p) => p.paymentModeName?.toLowerCase() === 'cash')
     .reduce((sum, p) => sum + (parseFloat(p.manual) || 0), 0);
 
+      const totalPayoutCash = flattenedPayments
+    .filter((p) => p.paymentModeName?.toLowerCase() === 'cash')
+    .reduce((sum, p) => sum + (parseFloat(p.payout) || 0), 0);
+
   const deposit = parseFloat(bankDeposit) || 0;
-  const carryForwardBalance = Math.max(totalCash - deposit, 0);
+  const carryForwardBalance = Math.max((totalCash + openingBalance) - (deposit + totalPayoutCash), 0);
 
   // Update existing register
   existingRegister.closeRegister = closeRegister;

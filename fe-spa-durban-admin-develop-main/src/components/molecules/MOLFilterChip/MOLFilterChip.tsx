@@ -14,6 +14,7 @@ type Props<T extends { value: string }> = {
   selectedItems: string[];
   onClear: () => void;
   isOptionEqualToSearchValue: (option: T, value: string) => boolean;
+   onInputChange?: (value: string) => void;
 };
 
 const MOLFilterChip = <T extends { value: string }>({
@@ -25,6 +26,7 @@ const MOLFilterChip = <T extends { value: string }>({
   selectedItems = [],
   onClear,
   isOptionEqualToSearchValue,
+  onInputChange,
 }: Props<T>) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
@@ -84,6 +86,7 @@ const MOLFilterChip = <T extends { value: string }>({
     } else {
       setFilteredOptions(items);
     }
+     if (onInputChange) onInputChange(value);
   };
 
   return (

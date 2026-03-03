@@ -160,6 +160,7 @@ const CustomerSalesReportPage = () => {
   ];
 
   const invoices = data?.data?.invoices || [];
+  const customerName = data?.data?.invoices[0]?.customerName
   const totalAmount = data?.data?.totalSalesData[0]?.totalSalesAmount || [];
 
   const today = new Date();
@@ -210,7 +211,7 @@ const CustomerSalesReportPage = () => {
     <>
       <div className="flex flex-col h-full gap-2 p-4">
         <ATMPageHeader
-          heading="Customer Sales Report"
+          heading={`${customerName?.charAt(0).toUpperCase()}${customerName?.slice(1)} Sales Report`}
           // hideButton={true}
           buttonProps={{
             label: 'Back',

@@ -18,18 +18,26 @@ import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
 import { saveAs } from "file-saver";
 
-const salesData = [
+  const salesData = [
   {
-    label: 'Monthly',
-    value: 'MONTHLY',
+    label: 'Daily',
+    value: 'DAILY',
   },
   {
     label: 'Weekly',
     value: 'WEEKLY',
   },
   {
-    label: 'Daily',
-    value: 'DAILY',
+    label: 'Monthly',
+    value: 'MONTHLY',
+  },
+  {
+    label: 'Yearly',
+    value: 'YEARLY',
+  },
+   {
+    label: 'Custum',
+    value: 'CUSTUM',
   },
 ];
 
@@ -176,35 +184,62 @@ const ViewReatailDashboardPage = () => {
 
 
   useEffect(() => {
-    const reportDuration =
+    const selectedDuration =
       (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
 
     if (!outlets?.length) return;
 
+    const now = new Date();
+
     let startDate = searchParams.get("startDate");
     let endDate = searchParams.get("endDate");
+
+    let reportDurationToSend = selectedDuration;
     let shouldUpdateDates = false;
 
-    // ✅ Agar duration dropdown select hua hai toh hamesha dates override karo
-    switch (reportDuration) {
-      case "MONTHLY":
-        startDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
-        endDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
+    switch (selectedDuration) {
+      case "YEARLY": {
+        const pastYear = new Date();
+        pastYear.setFullYear(now.getFullYear() - 1);
+
+        startDate = format(pastYear, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
         shouldUpdateDates = true;
         break;
-      case "WEEKLY":
-        startDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-        endDate = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+      }
+
+      case "MONTHLY": {
+        const pastMonth = new Date();
+        pastMonth.setMonth(now.getMonth() - 1);
+
+        startDate = format(pastMonth, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
         shouldUpdateDates = true;
         break;
+      }
+
+      case "WEEKLY": {
+        const pastWeek = new Date(now);
+        pastWeek.setDate(now.getDate() - 7);
+
+        startDate = format(pastWeek, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+
+        shouldUpdateDates = true;
+        break;
+      }
+
+      case "CUSTUM":
+        // 🔥 Custom case
+        reportDurationToSend = "CUSTUM"; // backend grouping month-wise
+        shouldUpdateDates = false; // dates free
+        break;
+
       case "DAILY":
       default:
-        // ✅ Agar manually set nahi hai toh hi daily set karo
-        if (!startDate || !endDate) {
-          startDate = format(startOfDay(new Date()), "yyyy-MM-dd");
-          endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
-          shouldUpdateDates = true;
-        }
+        startDate = format(now, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+        shouldUpdateDates = true;
         break;
     }
 
@@ -213,11 +248,10 @@ const ViewReatailDashboardPage = () => {
     const currentDuration = searchParams.get("reportDuration");
     const currentOutlet = searchParams.get("outletIds");
 
-    // ✅ Agar kuch change hi nahi hai toh skip
     if (
       currentStart === startDate &&
       currentEnd === endDate &&
-      currentDuration === reportDuration &&
+      currentDuration === reportDurationToSend &&
       currentOutlet
     ) {
       return;
@@ -225,22 +259,20 @@ const ViewReatailDashboardPage = () => {
 
     const newSearchParams = new URLSearchParams(searchParams.toString());
 
-    if (shouldUpdateDates || !startDate || !endDate) {
-      newSearchParams.set("startDate", startDate!);
-      newSearchParams.set("endDate", endDate!);
+    if (shouldUpdateDates && startDate && endDate) {
+      newSearchParams.set("startDate", startDate);
+      newSearchParams.set("endDate", endDate);
     }
 
     if (!currentOutlet) {
-      
       newSearchParams.set("outletIds", outlets?.[0]?._id || "");
     }
 
-    newSearchParams.set("reportDuration", reportDuration);
+    newSearchParams.set("reportDuration", reportDurationToSend);
 
-    if (newSearchParams.toString() !== searchParams.toString()) {
-      setSearchParams(newSearchParams);
-    }
-  }, [appliedFilters, outlets, setSearchParams]);
+    setSearchParams(newSearchParams);
+
+  }, [appliedFilters, outlets]);
 
   const navigate = useNavigate();
 

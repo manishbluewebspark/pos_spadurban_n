@@ -412,6 +412,12 @@ const ATMAppHeader = ({
       flex: 'flex-[2_1_0%]',
       renderCell: (row: any) => toTitleCase(row.date),
     },
+      {
+      fieldName: 'time',
+      headerName: 'Time',
+      flex: 'flex-[2_1_0%]',
+      renderCell: (row: any) => toTitleCase(row.time),
+    },
     {
       fieldName: 'status',
       headerName: 'Status',

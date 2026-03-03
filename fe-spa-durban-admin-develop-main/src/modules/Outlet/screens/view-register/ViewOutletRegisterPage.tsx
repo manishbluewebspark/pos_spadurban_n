@@ -20,18 +20,26 @@ import { Register, RegisterValue } from 'src/modules/OpenRegister/models/OpenReg
 import { saveAs } from "file-saver";
 import { useFetchData } from 'src/hooks/useFetchData';
 
-const salesData = [
+  const salesData = [
   {
-    label: 'Monthly',
-    value: 'MONTHLY',
+    label: 'Daily',
+    value: 'DAILY',
   },
   {
     label: 'Weekly',
     value: 'WEEKLY',
   },
   {
-    label: 'Daily',
-    value: 'DAILY',
+    label: 'Monthly',
+    value: 'MONTHLY',
+  },
+  {
+    label: 'Yearly',
+    value: 'YEARLY',
+  },
+   {
+    label: 'Custum',
+    value: 'CUSTUM',
   },
 ];
 
@@ -40,7 +48,7 @@ const ViewOutletRegisterPage = () => {
 
 
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
-    useFilterPagination(['outletsId', 'customerId']);
+    useFilterPagination(['outletsId', 'customerId','reportDuration']);
   const [searchParams, setSearchParams] = useSearchParams();
   const { outlets } = useSelector((state: RootState) => state.auth);
   // const { data, isLoading, error } = useGetRegisterDataQuery({
@@ -64,6 +72,7 @@ const ViewOutletRegisterPage = () => {
         limit,
         sortBy: orderBy || 'createdAt',
         sortOrder: orderValue || 'desc',
+        reportDuration: appliedFilters?.[2]?.value
       },
     }
   );
@@ -72,7 +81,8 @@ const ViewOutletRegisterPage = () => {
   const { data: chartData } = useGetRegisterChartDataQuery({
     outletId: appliedFilters?.[0]?.value,
     startDate: dateFilter?.start_date,
-    endDate: dateFilter?.end_date
+    endDate: dateFilter?.end_date,
+    reportDuration: appliedFilters?.[2]?.value
   });
 
   console.log('-----chartData', chartData)
@@ -271,6 +281,16 @@ const ViewOutletRegisterPage = () => {
         },
       ],
     },
+    {
+      filterType: 'single-select',
+      label: 'Select',
+      fieldName: 'reportDuration',
+      options: salesData || [],
+      renderOption: (option) => option.label,
+      isOptionEqualToSearchValue: (option, value) => {
+        return option?.label.includes(value);
+      },
+    },
   ];
 
   const invoices = data as RegisterValue[] || [];
@@ -279,15 +299,95 @@ const ViewOutletRegisterPage = () => {
   const oneMonthAgo = subMonths(today, 1);
 
   useEffect(() => {
-    if (!dateFilter?.start_date && !dateFilter?.end_date) {
-      const newSearchParams = new URLSearchParams(searchParams); // Clone existing searchParams
-      newSearchParams.set('startDate', format(oneMonthAgo, 'yyyy-MM-dd') || '');
-      newSearchParams.set('endDate', format(new Date(), 'yyyy-MM-dd') || '');
-      newSearchParams.set('outletsId', outlets?.[0]._id);
-      newSearchParams.set('reportDuration', 'MONTHLY');
-      setSearchParams(newSearchParams)
+    const selectedDuration =
+      (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
+
+    if (!outlets?.length) return;
+
+    const now = new Date();
+
+    let startDate = searchParams.get("startDate");
+    let endDate = searchParams.get("endDate");
+
+    let reportDurationToSend = selectedDuration;
+    let shouldUpdateDates = false;
+
+    switch (selectedDuration) {
+      case "YEARLY": {
+        const pastYear = new Date();
+        pastYear.setFullYear(now.getFullYear() - 1);
+
+        startDate = format(pastYear, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+      }
+
+      case "MONTHLY": {
+        const pastMonth = new Date();
+        pastMonth.setMonth(now.getMonth() - 1);
+
+        startDate = format(pastMonth, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
+      }
+
+      case "WEEKLY": {
+        const pastWeek = new Date(now);
+        pastWeek.setDate(now.getDate() - 7);
+
+        startDate = format(pastWeek, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+
+        shouldUpdateDates = true;
+        break;
+      }
+
+      case "CUSTUM":
+        // 🔥 Custom case
+        reportDurationToSend = "CUSTUM"; // backend grouping month-wise
+        shouldUpdateDates = false; // dates free
+        break;
+
+      case "DAILY":
+      default:
+        startDate = format(now, "yyyy-MM-dd");
+        endDate = format(now, "yyyy-MM-dd");
+        shouldUpdateDates = true;
+        break;
     }
-  }, [dateFilter, outlets]);
+
+    const currentStart = searchParams.get("startDate");
+    const currentEnd = searchParams.get("endDate");
+    const currentDuration = searchParams.get("reportDuration");
+    const currentOutlet = searchParams.get("outletIds");
+
+    if (
+      currentStart === startDate &&
+      currentEnd === endDate &&
+      currentDuration === reportDurationToSend &&
+      currentOutlet
+    ) {
+      return;
+    }
+
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+
+    if (shouldUpdateDates && startDate && endDate) {
+      newSearchParams.set("startDate", startDate);
+      newSearchParams.set("endDate", endDate);
+    }
+
+    if (!currentOutlet) {
+      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
+    }
+
+    newSearchParams.set("reportDuration", reportDurationToSend);
+
+    setSearchParams(newSearchParams);
+
+  }, [appliedFilters, outlets]);
 
   const handleExportExcelClosureSummary = () => {
     if (!(data as any)?.data || (data as any)?.data.length === 0) {
