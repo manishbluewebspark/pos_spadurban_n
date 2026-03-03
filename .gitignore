@@ -55,3 +55,4 @@ api-spa-durban-develop-main/*.pid.lock
 # uploads
 api-spa-durban-develop-main/public/uploads/
 
+api-spa-durban-develop-main/.env
