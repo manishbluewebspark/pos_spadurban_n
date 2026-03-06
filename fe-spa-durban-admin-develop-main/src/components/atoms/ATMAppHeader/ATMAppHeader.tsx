@@ -1,5 +1,6 @@
 import {
   IconBan,
+  IconCalculator,
   IconCashBanknote,
   IconCopyX,
   IconCreditCardRefund,
@@ -108,7 +109,9 @@ const ATMAppHeader = ({
   const [isOpenChangePasswordDialog, setIsOpenChangePassword] = useState(false);
   const [isOpenSalseReportDialog, setIsOpenSalseReportDialog] = useState(false);
   const [isOpenRegistertDialog, setIsOpenRegistertDialog] = useState(false);
-  const [loading,setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [display, setDisplay] = useState("");
+  const [showCalculatorModal, setShowCalculatorModal] = useState(false)
   const [showCashUsageModal, setShowCashUsageModal] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({
     top: 0,
@@ -118,7 +121,7 @@ const ATMAppHeader = ({
     reason: '',
     amount: '',
     proofUrl: '',
-    paymentMode:'',
+    paymentMode: '',
     createdAt: new Date()
   });
 
@@ -296,19 +299,19 @@ const ATMAppHeader = ({
 
     if (!registerId) {
       showToast('error', 'Please open a register for this outlet');
-       setLoading(false)
+      setLoading(false)
       return;
     }
 
     if (!tempCashUsage?.reason) {
       showToast('error', 'Please enter any reason');
-        setLoading(false)
+      setLoading(false)
       return
     }
 
     if (!tempCashUsage?.amount) {
       showToast('error', 'Please enter amount');
-        setLoading(false)
+      setLoading(false)
       return
     }
 
@@ -328,13 +331,13 @@ const ATMAppHeader = ({
           reason: '',
           amount: '',
           proofUrl: '',
-          paymentMode:'',
+          paymentMode: '',
           createdAt: new Date()
         })
       } else {
         showToast('error', 'Failed to upload pay out');
         setShowCashUsageModal(false);
-          setLoading(false)
+        setLoading(false)
       }
       // if (res?.error) {
       //   showToast('error', 'Failed to upload pay out');
@@ -351,7 +354,7 @@ const ATMAppHeader = ({
       console.error(err);
       showToast('error', 'Failed to submit payout');
       setShowCashUsageModal(false);
-        setLoading(false)
+      setLoading(false)
     }
   };
 
@@ -412,7 +415,7 @@ const ATMAppHeader = ({
       flex: 'flex-[2_1_0%]',
       renderCell: (row: any) => toTitleCase(row.date),
     },
-      {
+    {
       fieldName: 'time',
       headerName: 'Time',
       flex: 'flex-[2_1_0%]',
@@ -603,6 +606,17 @@ const ATMAppHeader = ({
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-4">
+         <button
+  type="button"
+  style={{ height: "35px", fontSize: "11px", width: "35px" }}
+  className="font-semibold rounded-lg flex items-center justify-center transition-all duration-300 shadow bg-primary text-white border border-primary hover:bg-primary-30"
+  onClick={(e) => {
+    e.stopPropagation();
+    setShowCalculatorModal(true);
+  }}
+>
+  <IconCalculator />
+</button>
           <button
             onClick={() => {
               // navigate(isPOS ? '/dashboard' : '/pos');
@@ -798,13 +812,111 @@ const ATMAppHeader = ({
               <ATMButton
                 onClick={() => handlePayout()}
               >
-                {loading ? <ATMCircularProgress/> : "Submit"}
+                {loading ? <ATMCircularProgress /> : "Submit"}
               </ATMButton>
 
             </div>
           </div>
         </div>
       )}
+
+     {showCalculatorModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+
+    <div className="bg-white rounded-xl p-5 w-[340px] shadow-xl">
+
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold">Cash Calculator</h2>
+
+        <button
+          onClick={() => setShowCalculatorModal(false)}
+          className="text-gray-500 hover:text-black text-lg"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Display */}
+      <div className="bg-gray-100 rounded p-3 mb-3 text-right text-2xl font-semibold">
+        {display || "0"}
+      </div>
+
+      {/* Quick Cash Buttons */}
+      <div className="grid grid-cols-4 gap-2 mb-3">
+        {[1000, 500, 200, 100].map((amount) => (
+          <button
+            key={amount}
+            onClick={() =>
+              setDisplay((prev) =>
+                (Number(prev || 0) + amount).toString()
+              )
+            }
+            className="bg-green-100 text-green-700 font-semibold p-2 rounded hover:bg-green-200"
+          >
+            +{amount}
+          </button>
+        ))}
+      </div>
+
+      {/* Calculator Buttons */}
+      <div className="grid grid-cols-4 gap-2">
+
+        {["7","8","9","⌫","4","5","6","/","1","2","3","*","0",".","+","-"].map((btn) => (
+          <button
+            key={btn}
+            onClick={() => {
+              if (btn === "⌫") {
+                setDisplay(display.slice(0, -1));
+              } else {
+                setDisplay(display + btn);
+              }
+            }}
+            className="p-3 bg-gray-100 rounded hover:bg-gray-200 font-semibold"
+          >
+            {btn}
+          </button>
+        ))}
+
+        {/* Clear */}
+        <button
+          onClick={() => setDisplay("")}
+          className="col-span-2 bg-red-100 text-red-600 p-3 rounded font-semibold"
+        >
+          Clear
+        </button>
+
+        {/* Calculate */}
+        <button
+          onClick={() => {
+            try {
+              setDisplay(eval(display).toString());
+            } catch {
+              setDisplay("Error");
+            }
+          }}
+          className="bg-blue-500 text-white p-3 rounded font-semibold"
+        >
+          =
+        </button>
+
+        {/* Done */}
+        <button
+          onClick={() => {
+            console.log("Payout Amount:", display);
+            setShowCalculatorModal(false);
+          }}
+          className="bg-primary text-white p-3 rounded font-semibold"
+        >
+          Done
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+)}
 
       {/* {isOpenEditDialog && (
         <EditInvoicesVoidFormWrapper

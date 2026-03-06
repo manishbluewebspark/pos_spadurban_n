@@ -60,6 +60,7 @@ const Receipt = () => {
   }
 
   const itemData = invoiceData?.items || [];
+   const extraService = invoiceData?.extraServices || [];
   const phoneNumber = invoiceData?.customerPhone;
   const email = invoiceData?.customerEmail;
   const name = invoiceData?.customerName;
@@ -211,6 +212,17 @@ const Receipt = () => {
               <div className="text-end">{item.quantity}</div>
               <div className="text-end">
                 {(item.sellingPrice * item.quantity)?.toFixed(2)}
+              </div>
+            </div>
+          ))}
+           {extraService?.map((item: any, index: number) => (
+            <div key={index} className="grid grid-cols-5 gap-2 px-2 py-1">
+              <div className="col-span-3 max-w-[150px] break-words">
+                {item.treatmentName}
+              </div>
+              <div className="text-end">1</div>
+              <div className="text-end">
+                {/* {(item.price)?.toFixed(2)} */} 0
               </div>
             </div>
           ))}

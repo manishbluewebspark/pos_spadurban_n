@@ -65,7 +65,9 @@ const MOLFilterChip = <T extends { value: string }>({
 
   const handleSearchValueChange = (value: string) => {
     const inputValue = value;
+  
     setSearchValue(value);
+   
     if (value?.trim?.()?.length > 0) {
       const filtered = items?.filter?.((option) => {
         const clonedOption = { ...option };
@@ -86,7 +88,7 @@ const MOLFilterChip = <T extends { value: string }>({
     } else {
       setFilteredOptions(items);
     }
-     if (onInputChange) onInputChange(value);
+      if (onInputChange) onInputChange(value);
   };
 
   return (

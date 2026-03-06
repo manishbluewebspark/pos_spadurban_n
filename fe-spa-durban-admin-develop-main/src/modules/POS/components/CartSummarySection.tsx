@@ -1,4 +1,4 @@
-import { IconMinus, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconCategory, IconMinus, IconPlaylistAdd, IconPlus, IconTrash } from '@tabler/icons-react';
 import { FormikProps } from 'formik';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,7 @@ import {
   setIsOpenCustomerDialog,
   setIsOpenDraftListDialog,
   setPreviewNewCustomerId,
+  setIsOpenTreatmentDialog
 } from '../slice/CartSlice';
 import DraftList from './DraftList';
 import PaymentFormWrapper from './PaymentFormWrapper';
@@ -128,7 +129,7 @@ type Props = {
   onRemove: (itemId: string) => void;
   onQuantityChange: (itemId: string, type: 'INCREMENT' | 'DECREMENT') => void;
   formikProps: FormikProps<any>;
-  isDisabled:boolean;
+  isDisabled: boolean;
 };
 const useDebounce = (callback: Function, delay: number) => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -150,6 +151,9 @@ const CartSummarySection = ({
   formikProps,
   isDisabled
 }: Props) => {
+
+
+  console.log('-----cartItems',cartItems)
   const [searchParams, setSearchParams] = useSearchParams();
   const bookingCustomer = searchParams.get('customer');
   const [loading, setLoading] = useState(false);
@@ -366,62 +370,62 @@ const CartSummarySection = ({
   //   }
   // };
 
-const fetchOptions = async (inputValue: string): Promise<SelectOption[]> => {
-  // console.log('-------calling o');
-  if (!inputValue?.trim()) return [];
+  const fetchOptions = async (inputValue: string): Promise<SelectOption[]> => {
+    // console.log('-------calling o');
+    if (!inputValue?.trim()) return [];
 
-  const query = inputValue.trim();
-  let filterBy: any[] = [];
+    const query = inputValue.trim();
+    let filterBy: any[] = [];
 
-  const isEmail = query.includes('@'); // ✅ Check email first
-  const isNumber = /^\d+$/.test(query);
+    const isEmail = query.includes('@'); // ✅ Check email first
+    const isNumber = /^\d+$/.test(query);
 
-  if (isEmail) {
-    filterBy = [{ fieldName: 'email', value: query }];
-  } else if (isNumber) {
-    filterBy = [{ fieldName: 'phone', value: query }];
-  } else {
-    filterBy = [{ fieldName: 'customerName', value: query }];
-  }
-
-  try {
-    const response = await fetch(
-      `${BASE_URL}/customer/pagination?isPaginationRequired=false&filterBy=${encodeURIComponent(
-        JSON.stringify(filterBy)
-      )}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      // console.error(`❌ API Error: ${response.status} ${response.statusText}`);
-      return [];
+    if (isEmail) {
+      filterBy = [{ fieldName: 'email', value: query }];
+    } else if (isNumber) {
+      filterBy = [{ fieldName: 'phone', value: query }];
+    } else {
+      filterBy = [{ fieldName: 'customerName', value: query }];
     }
 
-    const data = await response.json();
+    try {
+      const response = await fetch(
+        `${BASE_URL}/customer/pagination?isPaginationRequired=false&filterBy=${encodeURIComponent(
+          JSON.stringify(filterBy)
+        )}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-    return (data?.data || []).map((item: any) => ({
-      label: `${item.customerName || 'Unknown'} - ${item.phone || ''} - ${item.email || ''}`,
-      value: item._id,
-      data: item,
-    }));
-  } catch (error) {
-    // console.error('❌ Error fetching options:', error);
-    return [];
-  }
-};
+      if (!response.ok) {
+        // console.error(`❌ API Error: ${response.status} ${response.statusText}`);
+        return [];
+      }
+
+      const data = await response.json();
+
+      return (data?.data || []).map((item: any) => ({
+        label: `${item.customerName || 'Unknown'} - ${item.phone || ''} - ${item.email || ''}`,
+        value: item._id,
+        data: item,
+      }));
+    } catch (error) {
+      // console.error('❌ Error fetching options:', error);
+      return [];
+    }
+  };
 
 
   const debouncedLoadOptions = useDebounce(
     async (inputValue: any, callback: (arg0: any[]) => void) => {
       setLoading(true);
       const options = await fetchOptions(inputValue);
-      console.log('------options',options)
+      console.log('------options', options)
       setLoading(false);
       callback(options);
     },
@@ -431,7 +435,7 @@ const fetchOptions = async (inputValue: string): Promise<SelectOption[]> => {
   return (
     <div className={`flex flex-col w-full h-full gap-2 py-4 ${isDisabled ? 'pointer-events-none opacity-30' : ''}`}>
       <div className="flex flex-col gap-4 px-4">
-        
+
         {/* select outlet  */}
         {/* {userData?.userType === 'ADMIN' && (
           <div className="">
@@ -457,8 +461,10 @@ const fetchOptions = async (inputValue: string): Promise<SelectOption[]> => {
           </ATMButton>
         </div> */}
 
+
         {/* Customer Search Box and add new  */}
         <div className="flex items-center gap-4">
+
           <div className="flex-1">
             {/* <ATMSelect
               value={values?.customer}
@@ -496,6 +502,16 @@ const fetchOptions = async (inputValue: string): Promise<SelectOption[]> => {
               isClearable
               isDisabled={isDisabled}
             />
+          </div>
+
+          <div>
+            <ATMButton
+              compact
+              extraClasses={`p-2.5`}
+              onClick={() => dispatch(setIsOpenTreatmentDialog(true))}
+            >
+              <IconPlaylistAdd size={14} />
+            </ATMButton>
           </div>
 
           <div>

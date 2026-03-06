@@ -3,6 +3,7 @@ export type SliceStateType = {
   isOpenEditDialog: boolean;
   isOpenDraftListDialog?: boolean;
   isOpenCustomerDialog?: boolean;
+  isOpenTreatmentDialog?: boolean;
   previewData?: any;
   previewNewCustomerId?: any;
   isCloseAddDialog?: boolean;

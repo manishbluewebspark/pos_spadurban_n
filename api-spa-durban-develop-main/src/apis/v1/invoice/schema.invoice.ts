@@ -19,6 +19,12 @@ export interface taxes {
   taxAmount: number;
 }
 
+export interface extraServices {
+  treatmentName: string;
+  duration: number;
+  price: number;
+}
+
 export interface items {
   itemId: ObjectId;
   quantity: number;
@@ -69,6 +75,7 @@ export interface InvoiceDocument extends Document {
   useCashBackAmount: boolean;
   bookingId: string;
   givenChange: Number;
+  extraServices: extraServices[];
 }
 
 export interface AggregatedInvoiceDocument extends InvoiceDocument {
@@ -208,7 +215,26 @@ const InvoiceSchema = new mongoose.Schema<InvoiceDocument>(
       required: true,
       trim: true,
     },
-
+extraServices: {
+  type: [
+    {
+      treatmentName: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      duration: {
+        type: Number,
+        required: true,
+      },
+      price: {
+        type: Number,
+        required: true,
+      },
+    },
+  ],
+  default: [],
+},
     amountReceived: {
       type: [
         {

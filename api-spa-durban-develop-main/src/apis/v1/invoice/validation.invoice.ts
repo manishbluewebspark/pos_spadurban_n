@@ -22,6 +22,13 @@ export const create: { body: ObjectSchema } = {
         itemType: Joi.string().required(),
       })
     ),
+    extraServices: Joi.array().items(
+      Joi.object().keys({
+        treatmentName: Joi.string().required(),
+        duration: Joi.number().required(),
+        price: Joi.number().required(),
+      })
+    ),
     couponCode: Joi.string().allow(""),
     shippingCharges: Joi.number().required(),
     amountReceived: Joi.array().items(

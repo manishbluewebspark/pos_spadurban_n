@@ -7,6 +7,7 @@ const initialState: SliceStateType = {
   isOpenEditDialog: false,
   isOpenDraftListDialog: false,
   isOpenCustomerDialog: false,
+  isOpenTreatmentDialog: false,
   previewData: [],
   previewNewCustomerId: {},
 };
@@ -20,6 +21,9 @@ const cartSlice: Slice<SliceStateType> = createSlice({
     },
     setIsOpenCustomerDialog: (state, action: PayloadAction<boolean>) => {
       state.isOpenCustomerDialog = action.payload;
+    },
+    setIsOpenTreatmentDialog: (state, action: PayloadAction<boolean>) => {
+      state.isOpenTreatmentDialog = action.payload;
     },
     setIsOpenAddDialog: (state, action: PayloadAction<boolean>) => {
       state.isOpenAddDialog = action.payload;
@@ -41,6 +45,7 @@ export const {
   setIsOpenEditDialog,
   setIsOpenDraftListDialog,
   setIsOpenCustomerDialog,
+  setIsOpenTreatmentDialog,
   setPreviewData,
   setPreviewNewCustomerId,
 } = cartSlice.actions;

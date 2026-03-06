@@ -35,6 +35,7 @@ import { Tooltip } from 'react-tooltip'
 import { showToast } from 'src/utils/showToaster';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import ShowConfirmation from 'src/utils/ShowConfirmation';
+import { debounce } from '@syncfusion/ej2-base';
 type Props = {};
 
 const InvoicesListingWrapper = (props: Props) => {
@@ -49,19 +50,31 @@ const InvoicesListingWrapper = (props: Props) => {
   const { isOpenEditDialog } = useSelector(
     (state: RootState) => state?.invoices,
   );
+  const [customerSearch, setCustomerSearch] = useState('');
+
+  let filterBy: any[] = [];
+
+  const isEmail = customerSearch.includes('@'); // ✅ Check email first
+  const isNumber = /^\d+$/.test(customerSearch);
+
+  if (isEmail) {
+    filterBy = [{ fieldName: 'email', value: customerSearch }];
+  } else if (isNumber) {
+    filterBy = [{ fieldName: 'phone', value: customerSearch }];
+  } else {
+    filterBy = [{ fieldName: 'customerName', value: customerSearch }];
+  }
+
   const { data: customerData, isLoading: customerLoading } = useFetchData(
     useGetCustomersQuery,
     {
-      body: {
-        isPaginationRequired: false,
-        filterBy: JSON.stringify([
-          {
-            fieldName: 'isActive',
-            value: true,
-          },
-        ]),
+      params: {
+        limit,
+        page,
+        isPaginationRequired: true,
+        filterBy: JSON.stringify(filterBy),
       },
-    },
+    }
   );
   const [searchParams, setSearchParams] = useSearchParams();
   const [invoiceId, setInvoiceId] = useState('');
@@ -87,6 +100,11 @@ const InvoicesListingWrapper = (props: Props) => {
       },
     },
   );
+
+
+  const handleCustomerSearch = debounce((value: string) => {
+    setCustomerSearch(value);
+  }, 400);
 
   const handleUpdate = async (item: any) => {
     try {
@@ -330,6 +348,9 @@ const InvoicesListingWrapper = (props: Props) => {
       renderOption: (option) => option.label,
       isOptionEqualToSearchValue: (option, value) => {
         return option?.label.includes(value);
+      },
+      onInputChange: (value: string) => {
+        handleCustomerSearch(value);
       },
     },
     {

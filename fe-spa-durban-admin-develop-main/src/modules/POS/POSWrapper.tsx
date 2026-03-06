@@ -4,7 +4,7 @@ import { Form, Formik, FormikHelpers } from 'formik';
 import { AppDispatch, RootState } from 'src/store';
 import { useDispatch, useSelector } from 'react-redux';
 import { showToast } from 'src/utils/showToaster';
-import { setIsOpenAddDialog, setIsOpenCustomerDialog } from './slice/CartSlice';
+import { setIsOpenAddDialog, setIsOpenCustomerDialog, setIsOpenTreatmentDialog } from './slice/CartSlice';
 import { useAddInvoiceMutation, useUpdateGivenChangeMutation } from './service/POSServices';
 import AddCustomerFormWrapper from './components/AddCustomerForm/AddCustomerFormWrapper';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -17,6 +17,8 @@ import CloseRegisterFormWrapper from '../OpenRegister/screens/Add/AddCloseRegist
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useSendPdfViaEmailMutation } from '../Invoices/service/InvoicesServices';
+import TreatmentAddFormWrapper from './components/AddCustomerForm/TreatmentAddFormLayout';
+import { useState } from 'react';
 type Props = {};
 
 const POSWrapper = (props: Props) => {
@@ -24,9 +26,9 @@ const POSWrapper = (props: Props) => {
   const [searchParams] = useSearchParams();
 
   const bookingId = searchParams.get("bookingId")
-
+const [treatments, setTreatments] = useState<any[]>([]);
   const { outlet } = useSelector((state: RootState) => state.auth);
-  const { isOpenCustomerDialog, previewData } = useSelector(
+  const { isOpenCustomerDialog, isOpenTreatmentDialog, previewData } = useSelector(
     (state: RootState) => state.cart,
   );
   const { isOpenAddDialog, isCloseAddDialog } = useSelector(
@@ -267,6 +269,7 @@ const POSWrapper = (props: Props) => {
       useCashBackAmount: values?.useCashBackAmount,
       usedCashBackAmount: values?.usedCashBackAmount,
       bookingId: bookingId,
+      extraServices:treatments
     };
 
     const error = validateBooking(formattedValues);
@@ -313,9 +316,9 @@ const POSWrapper = (props: Props) => {
         navigate(`/invoice/receipt/${createdInvoiceId}`);
         //--------
         // Then after rendering
-        setTimeout(() => {
-          handleSendEmail(createdInvoiceId);
-        }, 1000); // Wait to ensure DOM is ready
+        // setTimeout(() => {
+        //   handleSendEmail(createdInvoiceId);
+        // }, 1000); // Wait to ensure DOM is ready
         //--------
       } else {
         showToast('error', res?.data?.message);
@@ -327,6 +330,12 @@ const POSWrapper = (props: Props) => {
       setSubmitting(false);
     }
   };
+
+ const handleTreatmentSave = (data: any) => {
+  console.log("Parent received:", data);
+
+  setTreatments((prev: any) => [...prev, data]);
+};
 
   return (
     <div>
@@ -346,6 +355,13 @@ const POSWrapper = (props: Props) => {
       {isOpenCustomerDialog && (
         <AddCustomerFormWrapper
           onClose={() => dispatch(setIsOpenCustomerDialog(false))}
+        />
+      )}
+
+      {isOpenTreatmentDialog && (
+        <TreatmentAddFormWrapper
+          onClose={() => dispatch(setIsOpenTreatmentDialog(false))}
+          onSave={handleTreatmentSave}
         />
       )}
 

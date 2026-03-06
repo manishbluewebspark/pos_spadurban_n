@@ -15,6 +15,7 @@ type DropdownFilter = {
   options: Option[];
   renderOption: (option: Option) => ReactNode;
   isOptionEqualToSearchValue: (option: Option, value: string) => boolean;
+  onInputChange?: (value: string) => void; // ⭐ NEW
 };
 
 type DateFilter = {
@@ -144,6 +145,7 @@ const MOLFilterBar = ({
                         isOptionEqualToSearchValue={
                           filter?.isOptionEqualToSearchValue
                         }
+                        onInputChange={filter.onInputChange}
                       />
                     );
 
@@ -193,6 +195,7 @@ const MOLFilterBar = ({
                         isOptionEqualToSearchValue={
                           filter?.isOptionEqualToSearchValue
                         }
+                         onInputChange={filter.onInputChange}
                       />
                     );
 
