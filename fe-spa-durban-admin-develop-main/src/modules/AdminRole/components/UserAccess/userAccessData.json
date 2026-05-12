@@ -996,6 +996,11 @@
           "featureId": "SALES_LEDGER",
           "featureName": "See Sales Ledger",
           "relatedFieldColumn": "SALES_LEDGER"
+        },
+        {
+          "featureId": "CASH_MOVEMENT_REPORT",
+          "featureName": "Cash Movement Report",
+          "relatedFieldColumn": "CASH_MOVEMENT_REPORT"
         }
       ],
       "dependencies": [
@@ -1004,7 +1009,8 @@
         "REPORT_GIFT_CARD",
         "REPORT_RETAIL_DASHBOARD",
         "CLOSURE_SUMMARY",
-        "PAYMENT_REPORTS"
+        "PAYMENT_REPORTS",
+        "CASH_MOVEMENT_REPORT"
       ],
       "fields": []
     }

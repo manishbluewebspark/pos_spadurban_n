@@ -1,7 +1,11 @@
 export type GiftCard = {
   customerName: string;
+  totalRedeemed:number;
+  balance:number;
+  totalSold:Number;
   type: string;
   giftCardName: string;
+  giftCardNumber:Number;
   giftCardAmount: number;
   createdAt: string;
   giftCardExpiryDate: string;

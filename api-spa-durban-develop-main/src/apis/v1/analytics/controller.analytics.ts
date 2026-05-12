@@ -32,6 +32,7 @@ import { pipeline } from "stream";
 import Outlet from "../outlet/schema.outlet";
 import Customer from "../customer/schema.customer";
 import PaymentMode from "../paymentMode/schema.paymentMode";
+import GiftCard from "../giftCard/schema.giftCard";
 
 //-----------------------------------------------
 
@@ -1826,13 +1827,13 @@ const getRegisterDataByOutlet = catchAsync(async (req: AuthenticatedRequest, res
   res.status(200).json({
     success: true,
     existingOpenRegister,
-    data: registerData,
-    pagination: {
+    data: {data:registerData,pagination: {
       total: totalCount,
       page,
       limit,
       pages: Math.ceil(totalCount / limit),
-    }
+    }},
+    
   });
 });
 
@@ -3191,6 +3192,201 @@ const getGiftCardDataReportByOutlets = catchAsync(
 // });
 
 
+// const getRetailDashboardData = catchAsync(async (req: Request, res: Response) => {
+//   const { outletIds, startDate, endDate, reportDuration } = req.query;
+
+//   if (!startDate || !endDate || !outletIds) {
+//     throw new ApiError(
+//       httpStatus.BAD_REQUEST,
+//       "outletIds, startDate and endDate are required"
+//     );
+//   }
+
+//   // 🔹 Current Range
+//   const start = new Date(startDate as string);
+//   start.setHours(0, 0, 0, 0);
+
+//   const end = new Date(endDate as string);
+//   end.setHours(23, 59, 59, 999);
+
+//   const differenceInDays =
+//     Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+//   // 🔹 SMART PREVIOUS PERIOD LOGIC
+//   let prevStart = new Date(start);
+//   let prevEnd = new Date(end);
+
+//   switch (reportDuration) {
+//     case "YEARLY":
+//       prevStart.setFullYear(prevStart.getFullYear() - 1);
+//       prevEnd.setFullYear(prevEnd.getFullYear() - 1);
+//       break;
+
+//     case "MONTHLY":
+//       prevStart.setMonth(prevStart.getMonth() - 1);
+//       prevEnd.setMonth(prevEnd.getMonth() - 1);
+//       break;
+
+//     case "WEEKLY":
+//       prevStart.setDate(prevStart.getDate() - 7);
+//       prevEnd.setDate(prevEnd.getDate() - 7);
+//       break;
+
+//     case "CUSTUM":
+//       prevStart.setDate(prevStart.getDate() - differenceInDays);
+//       prevEnd.setDate(prevEnd.getDate() - differenceInDays);
+//       break;
+
+//     case "DAILY":
+//     default:
+//       prevStart.setDate(prevStart.getDate() - 1);
+//       prevEnd.setDate(prevEnd.getDate() - 1);
+//       break;
+//   }
+
+//   prevStart.setHours(0, 0, 0, 0);
+//   prevEnd.setHours(23, 59, 59, 999);
+
+//   // 🔹 Convert outlet IDs
+//   const outletObjectIds = (outletIds as string)
+//     .split(",")
+//     .map(id => new mongoose.Types.ObjectId(id));
+
+//   const allOutlets = await Outlet.find({ _id: { $in: outletObjectIds } });
+
+//   // 🔹 CURRENT DATA
+//   const invoiceAgg = await Invoice.aggregate([
+//     { $match: { outletId: { $in: outletObjectIds }, invoiceDate: { $gte: start, $lte: end } } },
+//     { $group: { _id: "$outletId", revenue: { $sum: "$totalAmount" }, saleCount: { $sum: 1 } } },
+//   ]);
+
+//   const payoutAgg = await SalesRegister.aggregate([
+//     { $match: { outletId: { $in: outletObjectIds }, openedAt: { $gte: start, $lte: end } } },
+//     { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: true } },
+//     { $group: { _id: "$outletId", totalPayout: { $sum: { $ifNull: ["$cashUsage.amount", 0] } } } },
+//   ]);
+
+//   const customerAgg = await Customer.aggregate([
+//     { $unwind: "$outlets" },
+//     {
+//       $addFields: {
+//         createdAtDate: {
+//           $cond: [
+//             { $eq: [{ $type: "$createdAt" }, "string"] },
+//             { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
+//             "$createdAt"
+//           ]
+//         }
+//       }
+//     },
+//     {
+//       $match: {
+//         outlets: { $in: outletObjectIds },
+//         createdAtDate: { $gte: start, $lte: end }
+//       }
+//     },
+//     { $group: { _id: "$outlets", customerCount: { $sum: 1 } } }
+//   ]);
+
+//   // 🔹 PREVIOUS DATA
+//   const prevInvoiceAgg = await Invoice.aggregate([
+//     { $match: { outletId: { $in: outletObjectIds }, invoiceDate: { $gte: prevStart, $lte: prevEnd } } },
+//     { $group: { _id: "$outletId", revenue: { $sum: "$totalAmount" }, saleCount: { $sum: 1 } } },
+//   ]);
+
+//   const prevPayoutAgg = await SalesRegister.aggregate([
+//     { $match: { outletId: { $in: outletObjectIds }, openedAt: { $gte: prevStart, $lte: prevEnd } } },
+//     { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: true } },
+//     { $group: { _id: "$outletId", totalPayout: { $sum: "$cashUsage.amount" } } },
+//   ]);
+
+//   const prevCustomerAgg = await Customer.aggregate([
+//     { $unwind: "$outlets" },
+//     {
+//       $addFields: {
+//         createdAtDate: {
+//           $cond: [
+//             { $eq: [{ $type: "$createdAt" }, "string"] },
+//             { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
+//             "$createdAt"
+//           ]
+//         }
+//       }
+//     },
+//     {
+//       $match: {
+//         outlets: { $in: outletObjectIds },
+//         createdAtDate: { $gte: prevStart, $lte: prevEnd }
+//       }
+//     },
+//     { $group: { _id: "$outlets", customerCount: { $sum: 1 } } }
+//   ]);
+
+//   const calc = (current: number, previous: number) => {
+//     const diff = current - previous;
+//     const percent =
+//       previous === 0 ? (current === 0 ? 0 : 100)
+//       : parseFloat(((diff / previous) * 100).toFixed(2));
+//     return { value: current, diff, percent };
+//   };
+
+//   const outletsData = allOutlets.map((o: any) => {
+//     const inv = invoiceAgg.find(i => i._id.toString() === o._id.toString()) || { revenue: 0, saleCount: 0 };
+//     const payout = payoutAgg.find(p => p._id.toString() === o._id.toString());
+//     const grossProfit = inv.revenue - (payout ? payout.totalPayout : 0);
+
+//     const cust = customerAgg.find(c => c._id.toString() === o._id.toString()) || { customerCount: 0 };
+//     const prevInv = prevInvoiceAgg.find(i => i._id.toString() === o._id.toString()) || { revenue: 0, saleCount: 0 };
+//     const prevPayout = prevPayoutAgg.find(p => p._id.toString() === o._id.toString());
+//     const prevGrossProfit = prevInv.revenue - (prevPayout ? prevPayout.totalPayout : 0);
+//     const prevCust = prevCustomerAgg.find(c => c._id.toString() === o._id.toString()) || { customerCount: 0 };
+
+//     return {
+//       outletId: o._id,
+//       outletName: o.name,
+//       revenue: inv.revenue,
+//       saleCount: inv.saleCount,
+//       grossProfit,
+//       customerCount: cust.customerCount,
+//       revenuePercent: calc(inv.revenue, prevInv.revenue).percent,
+//       saleCountPercent: calc(inv.saleCount, prevInv.saleCount).percent,
+//       grossProfitPercent: calc(grossProfit, prevGrossProfit).percent,
+//       customerCountPercent: calc(cust.customerCount, prevCust.customerCount).percent,
+//     };
+//   });
+
+//   const totalRevenueStats = calc(
+//     outletsData.reduce((sum, o) => sum + o.revenue, 0),
+//     prevInvoiceAgg.reduce((sum, o) => sum + o.revenue, 0)
+//   );
+
+//   const totalSaleCountStats = calc(
+//     outletsData.reduce((sum, o) => sum + o.saleCount, 0),
+//     prevInvoiceAgg.reduce((sum, o) => sum + o.saleCount, 0)
+//   );
+
+//   const totalCustomerCountStats = calc(
+//     outletsData.reduce((sum, o) => sum + o.customerCount, 0),
+//     prevCustomerAgg.reduce((sum, o) => sum + o.customerCount, 0)
+//   );
+
+//   const totalGrossProfitStats = calc(
+//     outletsData.reduce((sum, o) => sum + o.grossProfit, 0),
+//     prevInvoiceAgg.reduce((sum, o) => sum + o.revenue, 0)
+//   );
+
+//   res.status(200).json({
+//     success: true,
+//     data: {
+//       outlets: outletsData,
+//       totalRevenue: totalRevenueStats,
+//       totalSaleCount: totalSaleCountStats,
+//       totalCustomerCount: totalCustomerCountStats,
+//       totalGrossProfit: totalGrossProfitStats,
+//     },
+//   });
+// });
+
 const getRetailDashboardData = catchAsync(async (req: Request, res: Response) => {
   const { outletIds, startDate, endDate, reportDuration } = req.query;
 
@@ -3201,7 +3397,7 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
     );
   }
 
-  // 🔹 Current Range
+  // 🔹 CURRENT DATE RANGE
   const start = new Date(startDate as string);
   start.setHours(0, 0, 0, 0);
 
@@ -3211,7 +3407,7 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
   const differenceInDays =
     Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-  // 🔹 SMART PREVIOUS PERIOD LOGIC
+  // 🔹 PREVIOUS DATE RANGE
   let prevStart = new Date(start);
   let prevEnd = new Date(end);
 
@@ -3246,114 +3442,367 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
   prevStart.setHours(0, 0, 0, 0);
   prevEnd.setHours(23, 59, 59, 999);
 
-  // 🔹 Convert outlet IDs
+  // 🔹 OUTLETS
   const outletObjectIds = (outletIds as string)
     .split(",")
-    .map(id => new mongoose.Types.ObjectId(id));
+    .map((id) => new mongoose.Types.ObjectId(id));
 
-  const allOutlets = await Outlet.find({ _id: { $in: outletObjectIds } });
+  const allOutlets = await Outlet.find({
+    _id: { $in: outletObjectIds },
+  });
 
-  // 🔹 CURRENT DATA
+  // 🔹 CURRENT INVOICE DATA
   const invoiceAgg = await Invoice.aggregate([
-    { $match: { outletId: { $in: outletObjectIds }, invoiceDate: { $gte: start, $lte: end } } },
-    { $group: { _id: "$outletId", revenue: { $sum: "$totalAmount" }, saleCount: { $sum: 1 } } },
+    {
+      $match: {
+        outletId: { $in: outletObjectIds },
+        invoiceDate: { $gte: start, $lte: end },
+      },
+    },
+    {
+      $group: {
+        _id: "$outletId",
+
+        revenue: {
+          $sum: { $ifNull: ["$totalAmount", 0] },
+        },
+
+        saleCount: {
+          $sum: 1,
+        },
+
+        discounted: {
+          $sum: { $ifNull: ["$discountAmount", 0] },
+        },
+
+        itemsSold: {
+          $sum: { $ifNull: ["$totalItems", 0] },
+        },
+      },
+    },
   ]);
 
+  // 🔹 PREVIOUS INVOICE DATA
+  const prevInvoiceAgg = await Invoice.aggregate([
+    {
+      $match: {
+        outletId: { $in: outletObjectIds },
+        invoiceDate: { $gte: prevStart, $lte: prevEnd },
+      },
+    },
+    {
+      $group: {
+        _id: "$outletId",
+
+        revenue: {
+          $sum: { $ifNull: ["$totalAmount", 0] },
+        },
+
+        saleCount: {
+          $sum: 1,
+        },
+
+        discounted: {
+          $sum: { $ifNull: ["$discountAmount", 0] },
+        },
+
+        itemsSold: {
+          $sum: { $ifNull: ["$totalItems", 0] },
+        },
+      },
+    },
+  ]);
+
+  // 🔹 CURRENT PAYOUTS
   const payoutAgg = await SalesRegister.aggregate([
-    { $match: { outletId: { $in: outletObjectIds }, openedAt: { $gte: start, $lte: end } } },
-    { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: true } },
-    { $group: { _id: "$outletId", totalPayout: { $sum: { $ifNull: ["$cashUsage.amount", 0] } } } },
+    {
+      $match: {
+        outletId: { $in: outletObjectIds },
+        openedAt: { $gte: start, $lte: end },
+      },
+    },
+    {
+      $unwind: {
+        path: "$cashUsage",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $group: {
+        _id: "$outletId",
+        totalPayout: {
+          $sum: { $ifNull: ["$cashUsage.amount", 0] },
+        },
+      },
+    },
   ]);
 
+  // 🔹 PREVIOUS PAYOUTS
+  const prevPayoutAgg = await SalesRegister.aggregate([
+    {
+      $match: {
+        outletId: { $in: outletObjectIds },
+        openedAt: { $gte: prevStart, $lte: prevEnd },
+      },
+    },
+    {
+      $unwind: {
+        path: "$cashUsage",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $group: {
+        _id: "$outletId",
+        totalPayout: {
+          $sum: { $ifNull: ["$cashUsage.amount", 0] },
+        },
+      },
+    },
+  ]);
+
+  // 🔹 CURRENT CUSTOMERS
   const customerAgg = await Customer.aggregate([
     { $unwind: "$outlets" },
+
     {
       $addFields: {
         createdAtDate: {
           $cond: [
             { $eq: [{ $type: "$createdAt" }, "string"] },
-            { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
-            "$createdAt"
-          ]
-        }
-      }
+            {
+              $dateFromString: {
+                dateString: "$createdAt",
+                format: "%Y-%m-%d %H:%M:%S",
+              },
+            },
+            "$createdAt",
+          ],
+        },
+      },
     },
+
     {
       $match: {
         outlets: { $in: outletObjectIds },
-        createdAtDate: { $gte: start, $lte: end }
-      }
+        createdAtDate: { $gte: start, $lte: end },
+      },
     },
-    { $group: { _id: "$outlets", customerCount: { $sum: 1 } } }
+
+    {
+      $group: {
+        _id: "$outlets",
+        customerCount: { $sum: 1 },
+      },
+    },
   ]);
 
-  // 🔹 PREVIOUS DATA
-  const prevInvoiceAgg = await Invoice.aggregate([
-    { $match: { outletId: { $in: outletObjectIds }, invoiceDate: { $gte: prevStart, $lte: prevEnd } } },
-    { $group: { _id: "$outletId", revenue: { $sum: "$totalAmount" }, saleCount: { $sum: 1 } } },
-  ]);
-
-  const prevPayoutAgg = await SalesRegister.aggregate([
-    { $match: { outletId: { $in: outletObjectIds }, openedAt: { $gte: prevStart, $lte: prevEnd } } },
-    { $unwind: { path: "$cashUsage", preserveNullAndEmptyArrays: true } },
-    { $group: { _id: "$outletId", totalPayout: { $sum: "$cashUsage.amount" } } },
-  ]);
-
+  // 🔹 PREVIOUS CUSTOMERS
   const prevCustomerAgg = await Customer.aggregate([
     { $unwind: "$outlets" },
+
     {
       $addFields: {
         createdAtDate: {
           $cond: [
             { $eq: [{ $type: "$createdAt" }, "string"] },
-            { $dateFromString: { dateString: "$createdAt", format: "%Y-%m-%d %H:%M:%S" } },
-            "$createdAt"
-          ]
-        }
-      }
+            {
+              $dateFromString: {
+                dateString: "$createdAt",
+                format: "%Y-%m-%d %H:%M:%S",
+              },
+            },
+            "$createdAt",
+          ],
+        },
+      },
     },
+
     {
       $match: {
         outlets: { $in: outletObjectIds },
-        createdAtDate: { $gte: prevStart, $lte: prevEnd }
-      }
+        createdAtDate: { $gte: prevStart, $lte: prevEnd },
+      },
     },
-    { $group: { _id: "$outlets", customerCount: { $sum: 1 } } }
+
+    {
+      $group: {
+        _id: "$outlets",
+        customerCount: { $sum: 1 },
+      },
+    },
   ]);
 
+  // 🔹 PERCENT CALCULATOR
   const calc = (current: number, previous: number) => {
     const diff = current - previous;
+
     const percent =
-      previous === 0 ? (current === 0 ? 0 : 100)
-      : parseFloat(((diff / previous) * 100).toFixed(2));
-    return { value: current, diff, percent };
+      previous === 0
+        ? current === 0
+          ? 0
+          : 100
+        : parseFloat(((diff / previous) * 100).toFixed(2));
+
+    return {
+      value: Number(current.toFixed(2)),
+      diff: Number(diff.toFixed(2)),
+      percent,
+    };
   };
 
+  // 🔹 OUTLET DATA
   const outletsData = allOutlets.map((o: any) => {
-    const inv = invoiceAgg.find(i => i._id.toString() === o._id.toString()) || { revenue: 0, saleCount: 0 };
-    const payout = payoutAgg.find(p => p._id.toString() === o._id.toString());
-    const grossProfit = inv.revenue - (payout ? payout.totalPayout : 0);
+    const inv =
+      invoiceAgg.find(
+        (i) => i._id.toString() === o._id.toString()
+      ) || {
+        revenue: 0,
+        saleCount: 0,
+        discounted: 0,
+        itemsSold: 0,
+      };
 
-    const cust = customerAgg.find(c => c._id.toString() === o._id.toString()) || { customerCount: 0 };
-    const prevInv = prevInvoiceAgg.find(i => i._id.toString() === o._id.toString()) || { revenue: 0, saleCount: 0 };
-    const prevPayout = prevPayoutAgg.find(p => p._id.toString() === o._id.toString());
-    const prevGrossProfit = prevInv.revenue - (prevPayout ? prevPayout.totalPayout : 0);
-    const prevCust = prevCustomerAgg.find(c => c._id.toString() === o._id.toString()) || { customerCount: 0 };
+    const prevInv =
+      prevInvoiceAgg.find(
+        (i) => i._id.toString() === o._id.toString()
+      ) || {
+        revenue: 0,
+        saleCount: 0,
+        discounted: 0,
+        itemsSold: 0,
+      };
+
+    const payout = payoutAgg.find(
+      (p) => p._id.toString() === o._id.toString()
+    );
+
+    const prevPayout = prevPayoutAgg.find(
+      (p) => p._id.toString() === o._id.toString()
+    );
+
+    const cust =
+      customerAgg.find(
+        (c) => c._id.toString() === o._id.toString()
+      ) || {
+        customerCount: 0,
+      };
+
+    const prevCust =
+      prevCustomerAgg.find(
+        (c) => c._id.toString() === o._id.toString()
+      ) || {
+        customerCount: 0,
+      };
+
+    const grossProfit =
+      inv.revenue - (payout ? payout.totalPayout : 0);
+
+    const prevGrossProfit =
+      prevInv.revenue -
+      (prevPayout ? prevPayout.totalPayout : 0);
+
+    // ✅ AVG SALE VALUE
+    const avgSaleValue =
+      inv.saleCount > 0
+        ? Number((inv.revenue / inv.saleCount).toFixed(2))
+        : 0;
+
+    const prevAvgSaleValue =
+      prevInv.saleCount > 0
+        ? Number(
+            (prevInv.revenue / prevInv.saleCount).toFixed(2)
+          )
+        : 0;
+
+    // ✅ AVG ITEMS PER SALE
+    const avgItemsPerSale =
+      inv.saleCount > 0
+        ? Number((inv.itemsSold / inv.saleCount).toFixed(2))
+        : 0;
+
+    const prevAvgItemsPerSale =
+      prevInv.saleCount > 0
+        ? Number(
+            (prevInv.itemsSold / prevInv.saleCount).toFixed(2)
+          )
+        : 0;
+
+    // ✅ DISCOUNT %
+    const discountedPercent =
+      inv.revenue > 0
+        ? Number(
+            ((inv.discounted / inv.revenue) * 100).toFixed(2)
+          )
+        : 0;
+
+    const prevDiscountedPercent =
+      prevInv.revenue > 0
+        ? Number(
+            (
+              (prevInv.discounted / prevInv.revenue) *
+              100
+            ).toFixed(2)
+          )
+        : 0;
 
     return {
       outletId: o._id,
       outletName: o.name,
+
       revenue: inv.revenue,
       saleCount: inv.saleCount,
       grossProfit,
       customerCount: cust.customerCount,
-      revenuePercent: calc(inv.revenue, prevInv.revenue).percent,
-      saleCountPercent: calc(inv.saleCount, prevInv.saleCount).percent,
-      grossProfitPercent: calc(grossProfit, prevGrossProfit).percent,
-      customerCountPercent: calc(cust.customerCount, prevCust.customerCount).percent,
+
+      discounted: inv.discounted,
+      discountedPercent,
+      avgSaleValue,
+      avgItemsPerSale,
+
+      revenuePercent: calc(
+        inv.revenue,
+        prevInv.revenue
+      ).percent,
+
+      saleCountPercent: calc(
+        inv.saleCount,
+        prevInv.saleCount
+      ).percent,
+
+      grossProfitPercent: calc(
+        grossProfit,
+        prevGrossProfit
+      ).percent,
+
+      customerCountPercent: calc(
+        cust.customerCount,
+        prevCust.customerCount
+      ).percent,
+
+      discountedPercentChange: calc(
+        inv.discounted,
+        prevInv.discounted
+      ).percent,
+
+      discountedPercentageChange: calc(
+        discountedPercent,
+        prevDiscountedPercent
+      ).percent,
+
+      avgSaleValuePercent: calc(
+        avgSaleValue,
+        prevAvgSaleValue
+      ).percent,
+
+      avgItemsPerSalePercent: calc(
+        avgItemsPerSale,
+        prevAvgItemsPerSale
+      ).percent,
     };
   });
 
+  // 🔹 TOTALS
   const totalRevenueStats = calc(
     outletsData.reduce((sum, o) => sum + o.revenue, 0),
     prevInvoiceAgg.reduce((sum, o) => sum + o.revenue, 0)
@@ -3366,22 +3815,134 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
 
   const totalCustomerCountStats = calc(
     outletsData.reduce((sum, o) => sum + o.customerCount, 0),
-    prevCustomerAgg.reduce((sum, o) => sum + o.customerCount, 0)
+    prevCustomerAgg.reduce(
+      (sum, o) => sum + o.customerCount,
+      0
+    )
   );
 
   const totalGrossProfitStats = calc(
     outletsData.reduce((sum, o) => sum + o.grossProfit, 0),
-    prevInvoiceAgg.reduce((sum, o) => sum + o.revenue, 0)
+
+    prevInvoiceAgg.reduce((sum, o) => sum + o.revenue, 0) -
+      prevPayoutAgg.reduce(
+        (sum, o) => sum + (o.totalPayout || 0),
+        0
+      )
   );
 
+  // ✅ DISCOUNTED
+  const totalDiscountedStats = calc(
+    outletsData.reduce((sum, o) => sum + o.discounted, 0),
+
+    prevInvoiceAgg.reduce(
+      (sum, o) => sum + (o.discounted || 0),
+      0
+    )
+  );
+
+  // ✅ DISCOUNTED %
+  const totalDiscountedPercentStats = calc(
+    Number(
+      (
+        (outletsData.reduce(
+          (sum, o) => sum + o.discounted,
+          0
+        ) /
+          (outletsData.reduce(
+            (sum, o) => sum + o.revenue,
+            0
+          ) || 1)) *
+        100
+      ).toFixed(2)
+    ),
+
+    Number(
+      (
+        (prevInvoiceAgg.reduce(
+          (sum, o) => sum + (o.discounted || 0),
+          0
+        ) /
+          (prevInvoiceAgg.reduce(
+            (sum, o) => sum + o.revenue,
+            0
+          ) || 1)) *
+        100
+      ).toFixed(2)
+    )
+  );
+
+  // ✅ AVG SALE VALUE
+  const totalAvgSaleValueStats = calc(
+    Number(
+      (
+        outletsData.reduce(
+          (sum, o) => sum + o.revenue,
+          0
+        ) /
+        (outletsData.reduce(
+          (sum, o) => sum + o.saleCount,
+          0
+        ) || 1)
+      ).toFixed(2)
+    ),
+
+    Number(
+      (
+        prevInvoiceAgg.reduce(
+          (sum, o) => sum + o.revenue,
+          0
+        ) /
+        (prevInvoiceAgg.reduce(
+          (sum, o) => sum + o.saleCount,
+          0
+        ) || 1)
+      ).toFixed(2)
+    )
+  );
+
+  // ✅ AVG ITEMS PER SALE
+  const totalAvgItemsPerSaleStats = calc(
+    Number(
+      (
+        outletsData.reduce(
+          (sum, o) => sum + o.avgItemsPerSale,
+          0
+        ) / (outletsData.length || 1)
+      ).toFixed(2)
+    ),
+
+    Number(
+      (
+        prevInvoiceAgg.reduce(
+          (sum, o) => sum + (o.itemsSold || 0),
+          0
+        ) /
+        (prevInvoiceAgg.reduce(
+          (sum, o) => sum + o.saleCount,
+          0
+        ) || 1)
+      ).toFixed(2)
+    )
+  );
+
+  // 🔹 RESPONSE
   res.status(200).json({
     success: true,
+
     data: {
       outlets: outletsData,
+
       totalRevenue: totalRevenueStats,
       totalSaleCount: totalSaleCountStats,
       totalCustomerCount: totalCustomerCountStats,
       totalGrossProfit: totalGrossProfitStats,
+
+      // ✅ NEW
+      totalDiscounted: totalDiscountedStats,
+      totalDiscountedPercent: totalDiscountedPercentStats,
+      totalAvgSaleValue: totalAvgSaleValueStats,
+      totalAvgItemsPerSale: totalAvgItemsPerSaleStats,
     },
   });
 });
@@ -3512,7 +4073,10 @@ const getPaymentReports = catchAsync(async (req: any, res: any) => {
     throw new ApiError(httpStatus.BAD_REQUEST, "outletId is required");
   }
 
-  const outletObjId = new mongoose.Types.ObjectId(outletId as string);
+  // const outletObjId = new mongoose.Types.ObjectId(outletId as string);
+  const outletIdsArray = (outletId as string)
+  .split(",")
+  .map((id) => new mongoose.Types.ObjectId(id));
 
   let start: Date;
   let end: Date;
@@ -3567,7 +4131,7 @@ const getPaymentReports = catchAsync(async (req: any, res: any) => {
     {
       $match: {
         isDeleted: false,
-        outletId: outletObjId,
+        outletId: { $in: outletIdsArray },
         invoiceDate: { $gte: start, $lte: end },
       },
     },
@@ -3638,7 +4202,8 @@ const getPaymentReports = catchAsync(async (req: any, res: any) => {
     {
       $match: {
         isDeleted: false,
-        outletId: outletObjId,
+        outletId: { $in: outletIdsArray },
+
       },
     },
     { $unwind: "$cashUsage" },
@@ -4068,9 +4633,555 @@ const getSalesLedgerReports = catchAsync(
 );
 
 
+const getGiftCardTableData = catchAsync(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const {
+      search,
+      page = 1,
+      limit = 10,
+      startDate,
+      endDate,
+      outletIds,
+    } = req.query;
+
+    // -----------------------------
+    // Pagination
+    // -----------------------------
+    const pageNumber = Number(page);
+    const limitNumber = Number(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // -----------------------------
+    // Filter
+    // -----------------------------
+    const filter: any = {
+      isDeleted: false,
+    };
+
+    // Search by gift card number/name
+    if (search) {
+      filter.giftCardName = {
+        $regex: search,
+        $options: "i",
+      };
+    }
+
+    // Date filter
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate as string),
+        $lte: new Date(endDate as string),
+      };
+    }
+
+    // -----------------------------
+    // Get Table Data
+    // -----------------------------
+    const [giftCards, totalCount] = await Promise.all([
+      GiftCard.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNumber)
+        .lean(),
+
+      GiftCard.countDocuments(filter),
+    ]);
+
+    // -----------------------------
+    // Table Rows
+    // -----------------------------
+    const tableData = giftCards.map((card: any) => {
+      const totalSold = Number(card.total_sold || 0);
+      const totalRedeemed = Number(card.total_redeemed || 0);
+
+      return {
+        _id: card._id,
+        giftCardNumber: card.giftCardName,
+        totalSold,
+        totalRedeemed,
+        balance: totalSold - totalRedeemed,
+        expiryDate: card.giftCardExpiryDate,
+        createdAt: card.createdAt,
+        isActive: card.isActive,
+      };
+    });
+
+    // -----------------------------
+    // Stats Calculation
+    // -----------------------------
+    const statsAggregation = await GiftCard.aggregate([
+      {
+        $match: filter,
+      },
+      {
+        $group: {
+          _id: null,
+
+          totalValueSold: {
+            $sum: "$total_sold",
+          },
+
+          totalValueRedeemed: {
+            $sum: "$total_redeemed",
+          },
+
+          outstandingBalance: {
+            $sum: {
+              $subtract: [
+                { $ifNull: ["$total_sold", 0] },
+                { $ifNull: ["$total_redeemed", 0] },
+              ],
+            },
+          },
+
+          giftCardsInCirculation: {
+            $sum: 1,
+          },
+        },
+      },
+    ]);
+
+    const stats = statsAggregation[0] || {
+      totalValueSold: 0,
+      totalValueRedeemed: 0,
+      outstandingBalance: 0,
+      giftCardsInCirculation: 0,
+    };
+
+    return res.status(httpStatus.OK).send({
+      message: "Gift card table data fetched successfully.",
+      status: true,
+      code: "OK",
+      issue: null,
+
+      data: {
+        stats: {
+          totalValueSold: stats.totalValueSold,
+          totalValueRedeemed: stats.totalValueRedeemed,
+          outstandingBalance: stats.outstandingBalance,
+          giftCardsInCirculation: stats.giftCardsInCirculation,
+        },
+
+        tableData,
+
+        pagination: {
+          total: totalCount,
+          page: pageNumber,
+          limit: limitNumber,
+          totalPages: Math.ceil(totalCount / limitNumber),
+        },
+      },
+    });
+  }
+);
 
 
+const getRetailDashboardProductsSold = catchAsync(async (req: Request, res: Response) => {
 
+  const { outletIds, startDate, endDate } = req.query;
+
+  const start = new Date(startDate as string);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(endDate as string);
+  end.setHours(23, 59, 59, 999);
+
+  const outletObjectIds = (outletIds as string)
+    .split(",")
+    .map(id => new mongoose.Types.ObjectId(id));
+
+  const products = await Invoice.aggregate([
+    {
+      $match: {
+        outletId: { $in: outletObjectIds },
+        invoiceDate: { $gte: start, $lte: end }
+      }
+    },
+
+    {
+      $unwind: "$items"
+    },
+
+   {
+  $group: {
+    _id: "$items.itemId",
+
+    productName: {
+      $first: "$items.itemName"
+    },
+
+    revenue: {
+      $sum: {
+        $multiply: [
+          { $ifNull: ["$items.quantity", 0] },
+          { $ifNull: ["$items.sellingPrice", 0] }
+        ]
+      }
+    },
+
+    itemsSold: {
+      $sum: {
+        $ifNull: ["$items.quantity", 0]
+      }
+    },
+
+    // ✅ Proper proportional discount
+    discounted: {
+      $sum: {
+        $cond: [
+          { $gt: ["$totalAmount", 0] },
+
+          {
+            $multiply: [
+              {
+                $divide: [
+                  {
+                    $multiply: [
+                      { $ifNull: ["$items.quantity", 0] },
+                      { $ifNull: ["$items.sellingPrice", 0] }
+                    ]
+                  },
+                  "$totalAmount"
+                ]
+              },
+              { $ifNull: ["$totalDiscount", 0] }
+            ]
+          },
+
+          0
+        ]
+      }
+    }
+  }
+},
+
+    {
+      $sort: {
+        revenue: -1
+      }
+    },
+
+    {
+      $limit: 10
+    },
+
+   {
+  $project: {
+    _id: 1,
+    productName: 1,
+    revenue: { $round: ["$revenue", 2] },
+    itemsSold: 1,
+    discounted: { $round: ["$discounted", 2] }
+  }
+}
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: products
+  });
+
+});
+
+
+const getRetailDashboardTopSalesPeople = catchAsync(async (req: Request, res: Response) => {
+
+  const { outletIds, startDate, endDate } = req.query;
+
+  if (!outletIds || !startDate || !endDate) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "outletIds, startDate and endDate are required"
+    );
+  }
+
+  const start = new Date(startDate as string);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(endDate as string);
+  end.setHours(23, 59, 59, 999);
+
+  const outletObjectIds = (outletIds as string)
+    .split(",")
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  const users = await Invoice.aggregate([
+
+    {
+      $match: {
+        outletId: { $in: outletObjectIds },
+        invoiceDate: { $gte: start, $lte: end }
+      }
+    },
+
+    {
+      $group: {
+        _id: "$customerId",
+
+        revenue: {
+          $sum: { $ifNull: ["$totalAmount", 0] }
+        },
+
+        saleCount: {
+          $sum: 1
+        },
+
+        itemsSold: {
+          $sum: {
+            $reduce: {
+              input: { $ifNull: ["$items", []] },
+              initialValue: 0,
+              in: {
+                $add: [
+                  "$$value",
+                  { $ifNull: ["$$this.quantity", 0] }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+
+    // ✅ Customer lookup
+    {
+      $lookup: {
+        from: "customers",
+        localField: "_id",
+        foreignField: "_id",
+        as: "customer"
+      }
+    },
+
+    {
+      $unwind: {
+        path: "$customer",
+        preserveNullAndEmptyArrays: true
+      }
+    },
+
+    {
+      $addFields: {
+
+        avgSaleValue: {
+          $cond: [
+            { $eq: ["$saleCount", 0] },
+            0,
+            {
+              $divide: ["$revenue", "$saleCount"]
+            }
+          ]
+        },
+
+        avgItemsPerSale: {
+          $cond: [
+            { $eq: ["$saleCount", 0] },
+            0,
+            {
+              $divide: ["$itemsSold", "$saleCount"]
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      $project: {
+        _id: 1,
+
+        // ✅ customerName as username
+        userName: {
+          $ifNull: ["$customer.customerName", "Unknown Customer"]
+        },
+
+        revenue: {
+          $round: ["$revenue", 2]
+        },
+
+        saleCount: 1,
+
+        itemsSold: 1,
+
+        avgSaleValue: {
+          $round: ["$avgSaleValue", 2]
+        },
+
+        avgItemsPerSale: {
+          $round: ["$avgItemsPerSale", 2]
+        }
+      }
+    },
+
+    {
+      $sort: {
+        revenue: -1
+      }
+    },
+
+    {
+      $limit: 10
+    }
+
+  ]);
+
+  res.status(200).json({
+    success: true,
+    data: users
+  });
+
+});
+
+// ================================
+// CONTROLLER
+// ================================
+
+const getCashMovementReport = catchAsync(
+  async (req: Request, res: Response) => {
+
+    const {
+      outletId,
+      startDate,
+      endDate,
+    } = req.query;
+
+    if (!outletId || !startDate || !endDate) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "outletId, startDate and endDate are required"
+      );
+    }
+
+    const start = new Date(startDate as string);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(endDate as string);
+    end.setHours(23, 59, 59, 999);
+
+  const salesRegisters = await SalesRegister.find({
+  outletId: new mongoose.Types.ObjectId(outletId as string),
+});
+
+let cashIn = 0;
+let cashOut = 0;
+let pettyCashIn = 0;
+let pettyCashOut = 0;
+
+salesRegisters.forEach((register: any) => {
+
+  // ✅ Register open date filter
+  const registerDate = new Date(register?.openedAt);
+
+  if (registerDate >= start && registerDate <= end) {
+
+    // ✅ CASH IN FROM CLOSE REGISTER PAYMENTS
+    if (register?.closeRegister?.length) {
+
+      register.closeRegister.forEach((close: any) => {
+
+        if (close?.payments?.length) {
+
+          close.payments.forEach((payment: any) => {
+
+            if (
+              payment?.paymentModeName?.toLowerCase() === "cash"
+            ) {
+              cashIn += Number(payment?.totalAmount || 0);
+            }
+          });
+        }
+
+        // ✅ payout
+        cashOut += Number(close?.payout || 0);
+      });
+    }
+
+    // ✅ bank deposit
+    cashOut += Number(register?.bankDeposit || 0);
+  }
+
+  // ✅ cash usage
+  if (register?.cashUsage?.length) {
+
+    register.cashUsage.forEach((usage: any) => {
+
+      const usageDate = new Date(usage?.createdAt);
+
+      if (usageDate >= start && usageDate <= end) {
+
+        const amount = Number(usage?.amount || 0);
+
+        // ✅ ALL cashUsage = expense
+        pettyCashOut += amount;
+      }
+    });
+  }
+});
+
+    // ✅ CASH OUT
+    cashOut = Number(
+      salesRegisters.reduce(
+        (sum: number, item: any) =>
+          sum + Number(item?.bankDeposit || 0),
+        0
+      )
+    );
+
+    const rows = [
+      {
+        type: "Cash in",
+        cashAdded: cashIn,
+        cashRemoved: 0,
+        amount: cashIn,
+      },
+
+      {
+        type: "Cash out",
+        cashAdded: 0,
+        cashRemoved: -cashOut,
+        amount: -cashOut,
+      },
+
+      {
+        type: "Petty cash in",
+        cashAdded: pettyCashIn,
+        cashRemoved: 0,
+        amount: pettyCashIn,
+      },
+
+      {
+        type: "Petty cash out",
+        cashAdded: 0,
+        cashRemoved: -pettyCashOut,
+        amount: -pettyCashOut,
+      },
+    ];
+
+    const totalCashAdded =
+      cashIn + pettyCashIn;
+
+    const totalCashRemoved =
+      cashOut + pettyCashOut;
+
+    const totalAmount =
+      totalCashAdded - totalCashRemoved;
+
+    const totals = {
+      type: "Totals",
+      cashAdded: totalCashAdded,
+      cashRemoved: -totalCashRemoved,
+      amount: totalAmount,
+    };
+
+rows.unshift(totals);
+
+
+    res.status(200).json({
+      success: true,
+      data: rows,
+      
+    });
+  }
+);
 
 
 
@@ -4093,5 +5204,9 @@ export {
   getGiftCardDataReportByOutlets,
   getRetailDashboardData,
   getPaymentReports,
-  getSalesLedgerReports
+  getSalesLedgerReports,
+  getGiftCardTableData,
+   getRetailDashboardProductsSold,
+  getRetailDashboardTopSalesPeople,
+  getCashMovementReport
 };

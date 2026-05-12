@@ -11,14 +11,14 @@ import { useFilterPagination } from 'src/hooks/useFilterPagination';
 import { SalesReport } from 'src/modules/Invoices/models/Invoices.model';
 import { RootState } from 'src/store';
 import { isAuthorized } from 'src/utils/authorization';
-import { useGetGiftCardReportByOutletQuery, useGetGiftCardReportChartDataQuery, useGetRetailDashboardDataQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
+import { useGetGiftCardReportByOutletQuery, useGetGiftCardReportChartDataQuery, useGetRetailDashboardDataQuery, useGetRetailDashboardProductsSoldQuery, useGetRetailDashboardTopSalesPeopleQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
 import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
 import { saveAs } from "file-saver";
 
-  const salesData = [
+const salesData = [
   {
     label: 'Daily',
     value: 'DAILY',
@@ -35,7 +35,7 @@ import { saveAs } from "file-saver";
     label: 'Yearly',
     value: 'YEARLY',
   },
-   {
+  {
     label: 'Custum',
     value: 'CUSTUM',
   },
@@ -54,6 +54,25 @@ const ViewReatailDashboardPage = () => {
     endDate: dateFilter?.end_date,
     reportDuration: appliedFilters?.[2]?.value
   });
+
+  const { data: productSoldData,isLoading } =
+  useGetRetailDashboardProductsSoldQuery({
+    outletIds: appliedFilters?.[0]?.value,
+    startDate: dateFilter?.start_date,
+    endDate: dateFilter?.end_date,
+    reportDuration: appliedFilters?.[2]?.value
+  });
+
+
+const { data: topSalesPeopleData } =
+  useGetRetailDashboardTopSalesPeopleQuery({
+    outletIds: appliedFilters?.[0]?.value,
+    startDate: dateFilter?.start_date,
+    endDate: dateFilter?.end_date,
+    reportDuration: appliedFilters?.[2]?.value
+  });
+
+  console.log('----ProductSoldData',productSoldData)
 
   const durationLabel =
     (appliedFilters?.[2]?.value?.[0] as string) === "DAILY"
@@ -109,6 +128,8 @@ const ViewReatailDashboardPage = () => {
       },
     },
   ];
+
+ 
 
   const today = new Date();
   const oneMonthAgo = subMonths(today, 1);
@@ -329,6 +350,14 @@ const ViewReatailDashboardPage = () => {
           );
         })}
       </div>
+      <div className="flex justify-start mt-3">
+      <div
+        onClick={() => navigate('/outlet/sales-report')}
+        className="text-blue-600 text-xs font-medium cursor-pointer hover:underline"
+      >
+        View Report
+      </div>
+    </div>
     </div>
   );
 
@@ -408,33 +437,277 @@ const ViewReatailDashboardPage = () => {
         />
         <Authorization permission="OUTLET_LIST">
           <MOLFilterBar hideSearch={true} filters={filters} />
-          <div className="flex flex-wrap gap-4 p-4 border rounded border-slate-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 p-4 border rounded border-slate-300">
             <StatCard
               title="Revenue"
               total={data?.data?.totalRevenue?.value || 0}
               percent={data?.data?.totalRevenue?.percent || 0}
-              outlets={data?.data?.outlets?.map((o: any) => ({ outletId: o.outletId, outletName: o.outletName, value: o.revenue })) || []}
+              outlets={
+                data?.data?.outlets?.map((o: any) => ({
+                  outletId: o.outletId,
+                  outletName: o.outletName,
+                  value: o.revenue,
+                })) || []
+              }
             />
+
             <StatCard
               title="Sale Count"
               total={data?.data?.totalSaleCount?.value || 0}
               percent={data?.data?.totalSaleCount?.percent || 0}
-              outlets={data?.data?.outlets?.map((o: any) => ({ outletId: o.outletId, outletName: o.outletName, value: o.saleCount })) || []}
+              outlets={
+                data?.data?.outlets?.map((o: any) => ({
+                  outletId: o.outletId,
+                  outletName: o.outletName,
+                  value: o.saleCount,
+                })) || []
+              }
             />
+
             <StatCard
               title="Customer Count"
               total={data?.data?.totalCustomerCount?.value || 0}
               percent={data?.data?.totalCustomerCount?.percent || 0}
-              outlets={data?.data?.outlets?.map((o: any) => ({ outletId: o.outletId, outletName: o.outletName, value: o.customerCount })) || []}
+              outlets={
+                data?.data?.outlets?.map((o: any) => ({
+                  outletId: o.outletId,
+                  outletName: o.outletName,
+                  value: o.customerCount,
+                })) || []
+              }
             />
+
             <StatCard
               title="Gross Profit"
               total={data?.data?.totalGrossProfit?.value || 0}
               percent={data?.data?.totalGrossProfit?.percent || 0}
-              outlets={data?.data?.outlets?.map((o: any) => ({ outletId: o.outletId, outletName: o.outletName, value: o.grossProfit })) || []}
+              outlets={
+                data?.data?.outlets?.map((o: any) => ({
+                  outletId: o.outletId,
+                  outletName: o.outletName,
+                  value: o.grossProfit,
+                })) || []
+              }
+            />
+
+            <StatCard
+              title="Discounted"
+              total={data?.data?.totalDiscounted?.value || 0}
+              percent={data?.data?.totalDiscounted?.percent || 0}
+              outlets={
+                data?.data?.outlets?.map((o: any) => ({
+                  outletId: o.outletId,
+                  outletName: o.outletName,
+                  value: o.discounted,
+                })) || []
+              }
+            />
+
+            <StatCard
+              title="Discounted %"
+              total={data?.data?.totalDiscountedPercent?.value || 0}
+              percent={data?.data?.totalDiscountedPercent?.percent || 0}
+              outlets={
+                data?.data?.outlets?.map((o: any) => ({
+                  outletId: o.outletId,
+                  outletName: o.outletName,
+                  value: o.discountedPercent,
+                })) || []
+              }
+            />
+
+            <StatCard
+              title="Avg. sale value"
+              total={data?.data?.totalAvgSaleValue?.value || 0}
+              percent={data?.data?.totalAvgSaleValue?.percent || 0}
+              outlets={
+                data?.data?.outlets?.map((o: any) => ({
+                  outletId: o.outletId,
+                  outletName: o.outletName,
+                  value: o.avgSaleValue,
+                })) || []
+              }
+            />
+
+            <StatCard
+              title="Avg. items per sale"
+              total={data?.data?.totalAvgItemsPerSale?.value || 0}
+              percent={data?.data?.totalAvgItemsPerSale?.percent || 0}
+              outlets={
+                data?.data?.outlets?.map((o: any) => ({
+                  outletId: o.outletId,
+                  outletName: o.outletName,
+                  value: o.avgItemsPerSale,
+                })) || []
+              }
             />
           </div>
+          <div>
+          </div>
 
+           {/* ================= PRODUCTS SOLD TABLE ================= */}
+
+<div className="bg-white rounded-xl shadow border p-4 mt-4">
+  <div className="flex items-center justify-between mb-4">
+    <h2 className="text-xl font-bold text-slate-700">
+      Products Sold
+    </h2>
+  </div>
+
+  <div className="flex-1 overflow-auto">
+    <MOLTable<any>
+      isLoading={false}
+      tableHeaders={[
+        {
+          fieldName: 'productName',
+          headerName: 'Product',
+          flex: 'flex-[3_1_0%]',
+        },
+        {
+          fieldName: 'revenue',
+          headerName: 'Revenue',
+          flex: 'flex-[1_1_0%]',
+          renderCell: (item) => (
+            <div>
+              R {Number(item?.revenue || 0).toFixed(2)}
+            </div>
+          ),
+        },
+        {
+          fieldName: 'itemsSold',
+          headerName: 'Items Sold',
+          flex: 'flex-[1_1_0%]',
+        },
+        {
+          fieldName: 'discounted',
+          headerName: 'Discounted',
+          flex: 'flex-[1_1_0%]',
+          renderCell: (item) => (
+            <div>
+              R {Number(item?.discounted || 0).toFixed(2)}
+            </div>
+          ),
+        },
+      ]}
+      data={productSoldData?.data || []}
+      getKey={(item) => item?._id}
+    />
+  </div>
+
+  <ATMPagination
+    totalPages={1}
+    rowCount={productSoldData?.data?.length || 0}
+    rows={productSoldData?.data || []}
+  />
+
+  <div
+  onClick={() => navigate('/outlet/sales-report')}
+  className="text-blue-600 text-xs font-medium cursor-pointer hover:underline"
+  style={{
+    display: 'flex',
+    justifyContent: 'center',
+    marginTop: 10,
+    border: '1px solid black',
+    padding: '2px',
+    cursor: 'pointer',
+    borderRadius: '6px',
+    fontWeight: 400,
+    fontSize:10
+  }}
+>
+  View Full Report
+</div>
+</div>
+
+
+
+{/* ================= TOP SALES PEOPLE TABLE ================= */}
+
+<div className="bg-white rounded-xl shadow border p-4 mt-4">
+  <div className="flex items-center justify-between mb-4">
+    <h2 className="text-xl font-bold text-slate-700">
+      Top Sales People
+    </h2>
+  </div>
+
+  <div className="flex-1 overflow-auto">
+    <MOLTable<any>
+      isLoading={false}
+      tableHeaders={[
+        {
+          fieldName: 'userName',
+          headerName: 'User',
+          flex: 'flex-[2_1_0%]',
+        },
+        {
+          fieldName: 'revenue',
+          headerName: 'Revenue',
+          flex: 'flex-[1_1_0%]',
+          renderCell: (item) => (
+            <div>
+              R {Number(item?.revenue || 0).toFixed(2)}
+            </div>
+          ),
+        },
+        {
+          fieldName: 'saleCount',
+          headerName: 'Sale Count',
+          flex: 'flex-[1_1_0%]',
+        },
+        {
+          fieldName: 'itemsSold',
+          headerName: 'Items Sold',
+          flex: 'flex-[1_1_0%]',
+        },
+        {
+          fieldName: 'avgSaleValue',
+          headerName: 'Avg. Sale Value',
+          flex: 'flex-[1_1_0%]',
+          renderCell: (item) => (
+            <div>
+              R {Number(item?.avgSaleValue || 0).toFixed(2)}
+            </div>
+          ),
+        },
+        {
+          fieldName: 'avgItemsPerSale',
+          headerName: 'Avg. Items / Sale',
+          flex: 'flex-[1_1_0%]',
+          renderCell: (item) => (
+            <div>
+              {Number(item?.avgItemsPerSale || 0).toFixed(2)}
+            </div>
+          ),
+        },
+      ]}
+      data={topSalesPeopleData?.data || []}
+      getKey={(item) => item?._id}
+    />
+  </div>
+
+  <ATMPagination
+    totalPages={1}
+    rowCount={topSalesPeopleData?.data?.length || 0}
+    rows={topSalesPeopleData?.data || []}
+  />
+  <div
+  className="text-blue-600 text-xs font-medium cursor-pointer hover:underline"
+  onClick={() => navigate('/outlet/sales-report')}
+  style={{
+    display: 'flex',
+    justifyContent: 'center',
+    marginTop: 10,
+    border: '1px solid black',
+    padding: '2px',
+    cursor: 'pointer',
+    borderRadius: '6px',
+    fontWeight: 400,
+    fontSize:10
+  }}
+>
+  View Full Report
+</div>
+</div>
 
         </Authorization >
       </div >

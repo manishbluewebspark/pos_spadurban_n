@@ -419,7 +419,17 @@ const navigation: (params?: {
       groupLable: 'Reports',
       items:[
         {
-          title: 'Sales By Outlet',
+          title: 'Retail Dashbaord',
+          icon: IconReceiptTax,
+          path: 'outlet/retail-dashbaord',
+          searchParams: {
+            page: '1',
+            limit: '10',
+          },
+          permission: 'REPORT_RETAIL_DASHBOARD',
+        },
+        {
+          title: 'Sales Report',
           icon: IconReceiptTax,
           path: 'outlet/sales-report',
           searchParams: {
@@ -448,16 +458,7 @@ const navigation: (params?: {
           },
           permission: 'REPORT_GIFT_CARD',
         },
-         {
-          title: 'Retail Dashbaord',
-          icon: IconReceiptTax,
-          path: 'outlet/retail-dashbaord',
-          searchParams: {
-            page: '1',
-            limit: '10',
-          },
-          permission: 'REPORT_RETAIL_DASHBOARD',
-        },
+         
         {
           title: 'Closure Summary',
           icon: IconReceiptTax,
@@ -478,6 +479,16 @@ const navigation: (params?: {
           },
           permission: 'PAYMENT_REPORTS',
         },
+        {
+          title: 'Cash movement report',
+          icon: IconReceiptTax,
+          path: 'outlet/cash-movement-report',
+          searchParams: {
+            page: '1',
+            limit: '10',
+          },
+          permission: 'CASH_MOVEMENT_REPORT',
+        },
          {
           title: 'Sales Ledger',
           icon: IconReceiptTax,
@@ -488,6 +499,7 @@ const navigation: (params?: {
           },
           permission: 'SALES_LEDGER',
         },
+
         {
           title: 'Booking Summary',
           icon: IconReceiptTax,

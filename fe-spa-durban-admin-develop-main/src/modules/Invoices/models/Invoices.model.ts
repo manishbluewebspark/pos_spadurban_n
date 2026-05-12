@@ -32,4 +32,8 @@ export type SalesReport = {
   cashBackEarned:number;
   showItemModal:string;
   actions:any;
+  amount:Number;
+  cashAdded:Number;
+  cashRemoved:Number;
+  type:any;
 };

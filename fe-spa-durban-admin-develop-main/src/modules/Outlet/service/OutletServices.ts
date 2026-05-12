@@ -86,6 +86,36 @@ export const outletApi = apiSlice.injectEndpoints({
         };
       },
     }),
+    // ================================
+// RTK QUERY API
+// ================================
+
+getCashMovementReport: builder.query({
+  query: ({
+    outletId,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 10,
+    sortBy,
+    sortOrder,
+  }) => {
+    const params = new URLSearchParams({
+      outletId,
+      startDate,
+      endDate,
+      page: String(page),
+      limit: String(limit),
+      sortBy,
+      sortOrder,
+    });
+
+    return {
+      url: `/analytics/new/outlet/cash-movement-report?${params.toString()}`,
+      method: 'GET',
+    };
+  },
+}),
     GetSalesChartDataReportByOutlet: builder.query({
       query: ({ outletId, startDate, endDate, page = 1, limit = 10, reportDuration }) => {
         const params = new URLSearchParams({
@@ -146,7 +176,7 @@ export const outletApi = apiSlice.injectEndpoints({
       }),
     }),
     getRegisterChartData: builder.query({
-      query: ({ outletId, startDate, endDate, page = 1, limit = 10,reportDuration }) => {
+      query: ({ outletId, startDate, endDate, page = 1, limit = 10, reportDuration }) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
@@ -163,7 +193,7 @@ export const outletApi = apiSlice.injectEndpoints({
       },
     }),
     getRegisterData: builder.query({
-      query: ({ outletId, startDate, endDate, page = 1, limit = 10,reportDuration }) => {
+      query: ({ outletId, startDate, endDate, page = 1, limit = 10, reportDuration }) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
@@ -213,6 +243,20 @@ export const outletApi = apiSlice.injectEndpoints({
         };
       },
     }),
+    GetGiftCardTableData: builder.query({
+      query: ({ searchQuery, page = 1, limit = 10 }) => {
+        const params = new URLSearchParams({
+          search:searchQuery,
+          page,
+          limit
+        });
+
+        return {
+          url: `/analytics/new/gift-table-data?${params.toString()}`,
+          method: 'GET',
+        };
+      },
+    }),
     GetGiftCardReportByOutlet: builder.query({
       query: ({ outletId, startDate, endDate, page = 1, limit = 10, sortBy, sortOrder, reportDuration }) => {
         const params = new URLSearchParams({
@@ -247,6 +291,42 @@ export const outletApi = apiSlice.injectEndpoints({
         };
       },
     }),
+    // services/OutletServices.ts
+
+// ✅ Products Sold API
+GetRetailDashboardProductsSold: builder.query({
+  query: ({ outletIds, startDate, endDate, reportDuration }) => {
+    const params = new URLSearchParams({
+      outletIds,
+      startDate,
+      endDate,
+      reportDuration
+    });
+
+    return {
+      url: `/analytics/new/retail-dashboard/products-sold?${params.toString()}`,
+      method: 'GET',
+    };
+  },
+}),
+
+
+// ✅ Top Sales People API
+GetRetailDashboardTopSalesPeople: builder.query({
+  query: ({ outletIds, startDate, endDate, reportDuration }) => {
+    const params = new URLSearchParams({
+      outletIds,
+      startDate,
+      endDate,
+      reportDuration
+    });
+
+    return {
+      url: `/analytics/new/retail-dashboard/top-sales-people?${params.toString()}`,
+      method: 'GET',
+    };
+  },
+}),
     GetAllBookings: builder.query({
       query: ({ outletId, startDate, endDate, page = 1, limit = 25, searchValue }) => {
         const params = new URLSearchParams({
@@ -280,7 +360,7 @@ export const outletApi = apiSlice.injectEndpoints({
       },
     }),
     getPaymentReports: builder.query({
-      query: ({ outletId, startDate, endDate,reportDuration }) => {
+      query: ({ outletId, startDate, endDate, reportDuration }) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
@@ -297,7 +377,7 @@ export const outletApi = apiSlice.injectEndpoints({
       },
     }),
     getSalesLedgerReports: builder.query({
-      query: ({ outletId, startDate, endDate, page, limit,reportDuration }) => {
+      query: ({ outletId, startDate, endDate, page, limit, reportDuration }) => {
         const params = new URLSearchParams({
           outletId,
           startDate,
@@ -333,10 +413,14 @@ export const {
   useGetRegisterDataQuery,
   useGetOutletsChartDataQuery,
   useGetGiftCardReportChartDataQuery,
+  useGetGiftCardTableDataQuery,
   useGetGiftCardReportByOutletQuery,
   useGetRetailDashboardDataQuery,
   useGetAllBookingsQuery,
   useGetBookingChartDataQuery,
   useGetPaymentReportsQuery,
-  useGetSalesLedgerReportsQuery
+  useGetSalesLedgerReportsQuery,
+  useGetRetailDashboardProductsSoldQuery,
+  useGetRetailDashboardTopSalesPeopleQuery,
+  useGetCashMovementReportQuery
 } = outletApi;

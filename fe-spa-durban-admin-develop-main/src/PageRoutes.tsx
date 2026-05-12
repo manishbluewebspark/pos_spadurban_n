@@ -86,6 +86,7 @@ import ViewReatailDashboardPage from './modules/Outlet/screens/sales-report/View
 import ViewBookingDataPage from './modules/Outlet/screens/view-bookings/ViewBookingDataPage';
 import ViewPaymentReportsPage from './modules/Outlet/screens/view-payment-reports/ViewPaymentReportsPage';
 import ViewSalesLedgerPage from './modules/Outlet/screens/view-sales-ledger/ViewSalesLedgerPage';
+import ViewCashMovementReportPage from './modules/Outlet/screens/sales-report/CashMovmentReport';
 
 type Props = {};
 
@@ -160,6 +161,7 @@ const PageRoutes = (props: Props) => {
         { path: '/outlet/view-register', element: <ViewOutletRegisterPage /> },
         { path: '/outlet/payment-reports', element: <ViewPaymentReportsPage /> },
         { path: '/outlet/sales-ledger', element: <ViewSalesLedgerPage /> },
+         { path: '/outlet/cash-movement-report', element: <ViewCashMovementReportPage /> },
         { path: '/outlet/view-booking-data', element: <ViewBookingDataPage /> },
         { path: '/outlet/gift-card-report', element: <ViewOutletGiftCardReportPage /> },
         { path: '/outlet/retail-dashbaord', element: <ViewReatailDashboardPage /> },

@@ -306,6 +306,13 @@ router.get(
 );
 
 router.get(
+  '/new/gift-table-data',
+  // parseBodyAndQuery,
+  authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
+  analyticsController.getGiftCardTableData
+);
+
+router.get(
   '/new/gift-card-report',
   // parseBodyAndQuery,
   authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
@@ -319,6 +326,17 @@ router.get(
   analyticsController.getRetailDashboardData
 );
 router.get(
+  '/new/retail-dashboard/products-sold',
+  authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
+  analyticsController.getRetailDashboardProductsSold
+);
+
+router.get(
+  '/new/retail-dashboard/top-sales-people',
+  authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
+  analyticsController.getRetailDashboardTopSalesPeople
+);
+router.get(
   '/new/payment-reports-data',
   parseBodyAndQuery,
   authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
@@ -329,6 +347,11 @@ router.get(
   parseBodyAndQuery,
   authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
   analyticsController.getSalesLedgerReports
+);
+router.get(
+  '/new/outlet/cash-movement-report',
+  authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
+  analyticsController.getCashMovementReport
 );
 
 export default router;

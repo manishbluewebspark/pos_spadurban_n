@@ -20,7 +20,7 @@ import { Register, RegisterValue } from 'src/modules/OpenRegister/models/OpenReg
 import { saveAs } from "file-saver";
 import { useFetchData } from 'src/hooks/useFetchData';
 
-  const salesData = [
+const salesData = [
   {
     label: 'Daily',
     value: 'DAILY',
@@ -37,7 +37,7 @@ import { useFetchData } from 'src/hooks/useFetchData';
     label: 'Yearly',
     value: 'YEARLY',
   },
-   {
+  {
     label: 'Custum',
     value: 'CUSTUM',
   },
@@ -48,7 +48,7 @@ const ViewOutletRegisterPage = () => {
 
 
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
-    useFilterPagination(['outletsId', 'customerId','reportDuration']);
+    useFilterPagination(['outletsId', 'customerId', 'reportDuration']);
   const [searchParams, setSearchParams] = useSearchParams();
   const { outlets } = useSelector((state: RootState) => state.auth);
   // const { data, isLoading, error } = useGetRegisterDataQuery({
@@ -78,6 +78,8 @@ const ViewOutletRegisterPage = () => {
   );
 
 
+
+
   const { data: chartData } = useGetRegisterChartDataQuery({
     outletId: appliedFilters?.[0]?.value,
     startDate: dateFilter?.start_date,
@@ -85,7 +87,7 @@ const ViewOutletRegisterPage = () => {
     reportDuration: appliedFilters?.[2]?.value
   });
 
-  console.log('-----chartData', chartData)
+  console.log('-----data', data)
 
 
   const dailySummary = chartData?.data?.dailySummary || [];
@@ -114,7 +116,7 @@ const ViewOutletRegisterPage = () => {
   const tableHeaders: TableHeader<RegisterValue>[] = [
     {
       fieldName: 'openedAt',
-      headerName: 'Open Date',
+      headerName: 'Time Opened',
       flex: 'flex-[1_1_0%]',
       sortable: true,
       sortKey: 'openedAt',
@@ -127,7 +129,7 @@ const ViewOutletRegisterPage = () => {
     },
     {
       fieldName: 'closedAt',
-      headerName: 'Close Date',
+      headerName: 'Time Closed',
       flex: 'flex-[1_1_0%]',
       sortable: true,
       sortKey: 'closedAt',
@@ -140,15 +142,26 @@ const ViewOutletRegisterPage = () => {
     },
     {
       fieldName: 'openingBalance',
-      headerName: 'Opening Balance',
+      headerName: 'Cash',
       flex: 'flex-[1_1_0%]',
-      render: (row: any) => (row?.openingBalance ? row.openingBalance : '-'),
-    },
-    {
-      fieldName: 'totalCashAmount',
-      headerName: 'Total Manual Cash',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => (row?.totalCashAmount ? row.totalCashAmount : '-'),
+      render: (row: any) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">
+            {row?.openingBalance ?? '-'}
+          </span>
+
+          <span
+            className={`text-sm ${row?.totalCashAmount < 0
+                ? 'text-red-500'
+                : 'text-green-600'
+              }`}
+          >
+            {row?.totalCashAmount
+              ? `${row.totalCashAmount > 0 ? '+' : ''}${row.totalCashAmount}`
+              : '-'}
+          </span>
+        </div>
+      ),
     },
     {
       fieldName: 'bankDeposit',
@@ -202,16 +215,16 @@ const ViewOutletRegisterPage = () => {
     //     );
     //   }
     // },
-    {
-      fieldName: 'registerStatus',
-      headerName: 'Register Status',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => {
-        if (row.isClosed) return 'Closed';
-        if (row.isOpened) return 'Opened';
-        return 'Not Opened';
-      }
-    },
+    // {
+    //   fieldName: 'registerStatus',
+    //   headerName: 'Register Status',
+    //   flex: 'flex-[1_1_0%]',
+    //   render: (row: any) => {
+    //     if (row.isClosed) return 'Closed';
+    //     if (row.isOpened) return 'Opened';
+    //     return 'Not Opened';
+    //   }
+    // },
     {
       fieldName: 'closeRegister',
       headerName: 'Payment Summary',
@@ -293,7 +306,8 @@ const ViewOutletRegisterPage = () => {
     },
   ];
 
-  const invoices = data as RegisterValue[] || [];
+  const invoices = (data as any)?.data || [];
+
   // const totalAmount = data && data?.data?.totalSalesData[0]?.totalSalesAmount || [];
   const today = new Date();
   const oneMonthAgo = subMonths(today, 1);
@@ -395,63 +409,113 @@ const ViewOutletRegisterPage = () => {
       return;
     }
 
-    // Prepare export rows
     const exportData = (data as any)?.data?.map((row: any) => {
-      // outletId se name find karo
       const outletName =
         outlets?.find((el: any) => el?._id === row.outletId)?.name || "N/A";
 
+      // 🔹 Dynamic payment mode totals
+      const paymentTotals: any = {};
+
+      (row?.allPayments || []).forEach((payment: any) => {
+        const mode = payment?.paymentModeName || "Unknown";
+
+        if (!paymentTotals[mode]) {
+          paymentTotals[mode] = {
+            total: 0,
+            manual: 0,
+          };
+        }
+
+        paymentTotals[mode].total += Number(payment?.totalAmount || 0);
+        paymentTotals[mode].manual += Number(payment?.manual || 0);
+      });
+
+      // 🔹 Dynamic columns
+      const paymentColumns: any = {};
+
+      Object.keys(paymentTotals).forEach((mode) => {
+        const formattedMode = mode
+          .replace(/\s+/g, "_")
+          .toUpperCase();
+
+        paymentColumns[`${formattedMode}_TOTAL`] =
+          paymentTotals[mode].total;
+
+        paymentColumns[`${formattedMode}_MANUAL`] =
+          paymentTotals[mode].manual;
+      });
+
       return {
-        OutletName: outletName, // 👈 outlet ka naam
-        OpeningBalance: row.openingBalance,
-        ClosingBalance: row.carryForwardBalance,
-        BankDeposit: row.bankDeposit,
-        TotalPayments: row.totalPaymentAmount,
-        CashPayments: row.totalCashPayments,
-        CardPayments: row.totalCardPayments,
-        ManualCash: row.totalManualAmount,
-        Variance: row.variance,
-        Date: row.createdAt,
+        Outlet: outletName,
+        OpeningBalance: row.openingBalance || 0,
+        BankDeposit: row.bankDeposit || 0,
+        CarryForwardBalance: row.carryForwardBalance || 0,
+        ExpectedPhysicalCash: row.expectedPhysicalCash || 0,
+        Variance: row.variance || 0,
+
+        // 🔹 Dynamic payment columns
+        ...paymentColumns,
+
+        TotalPayouts: row.totalPayouts || 0,
+        CashUsageCash: row.cashUsageCashSum || 0,
+        CashUsageCard: row.cashUsageCardSum || 0,
+
+        OpenedAt: row.openedAt
+          ? new Date(row.openedAt).toLocaleString()
+          : "-",
+
+        ClosedAt: row.closedAt
+          ? new Date(row.closedAt).toLocaleString()
+          : "-",
+
+        CreatedAt: row.createdAt
+          ? new Date(row.createdAt).toLocaleString()
+          : "-",
       };
     });
 
-
-    // Create worksheet
+    // 🔹 Create worksheet
     const worksheet = XLSX.utils.json_to_sheet(exportData);
 
-    // Add top info
+    // 🔹 Add Title
     XLSX.utils.sheet_add_aoa(
       worksheet,
       [["Closure Summary Report"]],
       { origin: "A1" }
     );
 
-    // Adjust column widths
-    worksheet["!cols"] = [
-      { wch: 28 }, // RegisterID
-      { wch: 20 }, // OutletID
-      { wch: 18 }, // OpeningBalance
-      { wch: 18 }, // ClosingBalance
-      { wch: 15 }, // BankDeposit
-      { wch: 20 }, // TotalCashPayments
-      { wch: 20 }, // TotalCardPayments
-      { wch: 22 }, // ExpectedPhysicalCash
-      { wch: 15 }, // Variance
-      { wch: 15 }, // TotalPayouts
-      { wch: 15 }, // CashUsage
-      { wch: 10 }, // IsClosed
-      { wch: 25 }, // OpenedAt
-      { wch: 25 }, // ClosedAt
-    ];
+    // 🔹 Auto width
+    const headers = Object.keys(exportData[0] || {});
 
-    // Create workbook
+    worksheet["!cols"] = headers.map((header) => ({
+      wch: Math.max(header.length + 5, 20),
+    }));
+
+    // 🔹 Workbook
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "ClosureSummary");
 
-    // Save file
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(blob, `ClosureSummary_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "ClosureSummary"
+    );
+
+    // 🔹 Export
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const blob = new Blob([excelBuffer], {
+      type: "application/octet-stream",
+    });
+
+    saveAs(
+      blob,
+      `ClosureSummary_${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx`
+    );
   };
 
   return (
@@ -470,6 +534,30 @@ const ViewOutletRegisterPage = () => {
           {/* Table Toolbar */}
           <MOLFilterBar hideSearch={true} filters={filters} />
           <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">
+
+
+            <div className="flex-1 mt-3">
+              <MOLTable<RegisterValue>
+                tableHeaders={tableHeaders}
+                data={invoices || []}
+                getKey={(item) => item?._id}
+                onEdit={undefined}
+                onDelete={undefined}
+                isLoading={isLoading}
+              />
+            </div>
+
+            {/* Pagination */}
+            <ATMPagination
+              totalPages={(data as any)?.pagination?.pages}
+              rowCount={(data as any)?.pagination?.total}
+              rows={invoices || []}
+            />
+
+
+          </div>
+
+          <div>
             <div className="grid grid-cols-2 gap-4">
               {/* Chart 4: Daily Summary (Line) */}
               {dailySummary.length > 0 && (
@@ -537,24 +625,6 @@ const ViewOutletRegisterPage = () => {
               )}
 
             </div>
-
-            <div className="flex-1 mt-3">
-              <MOLTable<RegisterValue>
-                tableHeaders={tableHeaders}
-                data={invoices || []}
-                getKey={(item) => item?._id}
-                onEdit={undefined}
-                onDelete={undefined}
-                isLoading={isLoading}
-              />
-            </div>
-
-            {/* Pagination */}
-            <ATMPagination
-              totalPages={totalPages}
-              rowCount={totalData}
-              rows={invoices || []}
-            />
           </div>
         </Authorization>
         {/* {invoices.length > 0 && (

@@ -11,12 +11,13 @@ import { useFilterPagination } from 'src/hooks/useFilterPagination';
 import { SalesReport } from 'src/modules/Invoices/models/Invoices.model';
 import { RootState } from 'src/store';
 import { isAuthorized } from 'src/utils/authorization';
-import { useGetGiftCardReportByOutletQuery, useGetGiftCardReportChartDataQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
+import { useGetGiftCardReportByOutletQuery, useGetGiftCardReportChartDataQuery, useGetGiftCardTableDataQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
 import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
 import { saveAs } from "file-saver";
+import { GiftCard } from 'src/modules/GiftCard/models/GiftCard.model';
 
 const salesData = [
   {
@@ -35,7 +36,7 @@ const salesData = [
     label: 'Yearly',
     value: 'YEARLY',
   },
-   {
+  {
     label: 'Custum',
     value: 'CUSTUM',
   },
@@ -43,9 +44,9 @@ const salesData = [
 
 const ViewOutletGiftCardReportPage = () => {
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
-    useFilterPagination(['outletIds', 'customerId', 'reportDuration']);
+    useFilterPagination(['outletIds', 'customerId', 'reportDuration', 'searchQuery']);
   const [searchParams, setSearchParams] = useSearchParams();
-  console.log('------appliedFilters', appliedFilters)
+  console.log('------searchQuery', searchQuery)
   const { outlets } = useSelector((state: RootState) => state.auth);
   const { data, isLoading, error } = useGetGiftCardReportByOutletQuery({
     // outletId: appliedFilters?.[0]?.value,
@@ -62,9 +63,21 @@ const ViewOutletGiftCardReportPage = () => {
     outletIds: appliedFilters?.[0]?.value,
     startDate: dateFilter?.start_date,
     endDate: dateFilter?.end_date,
-    reportDuration: appliedFilters?.[2]?.value
+    reportDuration: appliedFilters?.[2]?.value,
   });
 
+  const { data: tableData } = useGetGiftCardTableDataQuery({
+    searchQuery,
+    page, limit
+    // outletIds: appliedFilters?.[0]?.value,
+    //     startDate: dateFilter?.start_date,
+    //     endDate: dateFilter?.end_date,
+    //     reportDuration: appliedFilters?.[2]?.value
+  })
+
+  console.log('-----tableData', tableData?.data)
+
+  const giftCardTableData = tableData?.data;
   const customerInsights = data?.data?.customerInsights || [];
   const giftCardDistribution = data?.data?.giftCardDistribution || [];
   const outletPerformance = data?.data?.outletPerformance || [];
@@ -73,109 +86,72 @@ const ViewOutletGiftCardReportPage = () => {
   // console.log('----chartData', chartData)
 
 
-  const tableHeaders: TableHeader<SalesReport>[] = [
+  const tableHeaders: TableHeader<GiftCard>[] = [
     {
-      fieldName: 'invoiceNumber',
-      headerName: 'Invoice N0.',
+      fieldName: 'giftCardNumber',
+      headerName: 'Gift card number',
       flex: 'flex-[1_0_0%]',
     },
     {
-      fieldName: 'customerName',
-      headerName: 'Customer Name',
+      fieldName: 'totalSold',
+      headerName: 'Total sold',
       flex: 'flex-[1_0_0%]',
     },
     {
-      fieldName: 'totalAmount',
-      headerName: 'Total Amount',
+      fieldName: 'totalRedeemed',
+      headerName: 'Total redeemed',
       flex: 'flex-[1_0_0%]',
       sortable: true,
       sortKey: 'totalAmount',
     },
     {
-      fieldName: 'balanceDue',
-      headerName: 'Balance Due',
+      fieldName: 'balance',
+      headerName: 'Balance',
       flex: 'flex-[1_0_0%]',
-    },
-    {
-      fieldName: 'createdAt',
-      headerName: 'Date',
-      flex: 'flex-[1_1_0%]',
-      sortable: true,
-      sortKey: 'createdAt',
-      extraClasses: () => '',
-      stopPropagation: true,
-      render: (row: any) => {
-        const date = row.createdAt ? new Date(row.createdAt) : null;
-        // return date ? format(date, 'dd-MM-yyyy') : '-';
-        return date ? formatZonedDate(date) : '-';
-      },
-    },
-    {
-      fieldName: 'status',
-      headerName: 'Status',
-      align: 'center',
-      flex: 'flex-[1_1_0%]',
-      renderCell: (item) => (
-        <div>
-          {item.status && item.status.trim() !== '' ? (
-            <span className="text-red-700 bg-red-100 py-[3px] font-medium px-2 rounded-lg border-slate-300">
-              {item.status}
-            </span>
-          ) : item?.balanceDue > 0 ? (
-            <span className="text-yellow-700 bg-yellow-100 py-[3px] font-medium px-2 rounded-lg border-slate-300">
-              Unpaid
-            </span>
-          ) : (
-            <span className="text-green-700 bg-green-100 py-[3px] font-medium px-2 rounded-lg border-slate-300">
-              Paid
-            </span>
-          )}
-        </div>
-      ),
-    },
+    }
   ]
 
   const filters: FilterType[] = [
-    {
-      filterType: 'date',
-      fieldName: 'createdAt',
-      dateFilterKeyOptions: [
-        {
-          label: 'startDate',
-          value: dateFilter?.start_date || '',
-        },
-        {
-          label: 'endDate',
-          value: dateFilter?.end_date || '',
-        },
-      ],
-    },
-    {
-      filterType: 'multi-select',
-      label: 'Outlets',
-      fieldName: 'outletIds',
-      options:
-        outlets?.map((el) => {
-          return {
-            label: el?.name,
-            value: el?._id,
-          };
-        }) || [],
-      renderOption: (option) => option.label,
-      isOptionEqualToSearchValue: (option, value) => {
-        return option?.label.includes(value);
-      },
-    },
-    {
-      filterType: 'single-select',
-      label: 'Select',
-      fieldName: 'reportDuration',
-      options: salesData || [],
-      renderOption: (option) => option.label,
-      isOptionEqualToSearchValue: (option, value) => {
-        return option?.label.includes(value);
-      },
-    },
+    // {
+    //   filterType: 'date',
+    //   fieldName: 'createdAt',
+    //   dateFilterKeyOptions: [
+    //     {
+    //       label: 'startDate',
+    //       value: dateFilter?.start_date || '',
+    //     },
+    //     {
+    //       label: 'endDate',
+    //       value: dateFilter?.end_date || '',
+    //     },
+    //   ],
+    // },
+    // {
+    //   filterType: 'multi-select',
+    //   label: 'Outlets',
+    //   fieldName: 'outletIds',
+    //   options:
+    //     outlets?.map((el) => {
+    //       return {
+    //         label: el?.name,
+    //         value: el?._id,
+    //       };
+    //     }) || [],
+    //   renderOption: (option) => option.label,
+    //   isOptionEqualToSearchValue: (option, value) => {
+    //     return option?.label.includes(value);
+    //   },
+    // },
+    // {
+    //   filterType: 'single-select',
+    //   label: 'Select',
+    //   fieldName: 'reportDuration',
+    //   options: salesData || [],
+    //   renderOption: (option) => option.label,
+    //   isOptionEqualToSearchValue: (option, value) => {
+    //     return option?.label.includes(value);
+    //   },
+    // },
   ];
 
   // const invoices = data?.data?.invoices || [];
@@ -343,36 +319,99 @@ const ViewOutletGiftCardReportPage = () => {
 
   const navigate = useNavigate();
 
-  const handleExportExcelGiftCard = (chartData: any) => {
-    if (!chartData?.data?.labels || !chartData?.data?.datasets) {
+  const handleExportExcelGiftCard = (giftCardTableData: any) => {
+    // Table data check
+    if (!giftCardTableData?.tableData?.length) {
       alert("No data to export!");
       return;
     }
 
-    const { labels, datasets } = chartData?.data;
+    // Format date function
+    const formatDate = (date: string) => {
+      if (!date) return "-";
 
-    // Convert chart data into tabular format
-    const exportData = labels.map((label: string, idx: number) => {
-      const row: any = { Date: label };
-      datasets.forEach((ds: any) => {
-        row[ds.label] = ds.data[idx] || 0;
+      return new Date(date).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
       });
-      return row;
-    });
+    };
+
+    // Get table rows
+    const tableData = giftCardTableData.tableData;
+
+    // Convert into excel format
+    const exportData = tableData.map((item: any) => ({
+      "Gift Card Number": item.giftCardNumber || "-",
+
+      "Total Sold": Number(item.totalSold || 0).toLocaleString(
+        "en-ZA",
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }
+      ),
+
+      "Total Redeemed": Number(item.totalRedeemed || 0).toLocaleString(
+        "en-ZA",
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }
+      ),
+
+      Balance: Number(item.balance || 0).toLocaleString(
+        "en-ZA",
+        {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }
+      ),
+
+      "Expiry Date": formatDate(item.expiryDate),
+
+      Status: item.isActive ? "Active" : "Inactive",
+    }));
 
     // Create worksheet
     const worksheet = XLSX.utils.json_to_sheet(exportData);
 
+    // Column widths
+    worksheet["!cols"] = [
+      { wch: 25 },
+      { wch: 18 },
+      { wch: 20 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 12 },
+    ];
+
     // Create workbook
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "GiftCard");
 
-    // Generate filename
-    const fileName = `GiftCard_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Gift Cards"
+    );
 
-    // Write and save
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
+    // File name
+    const today = new Date().toISOString().split("T")[0];
+
+    const fileName = `GiftCards_${today}.xlsx`;
+
+    // Generate excel
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    // Save file
+    const blob = new Blob([excelBuffer], {
+      type:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+    });
+
     saveAs(blob, fileName);
   };
 
@@ -406,14 +445,175 @@ const ViewOutletGiftCardReportPage = () => {
           // hideButton={true}
           buttonProps={{
             label: 'Export',
-            onClick: () => handleExportExcelGiftCard, // Navigate to previous page
+            onClick: () => handleExportExcelGiftCard(giftCardTableData), // Navigate to previous page
             // position: 'left', // if your ATMPageHeader supports it
           }}
         />
         <Authorization permission="OUTLET_LIST">
-          {/* Table Toolbar */}
-          <MOLFilterBar hideSearch={true} filters={filters} />
-          {datasets.length > 0 ? (
+
+          <MOLFilterBar hideSearch={false} filters={filters} />
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "16px",
+              marginBottom: "20px",
+            }}
+          >
+            {/* Total Value Sold */}
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: "12px",
+                padding: "16px",
+                border: "1px solid #e5e5e5",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "14px",
+                  color: "#666",
+                }}
+              >
+                Total value sold
+              </span>
+
+              <h3
+                style={{
+                  fontSize: "24px",
+                  fontWeight: 700,
+                  margin: 0,
+                  color: "#111",
+                }}
+              >
+                R{" "}
+                {Number(
+                  giftCardTableData?.stats?.totalValueSold || 0
+                ).toLocaleString("en-ZA", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </h3>
+            </div>
+
+            {/* Total Value Redeemed */}
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: "12px",
+                padding: "16px",
+                border: "1px solid #e5e5e5",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "14px",
+                  color: "#666",
+                }}
+              >
+                Total value redeemed
+              </span>
+
+              <h3
+                style={{
+                  fontSize: "24px",
+                  fontWeight: 700,
+                  margin: 0,
+                  color: "#111",
+                }}
+              >
+                R{" "}
+                {Number(
+                  giftCardTableData?.stats?.totalValueRedeemed || 0
+                ).toLocaleString("en-ZA", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </h3>
+            </div>
+
+            {/* Outstanding Balance */}
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: "12px",
+                padding: "16px",
+                border: "1px solid #e5e5e5",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "14px",
+                  color: "#666",
+                }}
+              >
+                Outstanding balance
+              </span>
+
+              <h3
+                style={{
+                  fontSize: "24px",
+                  fontWeight: 700,
+                  margin: 0,
+                  color: "#111",
+                }}
+              >
+                R{" "}
+                {Number(
+                  giftCardTableData?.stats?.outstandingBalance || 0
+                ).toLocaleString("en-ZA", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </h3>
+            </div>
+
+            {/* Gift Cards In Circulation */}
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: "12px",
+                padding: "16px",
+                border: "1px solid #e5e5e5",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "14px",
+                  color: "#666",
+                }}
+              >
+                Gift cards in circulation
+              </span>
+
+              <h3
+                style={{
+                  fontSize: "24px",
+                  fontWeight: 700,
+                  margin: 0,
+                  color: "#111",
+                }}
+              >
+                {Number(
+                  giftCardTableData?.stats?.giftCardsInCirculation || 0
+                ).toLocaleString("en-ZA")}
+              </h3>
+            </div>
+          </div>
+          {/* {datasets.length > 0 ? (
             <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">
 
             <div>{datasets.length > 0 && (
@@ -451,7 +651,7 @@ const ViewOutletGiftCardReportPage = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mx-10">
-              {/* 1️⃣ Customer Insights */}
+              
               <div>
                 <ATMChart
                   type="pie"
@@ -491,7 +691,6 @@ const ViewOutletGiftCardReportPage = () => {
                 />
               </div>
 
-              {/* 2️⃣ Outlet Performance */}
               <ATMChart
                 type="pie"
                 data={{
@@ -534,7 +733,7 @@ const ViewOutletGiftCardReportPage = () => {
               />
 
 
-              {/* 3️⃣ Gift Card Discounts */}
+            
               <ATMChart
                 type="pie"
                 data={{
@@ -574,112 +773,46 @@ const ViewOutletGiftCardReportPage = () => {
 
             </div>
 
-
-            {/* <div className="grid grid-cols-3 gap-4"> */}
-            {/* Chart 1: Sales by Date (Bar) */}
-            {/* {salesByDate.length > 0 && (
-                <div className="col-span">
-                  <ATMChart
-                    type="bar"
-                    data={{
-                      labels: salesByDate.map((item: any) => item._id),
-                      datasets: [
-                        {
-                          label: 'Sales',
-                          data: salesByDate.map((item: any) => item.total),
-                          backgroundColor: '#3b82f6',
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: { legend: { position: 'top' } },
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                </div>
-              )} */}
-
-            {/* Chart 2: Sales by Payment Mode (Pie) */}
-            {/* {salesByPaymentMode.length > 0 && (
-                <div className="col-span">
-                  <ATMChart
-                    type="pie"
-                    data={{
-                      labels: salesByPaymentMode.map((item: any) => item._id),
-                      datasets: [
-                        {
-                          label: 'Payment Modes',
-                          data: salesByPaymentMode.map((item: any) => item.total),
-                          backgroundColor: ['#4caf50', '#ff9800', '#f44336'],
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: { legend: { position: 'top' } },
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                </div>
-              )} */}
-
-            {/* Chart 3: Top Customers (Doughnut) */}
-            {/* {topCustomers.length > 0 && (
-                <div className="col-span">
-                  <ATMChart
-                    type="doughnut"
-                    data={{
-                      labels: topCustomers.map((item: any) => item.customerName || 'Unnamed'),
-                      datasets: [
-                        {
-                          label: 'Top Customers',
-                          data: topCustomers.map((item: any) => item.total),
-                          backgroundColor: ['#06b6d4', '#10b981', '#f59e0b', '#ef4444'],
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: { legend: { position: 'right' } },
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                </div>
-              )} */}
-            {/* </div> */}
-
-
-
-            {/* <div className="flex-1 mt-3">
-              <MOLTable<SalesReport>
+            <div className="flex-1 mt-3">
+              <MOLTable<GiftCard>
                 tableHeaders={tableHeaders}
-                data={invoices || []}
+                data={giftCardTableData || []}
                 getKey={(item) => item?._id}
                 onEdit={undefined}
                 onDelete={undefined}
                 isLoading={false}
               />
-            </div> */}
+            </div>
 
-            {/* Pagination */}
-            {/* <ATMPagination
+            
+            <ATMPagination
               totalPages={1}
               rowCount={1}
-              rows={invoices || []}
-            /> */}
+              rows={giftCardTableData || []}
+            />
           </div>) : (<> <p className="text-center text-gray-500 py-8">
                   No chart data available
-                </p></>)}
-        </Authorization>
-        {/* {invoices.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 text-lg font-semibold">
-            <span>Total Sales Amount: R {totalAmount?.toFixed(2)}</span>
-            <ATMButton onClick={() => handleExportCSV()}>
-              Export CSV
-            </ATMButton>
+                </p></>)} */}
+
+          <div className="flex-1 mt-3">
+            <MOLTable<GiftCard>
+              tableHeaders={tableHeaders}
+              data={giftCardTableData?.tableData || []}
+              getKey={(item) => item?._id}
+              onEdit={undefined}
+              onDelete={undefined}
+              isLoading={false}
+            />
           </div>
-        )} */}
+
+
+          <ATMPagination
+            totalPages={giftCardTableData?.pagination?.totalPages}
+            rowCount={giftCardTableData?.pagination?.total}
+            rows={giftCardTableData?.tableData || []}
+          />
+        </Authorization>
+
 
 
       </div>
