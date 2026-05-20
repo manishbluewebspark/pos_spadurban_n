@@ -81,16 +81,23 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, categoryImageUrl, on
                     className="w-full h-full object-cover"
                 /> */}
                 <img
-                    src={
-                        product?.itemUrl
-                            ? `${process.env.REACT_APP_BASE_URL}/${product.itemUrl}`
-                            : categoryImageUrl
-                                ? `${process.env.REACT_APP_BASE_URL}/${categoryImageUrl}`
-                                : '/no-image.jpg'
-                    }
-                    alt={product?.itemName || "No Image"}
-                    className="w-full h-full object-cover"
-                />
+    src={
+        product?.itemUrl
+            ? `${process.env.REACT_APP_BASE_URL}/${product.itemUrl}`
+            : categoryImageUrl
+                ? `${process.env.REACT_APP_BASE_URL}/${categoryImageUrl}`
+                : undefined
+    }
+    alt={product?.itemName || "No Image"}
+    className="w-full h-full object-cover"
+    style={
+        !product?.itemUrl && !categoryImageUrl
+            ? {
+                  backgroundColor: product?.colorCode || "#e5e7eb",
+              }
+            : {}
+    }
+/>
 
                 {/* 3-dot Menu */}
                 <div

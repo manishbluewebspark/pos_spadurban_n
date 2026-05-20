@@ -366,7 +366,7 @@ const searchInProductAndService = catchAsync(
     const serviceOptions = pick(req.query, ["searchValue"]);
     const searchValue = (req.query.searchValue as string)?.trim();
 
-    
+
     const outletId = req.query.outletId as string;
     const filterBy = req.query.filterBy as any[];
 
@@ -442,7 +442,7 @@ const searchInProductAndService = catchAsync(
       }
     }
 
-   console.log("Match Query:", JSON.stringify(serviceMatchQuery, null, 2));
+    console.log("Match Query:", JSON.stringify(serviceMatchQuery, null, 2));
 
     const dataToSend: Array<{
       _id: mongoose.Schema.Types.ObjectId | null;
@@ -461,17 +461,18 @@ const searchInProductAndService = catchAsync(
       colorCode?: string;
       priority?: number;
       pinned?: boolean;
-      categoryIds?:mongoose.Schema.Types.ObjectId | []
+      categoryIds?: mongoose.Schema.Types.ObjectId | []
     }> = [];
 
     const productResult = await productService.aggregateQuery([
       { $match: productMatchQuery },
+
       {
         $lookup: {
-          from: "inventories", // The collection name in MongoDB
-          localField: "_id", // The field in the Service collection
-          foreignField: "productId", // The field in the Outlet collection
-          as: "inventoryExists", // The field name for the joined outlet data
+          from: "inventories",
+          localField: "_id",
+          foreignField: "productId",
+          as: "inventoryExists",
           pipeline: [
             {
               $match: {
@@ -491,12 +492,14 @@ const searchInProductAndService = catchAsync(
           ],
         },
       },
+
+      // ✅ TAX LOOKUP
       {
         $lookup: {
-          from: "taxes", // The collection name in MongoDB
-          localField: "taxId", // The field in the Service collection
-          foreignField: "_id", // The field in the Outlet collection
-          as: "tax", // The field name for the joined outlet data
+          from: "taxes",
+          localField: "taxId",
+          foreignField: "_id",
+          as: "tax",
           pipeline: [
             {
               $project: {
@@ -508,6 +511,30 @@ const searchInProductAndService = catchAsync(
           ],
         },
       },
+
+      // ✅ CATEGORY LOOKUP
+      {
+        $lookup: {
+          from: "categories",
+          localField: "categoryIds",
+          foreignField: "_id",
+          as: "categoryData",
+          pipeline: [
+            {
+              $match: {
+                isDeleted: false,
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                colorCode: 1,
+              },
+            },
+          ],
+        },
+      },
+
       {
         $addFields: {
           taxes: {
@@ -525,24 +552,59 @@ const searchInProductAndService = catchAsync(
           taxId: {
             $arrayElemAt: ["$tax._id", 0],
           },
+
           taxType: {
             $arrayElemAt: ["$tax.taxType", 0],
           },
+
           taxPercent: {
             $arrayElemAt: ["$tax.taxPercent", 0],
           },
+
           availableQuantity: {
             $sum: "$inventoryExists.availableQantity",
           },
+
+          // ✅ category se colorCode
+          colorCode: {
+            $let: {
+              vars: {
+                matchedCategory: {
+                  $first: {
+                    $filter: {
+                      input: "$categoryData",
+                      as: "cat",
+                      cond: {
+                        $eq: [
+                          "$$cat._id",
+                          new mongoose.Types.ObjectId(
+                            filterBy?.find(
+                              (f) => f.fieldName === "categoryIds"
+                            )?.value?.[0]
+                          ),
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+              in: "$$matchedCategory.colorCode",
+            },
+          },
         },
       },
+
       {
-        $match: { availableQuantity: { $gt: 0 } },
+        $match: {
+          availableQuantity: { $gt: 0 },
+        },
       },
+
       {
         $unset: ["taxesDetails"],
       },
     ]);
+
     const serviceResult = await serviceService.aggregateQuery([
       {
         $match: {
@@ -566,12 +628,79 @@ const searchInProductAndService = catchAsync(
           ],
         },
       },
+      // {
+      //   $lookup: {
+      //     from: "categories",
+      //     let: { categoryIds: "$categoryId" },
+      //     pipeline: [
+      //       {
+      //         $match: {
+      //           $expr: {
+      //             $in: [
+      //               "$_id",
+      //               {
+      //                 $cond: {
+      //                   if: { $isArray: "$$categoryIds" },
+      //                   then: "$$categoryIds",
+      //                   else: ["$$categoryIds"],
+      //                 },
+      //               },
+      //             ],
+      //           },
+      //           isDeleted: false,
+      //         },
+      //       },
+      //       {
+      //         $project: {
+      //           _id: 1,
+      //           colorCode: 1,
+      //         },
+      //       },
+      //     ],
+      //     as: "categoryData",
+      //   },
+      // },
+      // {
+      //   $addFields: {
+      //     taxes: {
+      //       $map: {
+      //         input: "$taxesDetails",
+      //         as: "tax",
+      //         in: {
+      //           taxId: "$$tax._id",
+      //           taxType: "$$tax.taxType",
+      //           taxPercent: "$$tax.taxPercent",
+      //         },
+      //       },
+      //     },
+
+      //     taxId: {
+      //       $arrayElemAt: ["$tax._id", 0],
+      //     },
+      //     taxType: {
+      //       $arrayElemAt: ["$tax.taxType", 0],
+      //     },
+      //     taxPercent: {
+      //       $arrayElemAt: ["$tax.taxPercent", 0],
+      //     },
+      //     colorCode: {
+      //       $arrayElemAt: ["$categoryData.colorCode", 0],
+      //     },
+      //     categoryIds: {
+      //       $cond: {
+      //         if: { $isArray: "$categoryId" },
+      //         then: "$categoryId",
+      //         else: [{ $ifNull: ["$categoryId", null] }],
+      //       },
+      //     },
+      //   },
+      // },
       {
         $lookup: {
-          from: "categories", // The collection name in MongoDB
-          localField: "categoryId", // The field in the Employee collection
-          foreignField: "_id", // The field in the Category collection
-          as: "categoryData", // The field name for the joined category data
+          from: "categories",
+          localField: "categoryIds",
+          foreignField: "_id",
+          as: "categoryData",
           pipeline: [
             {
               $match: {
@@ -580,6 +709,7 @@ const searchInProductAndService = catchAsync(
             },
             {
               $project: {
+                _id: 1,
                 colorCode: 1,
               },
             },
@@ -609,16 +739,41 @@ const searchInProductAndService = catchAsync(
           taxPercent: {
             $arrayElemAt: ["$tax.taxPercent", 0],
           },
+
+          // ✅ category se colorCode
           colorCode: {
-            $arrayElemAt: ["$categoryData.colorCode", 0],
+            $let: {
+              vars: {
+                matchedCategory: {
+                  $first: {
+                    $filter: {
+                      input: "$categoryData",
+                      as: "cat",
+                      cond: {
+                        $eq: [
+                          "$$cat._id",
+                          new mongoose.Types.ObjectId(
+                            filterBy?.find(
+                              (f) => f.fieldName === "categoryIds"
+                            )?.value?.[0]
+                          ),
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+              in: "$$matchedCategory.colorCode",
+            },
           },
-           categoryIds: {
-        $cond: {
-          if: { $isArray: "$categoryId" },
-          then: "$categoryId",
-          else: [{ $ifNull: ["$categoryId", null] }],
-        },
-      },
+
+          categoryIds: {
+            $cond: {
+              if: { $isArray: "$categoryId" },
+              then: "$categoryId",
+              else: [{ $ifNull: ["$categoryId", null] }],
+            },
+          },
         },
       },
       {
@@ -632,6 +787,9 @@ const searchInProductAndService = catchAsync(
       },
     ]);
 
+
+    console.log('-----productResult', productResult)
+    console.log('-----serviceResult', serviceResult)
     if (productResult.length) {
       for (let each in productResult) {
         let {
@@ -647,6 +805,7 @@ const searchInProductAndService = catchAsync(
           taxPercent,
           productImageUrl,
           availableQuantity,
+          colorCode,
           categoryIds,
         } = productResult[each];
         dataToSend.push({
@@ -658,6 +817,7 @@ const searchInProductAndService = catchAsync(
           purchasePrice: purchasePrice,
           taxId: taxId,
           taxType: taxType,
+          colorCode: colorCode,
           taxPercent: taxPercent,
           itemUrl: productImageUrl,
           type: "PRODUCT",
@@ -703,39 +863,39 @@ const searchInProductAndService = catchAsync(
           colorCode: colorCode,
           pinned: pinned,
           priority: priority,
-          categoryIds: categoryIds || [], 
+          categoryIds: categoryIds || [],
         });
       }
     }
 
-// Sort combined results if needed
-dataToSend.sort((a, b) => {
-  // Sort pinned items first, then by priority (customizable)
-  const pinCompare = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
-  if (pinCompare !== 0) return pinCompare;
-  return (a.priority || 0) - (b.priority || 0);
-});
+    // Sort combined results if needed
+    dataToSend.sort((a, b) => {
+      // Sort pinned items first, then by priority (customizable)
+      const pinCompare = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+      if (pinCompare !== 0) return pinCompare;
+      return (a.priority || 0) - (b.priority || 0);
+    });
 
-const totalItems = dataToSend.length;
-const totalPages = Math.ceil(totalItems / limit);
-const paginatedData = dataToSend.slice(skip, skip + limit);
+    const totalItems = dataToSend.length;
+    const totalPages = Math.ceil(totalItems / limit);
+    const paginatedData = dataToSend.slice(skip, skip + limit);
 
 
-return res.status(httpStatus.OK).send({
-  message: "Successful",
-  data: {
-    data: paginatedData,
-    pagination: {
-      totalItems,
-      totalPages,
-      page,
-      limit,
-    }
-  },
-  status: true,
-  code: "OK",
-  issue: null,
-});
+    return res.status(httpStatus.OK).send({
+      message: "Successful",
+      data: {
+        data: paginatedData,
+        pagination: {
+          totalItems,
+          totalPages,
+          page,
+          limit,
+        }
+      },
+      status: true,
+      code: "OK",
+      issue: null,
+    });
 
   }
 );
@@ -1299,21 +1459,21 @@ const updateProduct = catchAsync(
       //throw new ApiError(httpStatus.NOT_FOUND, "Invalid tax.");
     }
 
-  
+
 
     const product = await productService.updateProductById(
       req.params.productId,
       req.body
     );
 
-       if (
-    req.body.productImageUrl &&
-    req.body.productImageUrl !== product.productImageUrl
-  ) {
-    // ✅ Delete old image from filesystem
-    deleteUploadedFile(product.productImageUrl);
-  }
-  
+    if (
+      req.body.productImageUrl &&
+      req.body.productImageUrl !== product.productImageUrl
+    ) {
+      // ✅ Delete old image from filesystem
+      deleteUploadedFile(product.productImageUrl);
+    }
+
     return res.status(httpStatus.OK).send({
       message: "Updated Successfully!",
       data: product,
@@ -1326,7 +1486,7 @@ const updateProduct = catchAsync(
 
 const deleteProduct = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
-   const product =  await productService.deleteProductById(req.params.productId);
+    const product = await productService.deleteProductById(req.params.productId);
     deleteUploadedFile(product.productImageUrl);
     return res.status(httpStatus.OK).send({
       message: "Successfull",

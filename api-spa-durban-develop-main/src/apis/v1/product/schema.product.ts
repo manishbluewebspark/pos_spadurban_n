@@ -22,6 +22,7 @@ export interface ProductDocument extends Document {
   taxPercent: number;
   barcode: string;
   mrp: number;
+  colorCode:string;
   sellingPrice: number;
   purchasePrice: number;
   isDeleted: boolean;
