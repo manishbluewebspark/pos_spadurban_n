@@ -627,7 +627,26 @@
 
 // export default SalesReportPage;
 
-import { endOfDay, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns';
+// ✅ UPDATE IMPORTS
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+  subDays,
+  subMonths,
+  subWeeks,
+  subYears,
+} from "date-fns";
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -666,7 +685,7 @@ const salesData = [
     label: 'Yearly',
     value: 'YEARLY',
   },
-   {
+  {
     label: 'Custum',
     value: 'CUSTUM',
   },
@@ -678,7 +697,7 @@ const SalesReportPage = () => {
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
     useFilterPagination(['outletIds', 'customerId', 'reportDuration']);
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   const { outlets } = useSelector((state: RootState) => state.auth);
 
   const { data, isLoading, totalData, totalPages } = useFetchData(
@@ -696,6 +715,9 @@ const SalesReportPage = () => {
       },
     }
   );
+
+  const [currentDate, setCurrentDate] =
+    useState(new Date());
 
   const outletId = appliedFilters?.[0]?.value || "";
   const reportDuration = appliedFilters?.[2]?.value || "";
@@ -876,97 +898,197 @@ const SalesReportPage = () => {
     }
     setSearchParams(newSearchParams);
   };
+  const selectedDuration =
+    (appliedFilters?.[2]?.value?.[0] as string) ||
+    "DAILY";
 
   useEffect(() => {
-    const selectedDuration =
-      (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
+
 
     if (!outlets?.length) return;
 
-    const now = new Date();
-
-    let startDate = searchParams.get("startDate");
-    let endDate = searchParams.get("endDate");
-
-    let reportDurationToSend = selectedDuration;
-    let shouldUpdateDates = false;
+    let startDate = "";
+    let endDate = "";
 
     switch (selectedDuration) {
-      case "YEARLY": {
-        const pastYear = new Date();
-        pastYear.setFullYear(now.getFullYear() - 1);
+      case "DAILY":
+        startDate = format(
+          startOfDay(currentDate),
+          "yyyy-MM-dd"
+        );
 
-        startDate = format(pastYear, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-        shouldUpdateDates = true;
+        endDate = format(
+          endOfDay(currentDate),
+          "yyyy-MM-dd"
+        );
         break;
-      }
 
-      case "MONTHLY": {
-        const pastMonth = new Date();
-        pastMonth.setMonth(now.getMonth() - 1);
+      case "WEEKLY":
+        startDate = format(
+          startOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "yyyy-MM-dd"
+        );
 
-        startDate = format(pastMonth, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-        shouldUpdateDates = true;
+        endDate = format(
+          endOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "yyyy-MM-dd"
+        );
         break;
-      }
 
-      case "WEEKLY": {
-        const pastWeek = new Date(now);
-        pastWeek.setDate(now.getDate() - 7);
+      case "MONTHLY":
+        startDate = format(
+          startOfMonth(currentDate),
+          "yyyy-MM-dd"
+        );
 
-        startDate = format(pastWeek, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-
-        shouldUpdateDates = true;
+        endDate = format(
+          endOfMonth(currentDate),
+          "yyyy-MM-dd"
+        );
         break;
-      }
+
+      case "YEARLY":
+        startDate = format(
+          startOfYear(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfYear(currentDate),
+          "yyyy-MM-dd"
+        );
+        break;
 
       case "CUSTUM":
-        // 🔥 Custom case
-        reportDurationToSend = "CUSTUM"; // backend grouping month-wise
-        shouldUpdateDates = false; // dates free
-        break;
-
-      case "DAILY":
       default:
-        startDate = format(now, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-        shouldUpdateDates = true;
-        break;
+        return;
     }
 
-    const currentStart = searchParams.get("startDate");
-    const currentEnd = searchParams.get("endDate");
-    const currentDuration = searchParams.get("reportDuration");
-    const currentOutlet = searchParams.get("outletIds");
+    const newSearchParams =
+      new URLSearchParams(searchParams.toString());
 
-    if (
-      currentStart === startDate &&
-      currentEnd === endDate &&
-      currentDuration === reportDurationToSend &&
-      currentOutlet
-    ) {
-      return;
+    newSearchParams.set("startDate", startDate);
+
+    newSearchParams.set("endDate", endDate);
+
+    newSearchParams.set(
+      "reportDuration",
+      selectedDuration
+    );
+
+    if (!searchParams.get("outletIds")) {
+      newSearchParams.set(
+        "outletIds",
+        outlets?.[0]?._id || ""
+      );
     }
-
-    const newSearchParams = new URLSearchParams(searchParams.toString());
-
-    if (shouldUpdateDates && startDate && endDate) {
-      newSearchParams.set("startDate", startDate);
-      newSearchParams.set("endDate", endDate);
-    }
-
-    if (!currentOutlet) {
-      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
-    }
-
-    newSearchParams.set("reportDuration", reportDurationToSend);
 
     setSearchParams(newSearchParams);
 
-  }, [appliedFilters, outlets]);
+  }, [currentDate, appliedFilters, outlets]);
+
+
+
+  const handlePrevious = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        setCurrentDate((prev) =>
+          subDays(prev, 1)
+        );
+        break;
+
+      case "WEEKLY":
+        setCurrentDate((prev) =>
+          subWeeks(prev, 1)
+        );
+        break;
+
+      case "MONTHLY":
+        setCurrentDate((prev) =>
+          subMonths(prev, 1)
+        );
+        break;
+
+      case "YEARLY":
+        setCurrentDate((prev) =>
+          subYears(prev, 1)
+        );
+        break;
+
+      default:
+        break;
+    }
+  };
+
+  const handleNext = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        setCurrentDate((prev) =>
+          addDays(prev, 1)
+        );
+        break;
+
+      case "WEEKLY":
+        setCurrentDate((prev) =>
+          addWeeks(prev, 1)
+        );
+        break;
+
+      case "MONTHLY":
+        setCurrentDate((prev) =>
+          addMonths(prev, 1)
+        );
+        break;
+
+      case "YEARLY":
+        setCurrentDate((prev) =>
+          addYears(prev, 1)
+        );
+        break;
+
+      default:
+        break;
+    }
+  };
+
+  const getDateLabel = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        return format(
+          currentDate,
+          "MMM d, yyyy"
+        );
+
+      case "WEEKLY":
+        return `${format(
+          startOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "MMM d"
+        )} - ${format(
+          endOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "MMM d, yyyy"
+        )}`;
+
+      case "MONTHLY":
+        return format(
+          currentDate,
+          "MMMM yyyy"
+        );
+
+      case "YEARLY":
+        return format(currentDate, "yyyy");
+
+      default:
+        return "";
+    }
+  };
 
   const navigate = useNavigate();
 
@@ -987,7 +1109,7 @@ const SalesReportPage = () => {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', 'Customer_Sales_Report.csv');
+    link.setAttribute('download', 'Outlet_Sales_Report.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1004,17 +1126,34 @@ const SalesReportPage = () => {
             onClick: () => navigate('/outlets'),
           }}
         />
-        
+
         {/* Reset Button */}
-        <div className="flex justify-end">
-          <ATMButton onClick={handleReset} variant="outlined">
-            Reset to Daily
-          </ATMButton>
-        </div>
+
 
         <Authorization permission="OUTLET_LIST">
+          <div className="flex items-center justify-between bg-white border rounded-xl px-4 py-3 mb-4">
+
+            <button
+              onClick={handlePrevious}
+              className="border rounded px-3 py-1"
+            >
+              ←
+            </button>
+
+            <div className="font-semibold text-lg">
+              {getDateLabel()}
+            </div>
+
+            <button
+              onClick={handleNext}
+              className="border rounded px-3 py-1"
+            >
+              →
+            </button>
+
+          </div>
           <MOLFilterBar hideSearch={true} filters={filters} />
-          
+
           {/* Active Filters Display */}
           <div className="mt-2 p-2 bg-gray-50 rounded border text-sm">
             <span className="font-medium">Active: </span>

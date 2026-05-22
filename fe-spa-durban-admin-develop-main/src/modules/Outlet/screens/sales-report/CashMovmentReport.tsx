@@ -1,299 +1,795 @@
-import { endOfDay, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns';
-import { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import ATMPageHeader from 'src/components/atoms/ATMPageHeader/ATMPageHeader';
-import ATMPagination from 'src/components/atoms/ATMPagination/ATMPagination';
-import Authorization from 'src/components/Authorization/Authorization';
-import MOLFilterBar, { FilterType } from 'src/components/molecules/MOLFilterBar/MOLFilterBar';
-import MOLTable, { TableHeader } from 'src/components/molecules/MOLTable/MOLTable';
-import { useFilterPagination } from 'src/hooks/useFilterPagination';
-import { SalesReport } from 'src/modules/Invoices/models/Invoices.model';
-import { RootState } from 'src/store';
-import { isAuthorized } from 'src/utils/authorization';
-import { useGetCashMovementReportQuery, useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
-import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
-import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
-import { formatZonedDate } from 'src/utils/formatZonedDate';
-import * as XLSX from 'xlsx';
-import { useFetchData } from 'src/hooks/useFetchData';
-import { IconEye } from '@tabler/icons-react';
-import ATMDialog from 'src/components/atoms/ATMDialog/ATMDialog';
+// ✅ UPDATE IMPORTS
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+  subDays,
+  subMonths,
+  subWeeks,
+  subYears,
+} from "date-fns";
+
+import { useEffect, useMemo, useState } from "react";
+
+import { useSelector } from "react-redux";
+
+import {
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+
+import ATMPageHeader from "src/components/atoms/ATMPageHeader/ATMPageHeader";
+
+import ATMPagination from "src/components/atoms/ATMPagination/ATMPagination";
+
+import Authorization from "src/components/Authorization/Authorization";
+
+import MOLFilterBar, {
+  FilterType,
+} from "src/components/molecules/MOLFilterBar/MOLFilterBar";
+
+import MOLTable, {
+  TableHeader,
+} from "src/components/molecules/MOLTable/MOLTable";
+
+import { useFilterPagination } from "src/hooks/useFilterPagination";
+
+import { SalesReport } from "src/modules/Invoices/models/Invoices.model";
+
+import { RootState } from "src/store";
+
+import { useGetCashMovementReportQuery } from "../../service/OutletServices";
+
+import { useFetchData } from "src/hooks/useFetchData";
+
+import * as XLSX from "xlsx";
+
+import { saveAs } from "file-saver";
+
+import { ATMButton } from "src/components/atoms/ATMButton/ATMButton";
+
+// ======================================================
+// SALES DATA
+// ======================================================
 
 const salesData = [
   {
-    label: 'Daily',
-    value: 'DAILY',
+    label: "Daily",
+    value: "DAILY",
   },
   {
-    label: 'Weekly',
-    value: 'WEEKLY',
+    label: "Weekly",
+    value: "WEEKLY",
   },
   {
-    label: 'Monthly',
-    value: 'MONTHLY',
+    label: "Monthly",
+    value: "MONTHLY",
   },
   {
-    label: 'Yearly',
-    value: 'YEARLY',
+    label: "Yearly",
+    value: "YEARLY",
   },
-   {
-    label: 'Custum',
-    value: 'CUSTUM',
+  {
+    label: "Custum",
+    value: "CUSTUM",
   },
 ];
 
-const ViewCashMovementReportPage = () => {
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  const [open, setOpen] = useState(false);
-  const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
-    useFilterPagination(['outletIds', 'customerId', 'reportDuration']);
-  const [searchParams, setSearchParams] = useSearchParams();
-  
-  const { outlets } = useSelector((state: RootState) => state.auth);
+// ======================================================
+// CASH TYPES
+// ======================================================
 
-  const { data, isLoading, totalData, totalPages } = useFetchData(
+const cashTypes = [
+  {
+    label: "All types",
+    value: "ALL",
+  },
+  {
+    label: "Cash in",
+    value: "cash_in",
+  },
+  {
+    label: "Cash out",
+    value: "cash_out",
+  },
+  {
+    label: "Petty cash in",
+    value: "petty_cash_in",
+  },
+  {
+    label: "Petty cash out",
+    value: "petty_cash_out",
+  },
+];
+
+// ======================================================
+// COMPONENT
+// ======================================================
+
+const ViewCashMovementReportPage = () => {
+  const navigate = useNavigate();
+
+  const [searchParams, setSearchParams] =
+    useSearchParams();
+
+  const { outlets } = useSelector(
+    (state: RootState) => state.auth
+  );
+
+  // ======================================================
+  // FILTER PAGINATION
+  // ======================================================
+
+  const {
+    limit,
+    page,
+    dateFilter,
+    orderBy,
+    orderValue,
+    appliedFilters,
+  } = useFilterPagination([
+    "outletIds",
+    "customerId",
+    "reportDuration",
+    "cashTypes",
+  ]);
+
+  // ======================================================
+  // FILTER VALUES
+  // ======================================================
+
+  const selectedOutlet =
+    appliedFilters?.find(
+      (f) => f.fieldName === "outletIds"
+    )?.value?.[0] || "ALL";
+
+  const selectedDuration =
+    appliedFilters?.find(
+      (f) => f.fieldName === "reportDuration"
+    )?.value?.[0] || "DAILY";
+
+  const selectedCashType =
+    appliedFilters?.find(
+      (f) => f.fieldName === "cashTypes"
+    )?.value?.[0] || "ALL";
+
+  // ======================================================
+  // CURRENT DATE
+  // ======================================================
+
+  const [currentDate, setCurrentDate] =
+    useState(new Date());
+
+  // ======================================================
+  // FETCH DATA
+  // ======================================================
+
+  const {
+    data,
+    isLoading,
+    totalPages,
+  } = useFetchData(
     useGetCashMovementReportQuery,
     {
       body: {
-        outletId: appliedFilters?.[0]?.value,
-        startDate: dateFilter?.start_date,
-        endDate: dateFilter?.end_date,
+        outletId: selectedOutlet,
+
+        startDate:
+          dateFilter?.start_date,
+
+        endDate:
+          dateFilter?.end_date,
+
         page,
+
         limit,
-        sortBy: orderBy || 'createdAt',
-        sortOrder: orderValue || 'desc',
-        reportDuration: appliedFilters?.[2]?.value,
+
+        sortBy:
+          orderBy || "createdAt",
+
+        sortOrder:
+          orderValue || "desc",
+
+        reportDuration:
+          selectedDuration,
+
+        cashTypes:
+          selectedCashType,
       },
     }
   );
 
-  const filterValue = appliedFilters?.[2]?.value;
-
-  const periodLabel =
-    filterValue?.includes("MONTHLY")
-      ? "Month"
-      : filterValue?.includes("WEEKLY")
-        ? "Week"
-        : filterValue?.includes("DAILY")
-          ? "Day"
-          : "";
+  // ======================================================
+  // TABLE DATA
+  // ======================================================
 
 
-  const tableHeaders: TableHeader<SalesReport>[] = [
-    {
-      fieldName: 'type',
-      headerName: 'Type',
-      flex: 'flex-[1_0_0%]',
-    },
-    {
-      fieldName: 'cashAdded',
-      headerName: 'Cash added',
-      flex: 'flex-[1_0_0%]',
-    },
-    {
-      fieldName: 'cashRemoved',
-      headerName: 'Cash removed',
-      flex: 'flex-[1_0_0%]',
-    },
-    {
-      fieldName: 'amount',
-      headerName: 'Amount',
-      flex: 'flex-[1_0_0%]',
-      sortable: true,
-      sortKey: 'totalAmount',
-    }
-  ];
+  console.log('-------data',data)
+  const invoices =
+    (data as any) || [];
+
+  // ======================================================
+  // TABLE HEADERS
+  // ======================================================
+
+  const tableHeaders: TableHeader<SalesReport>[] =
+    [
+      {
+        fieldName: "type",
+        headerName: "Type",
+        flex: "flex-[1_0_0%]",
+      },
+      {
+        fieldName: "cashAdded",
+        headerName: "Cash Added",
+        flex: "flex-[1_0_0%]",
+      },
+      {
+        fieldName: "cashRemoved",
+        headerName: "Cash Removed",
+        flex: "flex-[1_0_0%]",
+      },
+      {
+        fieldName: "amount",
+        headerName: "Amount",
+        flex: "flex-[1_0_0%]",
+      },
+    ];
+
+  // ======================================================
+  // FILTERS
+  // ======================================================
 
   const filters: FilterType[] = [
+    // CASH TYPES
     {
-      filterType: 'date',
-      fieldName: 'createdAt',
-      dateFilterKeyOptions: [
-        {
-          label: 'Start Date',
-          value: dateFilter?.start_date || '',
-        },
-        {
-          label: 'End Date',
-          value: dateFilter?.end_date || '',
-        },
-      ],
-    },
-    {
-      filterType: 'single-select',
-      label: 'Outlets',
-      fieldName: 'outletIds',
-      options:
-        outlets?.map((el) => {
-          return {
-            label: el?.name,
-            value: el?._id,
-          };
-        }) || [],
-      renderOption: (option) => option.label,
-      isOptionEqualToSearchValue: (option, value) => {
-        return option?.label.includes(value);
+      filterType: "single-select",
+
+      label: "Cash Types",
+
+      fieldName: "cashTypes",
+
+      options: cashTypes,
+
+      renderOption: (option) =>
+        option.label,
+
+      isOptionEqualToSearchValue: (
+        option,
+        value
+      ) => {
+        return option?.label
+          ?.toLowerCase()
+          ?.includes(
+            value?.toLowerCase()
+          );
       },
     },
+
+    // OUTLET
     {
-      filterType: 'single-select',
-      label: 'View By',
-      fieldName: 'reportDuration',
-      options: salesData || [],
-      renderOption: (option) => option.label,
-      isOptionEqualToSearchValue: (option, value) => {
-        return option?.label.includes(value);
+      filterType: "single-select",
+
+      label: "Outlet",
+
+      fieldName: "outletIds",
+
+      options: [
+        {
+          label: "All Outlets",
+          value: "ALL",
+        },
+
+        ...(outlets?.map(
+          (el: any) => ({
+            label: el?.name,
+            value: el?._id,
+          })
+        ) || []),
+      ],
+
+      renderOption: (option) =>
+        option.label,
+
+      isOptionEqualToSearchValue: (
+        option,
+        value
+      ) => {
+        return option?.label
+          ?.toLowerCase()
+          ?.includes(
+            value?.toLowerCase()
+          );
+      },
+    },
+
+    // DATE FILTER
+    ...(selectedDuration ===
+    "CUSTUM"
+      ? [
+          {
+            filterType:
+              "date" as const,
+
+            fieldName:
+              "createdAt",
+
+            dateFilterKeyOptions:
+              [
+                {
+                  label:
+                    "startDate",
+
+                  value:
+                    dateFilter?.start_date ||
+                    "",
+                },
+
+                {
+                  label:
+                    "endDate",
+
+                  value:
+                    dateFilter?.end_date ||
+                    "",
+                },
+              ],
+          },
+        ]
+      : []),
+
+    // REPORT DURATION
+    {
+      filterType: "single-select",
+
+      label: "Select",
+
+      fieldName:
+        "reportDuration",
+
+      options: salesData,
+
+      renderOption: (option) =>
+        option.label,
+
+      isOptionEqualToSearchValue: (
+        option,
+        value
+      ) => {
+        return option?.label
+          ?.toLowerCase()
+          ?.includes(
+            value?.toLowerCase()
+          );
       },
     },
   ];
 
-  console.log('--------data',data)
+  // ======================================================
+  // DATE LABEL
+  // ======================================================
 
-  const invoices = data as any || [];
-  const totalAmount = (data as any)?.totalSalesData?.[0]?.totalSalesAmount || 0;
-
-  const today = new Date();
-  const oneMonthAgo = subMonths(today, 1);
-
-
-
-  useEffect(() => {
-    const selectedDuration =
-      (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
-
-    if (!outlets?.length) return;
-
-    const now = new Date();
-
-    let startDate = searchParams.get("startDate");
-    let endDate = searchParams.get("endDate");
-
-    let reportDurationToSend = selectedDuration;
-    let shouldUpdateDates = false;
-
+  const getDateLabel = () => {
     switch (selectedDuration) {
-      case "YEARLY": {
-        const pastYear = new Date();
-        pastYear.setFullYear(now.getFullYear() - 1);
-
-        startDate = format(pastYear, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-        shouldUpdateDates = true;
-        break;
-      }
-
-      case "MONTHLY": {
-        const pastMonth = new Date();
-        pastMonth.setMonth(now.getMonth() - 1);
-
-        startDate = format(pastMonth, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-        shouldUpdateDates = true;
-        break;
-      }
-
-      case "WEEKLY": {
-        const pastWeek = new Date(now);
-        pastWeek.setDate(now.getDate() - 7);
-
-        startDate = format(pastWeek, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-
-        shouldUpdateDates = true;
-        break;
-      }
-
-      case "CUSTUM":
-        // 🔥 Custom case
-        reportDurationToSend = "CUSTUM"; // backend grouping month-wise
-        shouldUpdateDates = false; // dates free
-        break;
-
       case "DAILY":
+        return format(
+          currentDate,
+          "MMM d, yyyy"
+        );
+
+      case "WEEKLY":
+        return `${format(
+          startOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "MMM d"
+        )} - ${format(
+          endOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "MMM d, yyyy"
+        )}`;
+
+      case "MONTHLY":
+        return format(
+          currentDate,
+          "MMMM yyyy"
+        );
+
+      case "YEARLY":
+        return format(
+          currentDate,
+          "yyyy"
+        );
+
       default:
-        startDate = format(now, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-        shouldUpdateDates = true;
+        return "";
+    }
+  };
+
+  // ======================================================
+  // PREVIOUS
+  // ======================================================
+
+  const handlePrevious = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        setCurrentDate((prev) =>
+          subDays(prev, 1)
+        );
+        break;
+
+      case "WEEKLY":
+        setCurrentDate((prev) =>
+          subWeeks(prev, 1)
+        );
+        break;
+
+      case "MONTHLY":
+        setCurrentDate((prev) =>
+          subMonths(prev, 1)
+        );
+        break;
+
+      case "YEARLY":
+        setCurrentDate((prev) =>
+          subYears(prev, 1)
+        );
         break;
     }
+  };
 
-    const currentStart = searchParams.get("startDate");
-    const currentEnd = searchParams.get("endDate");
-    const currentDuration = searchParams.get("reportDuration");
-    const currentOutlet = searchParams.get("outletIds");
+  // ======================================================
+  // NEXT
+  // ======================================================
+
+  const handleNext = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        setCurrentDate((prev) =>
+          addDays(prev, 1)
+        );
+        break;
+
+      case "WEEKLY":
+        setCurrentDate((prev) =>
+          addWeeks(prev, 1)
+        );
+        break;
+
+      case "MONTHLY":
+        setCurrentDate((prev) =>
+          addMonths(prev, 1)
+        );
+        break;
+
+      case "YEARLY":
+        setCurrentDate((prev) =>
+          addYears(prev, 1)
+        );
+        break;
+    }
+  };
+
+  // ======================================================
+  // DATE SYNC
+  // ======================================================
+
+  useEffect(() => {
+    if (!outlets?.length) return;
 
     if (
-      currentStart === startDate &&
-      currentEnd === endDate &&
-      currentDuration === reportDurationToSend &&
-      currentOutlet
+      selectedDuration === "CUSTUM"
     ) {
       return;
     }
 
-    const newSearchParams = new URLSearchParams(searchParams.toString());
+    let startDate = "";
+    let endDate = "";
 
-    if (shouldUpdateDates && startDate && endDate) {
-      newSearchParams.set("startDate", startDate);
-      newSearchParams.set("endDate", endDate);
+    switch (selectedDuration) {
+      case "DAILY":
+        startDate = format(
+          startOfDay(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfDay(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        break;
+
+      case "WEEKLY":
+        startDate = format(
+          startOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "yyyy-MM-dd"
+        );
+
+        break;
+
+      case "MONTHLY":
+        startDate = format(
+          startOfMonth(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfMonth(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        break;
+
+      case "YEARLY":
+        startDate = format(
+          startOfYear(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfYear(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        break;
     }
 
-    if (!currentOutlet) {
-      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
+    const currentStart =
+      searchParams.get("startDate");
+
+    const currentEnd =
+      searchParams.get("endDate");
+
+    const currentDuration =
+      searchParams.get(
+        "reportDuration"
+      );
+
+    // ✅ PREVENT LOOP
+    if (
+      currentStart === startDate &&
+      currentEnd === endDate &&
+      currentDuration ===
+        selectedDuration
+    ) {
+      return;
     }
 
-    newSearchParams.set("reportDuration", reportDurationToSend);
+    const params =
+      new URLSearchParams(
+        searchParams
+      );
 
-    setSearchParams(newSearchParams);
+    params.set(
+      "startDate",
+      startDate
+    );
 
-  }, [appliedFilters, outlets]);
+    params.set(
+      "endDate",
+      endDate
+    );
 
-  const navigate = useNavigate();
+    params.set(
+      "reportDuration",
+      selectedDuration
+    );
 
-  
+    // ✅ DEFAULT VALUES
+    if (
+      !params.get("outletIds")
+    ) {
+      params.set(
+        "outletIds",
+        "ALL"
+      );
+    }
+
+    if (
+      !params.get("cashTypes")
+    ) {
+      params.set(
+        "cashTypes",
+        "ALL"
+      );
+    }
+
+    setSearchParams(params);
+  }, [
+    currentDate,
+    selectedDuration,
+    outlets,
+  ]);
+
+  // ======================================================
+  // EXPORT EXCEL
+  // ======================================================
+
+  const handleExportExcel =
+    () => {
+      if (!invoices?.length) {
+        alert("No data found");
+        return;
+      }
+
+      const exportData =
+        invoices.map(
+          (item: any) => ({
+            Type:
+              item?.type || "-",
+
+            CashAdded:
+              item?.cashAdded ||
+              0,
+
+            CashRemoved:
+              item?.cashRemoved ||
+              0,
+
+            Amount:
+              item?.amount || 0,
+          })
+        );
+
+      const worksheet =
+        XLSX.utils.json_to_sheet(
+          exportData
+        );
+
+      worksheet["!cols"] = [
+        { wch: 30 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 20 },
+      ];
+
+      const workbook =
+        XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        "CashMovementReport"
+      );
+
+      const excelBuffer =
+        XLSX.write(workbook, {
+          bookType: "xlsx",
+          type: "array",
+        });
+
+      const blob = new Blob(
+        [excelBuffer],
+        {
+          type: "application/octet-stream",
+        }
+      );
+
+      saveAs(
+        blob,
+        `CashMovementReport_${new Date()
+          .toISOString()
+          .slice(
+            0,
+            10
+          )}.xlsx`
+      );
+    };
+
+  // ======================================================
+  // RETURN
+  // ======================================================
 
   return (
-    <>
-      <div className="flex flex-col h-full gap-2 p-4">
-        <ATMPageHeader
-          heading="Cash Movment Report"
-          hideButton={true}
-          buttonProps={{
-            label: 'Back',
-            onClick: () => navigate('/outlets'),
-          }}
+    <div className="flex flex-col h-full gap-2 p-4">
+      <ATMPageHeader
+        heading="Cash Movement Report"
+        hideButton={true}
+      />
+
+      <Authorization permission="OUTLET_LIST">
+        {/* DATE NAVIGATION */}
+
+        <div className="flex items-center justify-between bg-white border rounded-xl px-4 py-3 mb-4">
+          <button
+            onClick={
+              handlePrevious
+            }
+            className="border rounded px-3 py-1"
+          >
+            ←
+          </button>
+
+          <div className="font-semibold text-lg">
+            {getDateLabel()}
+          </div>
+
+          <button
+            onClick={handleNext}
+            className="border rounded px-3 py-1"
+          >
+            →
+          </button>
+        </div>
+
+        {/* FILTERS */}
+
+        <MOLFilterBar
+          hideSearch={true}
+          filters={filters}
         />
-        
-      
-        <Authorization permission="OUTLET_LIST">
-          <MOLFilterBar hideSearch={true} filters={filters} />
-          
 
-          <div className="flex-1 mt-3">
-              <MOLTable<SalesReport>
-                tableHeaders={tableHeaders}
-                data={invoices || []}
-                getKey={(item) => item?._id}
-                onEdit={undefined}
-                onDelete={undefined}
-                isLoading={isLoading}
-              />
-            </div>
+        {/* EXPORT BUTTON */}
 
-            <ATMPagination
-              totalPages={totalPages}
-              rowCount={(data as any)?.totalCount}
-              rows={invoices || []}
-            />
-        </Authorization>
+        <div className="flex justify-end mt-3">
+          <ATMButton
+            onClick={
+              handleExportExcel
+            }
+          >
+            Export Excel
+          </ATMButton>
+        </div>
 
-       
+        {/* TABLE */}
 
-       
-      </div>
-    </>
-  )
+        <div className="flex-1 mt-3">
+          <MOLTable<SalesReport>
+            tableHeaders={
+              tableHeaders
+            }
+            data={invoices}
+            getKey={(item) =>
+              item?._id
+            }
+            isLoading={
+              isLoading
+            }
+            onEdit={
+              undefined
+            }
+            onDelete={
+              undefined
+            }
+          />
+        </div>
+
+        {/* PAGINATION */}
+
+        <ATMPagination
+          totalPages={
+            totalPages
+          }
+          rowCount={
+            (data as any)
+              ?.totalCount || 0
+          }
+          rows={invoices}
+        />
+      </Authorization>
+    </div>
+  );
 };
 
 export default ViewCashMovementReportPage;

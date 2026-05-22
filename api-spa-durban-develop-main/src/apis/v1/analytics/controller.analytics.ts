@@ -1454,388 +1454,935 @@ const getSalesChartDataReportByCustomer = catchAsync(async (req: AuthenticatedRe
 });
 
 
-const getRegisterChartDataByOutlet = catchAsync(async (req: Request, res: Response) => {
-  const { outletId, startDate, endDate, reportDuration } = req.query;
+const getRegisterChartDataByOutlet =
+  catchAsync(
+    async (
+      req: Request,
+      res: Response
+    ) => {
+      const {
+        outletId,
+        startDate,
+        endDate,
+        reportDuration,
+      } = req.query;
 
-  if (!outletId || !startDate || !endDate) {
-    return res.status(httpStatus.BAD_REQUEST).json({
-      message: 'Missing required query parameters: outletId, startDate, and endDate',
-      status: false,
-    });
-  }
+      // ✅ VALIDATION
+      if (!startDate || !endDate) {
+        return res
+          .status(
+            httpStatus.BAD_REQUEST
+          )
+          .json({
+            message:
+              "Missing required query parameters: startDate and endDate",
 
-  const start = new Date(startDate as string);
-  start.setHours(0, 0, 0, 0);
+            status: false,
+          });
+      }
 
-  const end = new Date(endDate as string);
-  end.setHours(23, 59, 59, 999);
+      const start = new Date(
+        startDate as string
+      );
 
-  const differenceInDays =
-    Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      start.setHours(0, 0, 0, 0);
 
-  // 🔹 Decide grouping (AUTO for CUSTUM)
-  let groupFormat: any = "%Y-%m-%d"; // default daily
+      const end = new Date(
+        endDate as string
+      );
 
-  if (reportDuration === "YEARLY") {
-    groupFormat = "%Y-%m";
-  } else if (reportDuration === "MONTHLY") {
-    groupFormat = "%Y-%m-%d";
-  } else if (reportDuration === "WEEKLY") {
-    groupFormat = "%Y-%m-%d";
-  } else if (reportDuration === "CUSTUM") {
-    groupFormat = differenceInDays <= 31 ? "%Y-%m-%d" : "%Y-%m";
-  }
+      end.setHours(
+        23,
+        59,
+        59,
+        999
+      );
 
-  const pipeline: PipelineStage[] = [
-    {
-      $match: {
+      const differenceInDays =
+        Math.ceil(
+          (end.getTime() -
+            start.getTime()) /
+          (1000 * 60 * 60 * 24)
+        ) + 1;
+
+      // ================= GROUP FORMAT =================
+
+      let groupFormat: any =
+        "%Y-%m-%d";
+
+      if (
+        reportDuration === "YEARLY"
+      ) {
+        groupFormat = "%Y-%m";
+      } else if (
+        reportDuration === "MONTHLY"
+      ) {
+        groupFormat = "%Y-%m-%d";
+      } else if (
+        reportDuration === "WEEKLY"
+      ) {
+        groupFormat = "%Y-%m-%d";
+      } else if (
+        reportDuration === "CUSTUM"
+      ) {
+        groupFormat =
+          differenceInDays <= 31
+            ? "%Y-%m-%d"
+            : "%Y-%m";
+      }
+
+      // ================= MATCH =================
+
+      const match: any = {
         isDeleted: false,
-        outletId: new mongoose.Types.ObjectId(outletId as string),
-        openedAt: { $gte: start, $lte: end },
-      },
-    },
 
-    {
-      $addFields: {
-        formattedDate: {
-          $dateToString: {
-            format: groupFormat,
-            date: "$openedAt",
-          },
+        openedAt: {
+          $gte: start,
+          $lte: end,
         },
-      },
-    },
+      };
 
-    {
-      $group: {
-        _id: "$formattedDate",
+      // ✅ ONLY MATCH OUTLET IF NOT ALL
+      if (
+        outletId &&
+        outletId !== "ALL"
+      ) {
+        match.outletId =
+          new mongoose.Types.ObjectId(
+            outletId as string
+          );
+      }
 
-        totalCash: {
-          $sum: {
-            $reduce: {
-              input: "$closeRegister",
-              initialValue: 0,
-              in: {
-                $add: [
-                  "$$value",
-                  {
-                    $sum: {
-                      $map: {
-                        input: {
-                          $filter: {
-                            input: "$$this.payments",
-                            as: "p",
-                            cond: {
-                              $eq: [
-                                { $toLower: "$$p.paymentModeName" },
-                                "cash",
-                              ],
+      // ================= PIPELINE =================
+
+      const pipeline: PipelineStage[] =
+        [
+          {
+            $match: match,
+          },
+
+          // ✅ OUTLET LOOKUP
+          {
+            $lookup: {
+              from: "outlets",
+
+              localField:
+                "outletId",
+
+              foreignField: "_id",
+
+              as: "outletData",
+            },
+          },
+
+          {
+            $unwind: {
+              path: "$outletData",
+
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+
+          // ✅ FORMATTED DATE
+          {
+            $addFields: {
+              formattedDate: {
+                $dateToString: {
+                  format:
+                    groupFormat,
+
+                  date: "$openedAt",
+                },
+              },
+            },
+          },
+
+          // ✅ GROUP DATA
+          {
+            $group: {
+              _id: "$formattedDate",
+
+              totalCash: {
+                $sum: {
+                  $reduce: {
+                    input: {
+                      $ifNull: [
+                        "$closeRegister",
+                        [],
+                      ],
+                    },
+
+                    initialValue: 0,
+
+                    in: {
+                      $add: [
+                        "$$value",
+
+                        {
+                          $sum: {
+                            $map: {
+                              input: {
+                                $filter:
+                                {
+                                  input:
+                                    "$$this.payments",
+
+                                  as: "p",
+
+                                  cond:
+                                  {
+                                    $eq:
+                                      [
+                                        {
+                                          $toLower:
+                                            "$$p.paymentModeName",
+                                        },
+
+                                        "cash",
+                                      ],
+                                  },
+                                },
+                              },
+
+                              as: "p",
+
+                              in: {
+                                $toDouble:
+                                {
+                                  $ifNull:
+                                    [
+                                      "$$p.manual",
+                                      0,
+                                    ],
+                                },
+                              },
                             },
                           },
                         },
-                        as: "p",
-                        in: { $ifNull: ["$$p.manual", 0] },
-                      },
+                      ],
                     },
+                  },
+                },
+              },
+
+              bankDeposit: {
+                $sum: {
+                  $ifNull: [
+                    "$bankDeposit",
+                    0,
+                  ],
+                },
+              },
+
+              carryForwardBalance:
+              {
+                $sum: {
+                  $ifNull: [
+                    "$carryForwardBalance",
+                    0,
+                  ],
+                },
+              },
+
+              openingBalance: {
+                $sum: {
+                  $ifNull: [
+                    "$openingBalance",
+                    0,
+                  ],
+                },
+              },
+
+              payoutCash: {
+                $sum: {
+                  $reduce: {
+                    input: {
+                      $ifNull: [
+                        "$cashUsage",
+                        [],
+                      ],
+                    },
+
+                    initialValue: 0,
+
+                    in: {
+                      $add: [
+                        "$$value",
+
+                        {
+                          $toDouble:
+                          {
+                            $ifNull:
+                              [
+                                "$$this.amount",
+                                0,
+                              ],
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              },
+
+              totalRegisters: {
+                $sum: 1,
+              },
+
+              outlets: {
+                $addToSet:
+                  "$outletData.name",
+              },
+            },
+          },
+
+          {
+            $sort: {
+              _id: 1,
+            },
+          },
+        ];
+
+      const groupedData =
+        await SalesRegister.aggregate(
+          pipeline
+        );
+
+      // ================= RESPONSE FORMAT =================
+
+      const dailySummary =
+        groupedData.map((item) => ({
+          date: item._id,
+
+          totalCash:
+            item.totalCash || 0,
+
+          bankDeposit:
+            item.bankDeposit || 0,
+
+          carryForwardBalance:
+            item.carryForwardBalance ||
+            0,
+
+          totalRegisters:
+            item.totalRegisters || 0,
+
+          outlets:
+            item.outlets || [],
+        }));
+
+      const finalCashVsOpening =
+        groupedData.map((item) => ({
+          date: item._id,
+
+          openingBalance:
+            item.openingBalance || 0,
+
+          finalCash:
+            item.totalCash || 0,
+
+          payoutCash:
+            item.payoutCash || 0,
+
+          totalRegisters:
+            item.totalRegisters || 0,
+
+          outlets:
+            item.outlets || [],
+        }));
+
+      return res
+        .status(httpStatus.OK)
+        .json({
+          message:
+            "Chart data fetched successfully",
+
+          status: true,
+
+          data: {
+            dailySummary,
+
+            finalCashVsOpening,
+
+            allInOneTable:
+              groupedData,
+          },
+        });
+    }
+  );
+
+
+
+
+const getRegisterDataByOutlet = catchAsync(
+  async (
+    req: AuthenticatedRequest,
+    res: Response
+  ) => {
+    const {
+      outletId,
+      startDate,
+      endDate,
+      reportDuration,
+    } = req.query;
+
+    const page =
+      parseInt(req.query.page as string) || 1;
+
+    const limit =
+      parseInt(req.query.limit as string) || 10;
+
+    const skip = (page - 1) * limit;
+
+    // ✅ BASE MATCH
+    const match: any = {
+      isDeleted: false,
+    };
+
+    // ✅ ONLY MATCH OUTLET IF NOT ALL
+    if (
+      outletId &&
+      outletId !== "ALL"
+    ) {
+      match.outletId =
+        new mongoose.Types.ObjectId(
+          outletId as string
+        );
+    }
+
+    let start: Date;
+    let end: Date;
+
+    const today = new Date();
+
+    // ================= DATE FILTER =================
+    if (startDate && endDate) {
+      start = new Date(startDate as string);
+
+      start.setHours(0, 0, 0, 0);
+
+      end = new Date(endDate as string);
+
+      end.setHours(23, 59, 59, 999);
+    } else {
+      switch (reportDuration) {
+        case "YEARLY":
+          start = new Date(
+            today.getFullYear(),
+            0,
+            1
+          );
+
+          end = new Date(
+            today.getFullYear(),
+            11,
+            31,
+            23,
+            59,
+            59,
+            999
+          );
+          break;
+
+        case "MONTHLY":
+          start = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            1
+          );
+
+          end = new Date(
+            today.getFullYear(),
+            today.getMonth() + 1,
+            0,
+            23,
+            59,
+            59,
+            999
+          );
+          break;
+
+        case "WEEKLY": {
+          const current = new Date();
+
+          const day = current.getDay();
+
+          const diff =
+            current.getDate() -
+            day +
+            (day === 0 ? -6 : 1);
+
+          start = new Date(
+            current.setDate(diff)
+          );
+
+          start.setHours(0, 0, 0, 0);
+
+          end = new Date();
+
+          end.setHours(
+            23,
+            59,
+            59,
+            999
+          );
+
+          break;
+        }
+
+        case "DAILY":
+        default:
+          start = new Date();
+
+          start.setHours(0, 0, 0, 0);
+
+          end = new Date();
+
+          end.setHours(
+            23,
+            59,
+            59,
+            999
+          );
+
+          break;
+      }
+    }
+
+    // ✅ DATE MATCH
+    match.openedAt = {
+      $gte: start,
+      $lte: end,
+    };
+
+    // ================= EXISTING OPEN REGISTER =================
+
+    let existingOpenRegister = null;
+
+    // ✅ ONLY FIND SINGLE REGISTER WHEN SPECIFIC OUTLET
+    if (
+      outletId &&
+      outletId !== "ALL"
+    ) {
+      existingOpenRegister =
+        await SalesRegister.findOne({
+          outletId,
+          isOpened: true,
+          isClosed: false,
+          isDeleted: false,
+        });
+    }
+
+    // ================= PIPELINE =================
+
+    const pipeline: PipelineStage[] = [
+      {
+        $match: match,
+      },
+
+      // ✅ OUTLET LOOKUP
+      {
+        $lookup: {
+          from: "outlets",
+          localField: "outletId",
+          foreignField: "_id",
+          as: "outletData",
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$outletData",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // ✅ ALL PAYMENTS
+      {
+        $addFields: {
+          allPayments: {
+            $reduce: {
+              input: {
+                $ifNull: [
+                  "$closeRegister",
+                  [],
+                ],
+              },
+
+              initialValue: [],
+
+              in: {
+                $concatArrays: [
+                  "$$value",
+                  {
+                    $ifNull: [
+                      "$$this.payments",
+                      [],
+                    ],
                   },
                 ],
               },
             },
           },
-        },
 
-        bankDeposit: { $sum: { $ifNull: ["$bankDeposit", 0] } },
-        carryForwardBalance: { $sum: { $ifNull: ["$carryForwardBalance", 0] } },
+          totalPayouts: {
+            $sum: {
+              $map: {
+                input: {
+                  $ifNull: [
+                    "$closeRegister",
+                    [],
+                  ],
+                },
 
-        openingBalance: { $sum: { $ifNull: ["$openingBalance", 0] } },
+                as: "cr",
 
-        payoutCash: {
-          $sum: {
-            $reduce: {
-              input: "$cashUsage",
-              initialValue: 0,
-              in: { $add: ["$$value", { $toDouble: "$$this.amount" }] },
+                in: {
+                  $ifNull: [
+                    "$$cr.payout",
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+
+          cashUsageCashSum: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: {
+                      $ifNull: [
+                        "$cashUsage",
+                        [],
+                      ],
+                    },
+
+                    as: "cu",
+
+                    cond: {
+                      $eq: [
+                        {
+                          $toLower:
+                            "$$cu.paymentMode",
+                        },
+                        "cash",
+                      ],
+                    },
+                  },
+                },
+
+                as: "cu",
+
+                in: {
+                  $ifNull: [
+                    "$$cu.amount",
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+
+          cashUsageCardSum: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: {
+                      $ifNull: [
+                        "$cashUsage",
+                        [],
+                      ],
+                    },
+
+                    as: "cu",
+
+                    cond: {
+                      $in: [
+                        {
+                          $toLower:
+                            "$$cu.paymentMode",
+                        },
+                        [
+                          "card",
+                          "credit",
+                          "debit",
+                          "debit card",
+                          "credit card",
+                          "card swipe",
+                        ],
+                      ],
+                    },
+                  },
+                },
+
+                as: "cu",
+
+                in: {
+                  $ifNull: [
+                    "$$cu.amount",
+                    0,
+                  ],
+                },
+              },
             },
           },
         },
       },
-    },
 
-    { $sort: { _id: 1 } },
-  ];
+      // ✅ PAYMENT TOTALS
+      {
+        $addFields: {
+          totalCashAmount: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: {
+                      $ifNull: [
+                        "$allPayments",
+                        [],
+                      ],
+                    },
 
-  const groupedData = await SalesRegister.aggregate(pipeline);
+                    as: "p",
 
-  // 🔹 Response Format (SAME structure as before)
+                    cond: {
+                      $eq: [
+                        {
+                          $toLower:
+                            "$$p.paymentModeName",
+                        },
+                        "cash",
+                      ],
+                    },
+                  },
+                },
 
-  const dailySummary = groupedData.map((item) => ({
-    date: item._id,
-    totalCash: item.totalCash,
-    bankDeposit: item.bankDeposit,
-    carryForwardBalance: item.carryForwardBalance,
-  }));
+                as: "p",
 
-  const finalCashVsOpening = groupedData.map((item) => ({
-    date: item._id,
-    openingBalance: item.openingBalance,
-    finalCash: item.totalCash,
-    payoutCash: item.payoutCash,
-  }));
+                in: {
+                  $toDouble: {
+                    $replaceAll: {
+                      input: {
+                        $toString: {
+                          $ifNull: [
+                            "$$p.manual",
+                            0,
+                          ],
+                        },
+                      },
 
-  return res.status(httpStatus.OK).json({
-    message: 'Chart data fetched successfully',
-    status: true,
-    data: {
-      dailySummary,
-      finalCashVsOpening,
-      allInOneTable: groupedData,
-    },
-  });
-});
+                      find: ",",
 
+                      replacement: "",
+                    },
+                  },
+                },
+              },
+            },
+          },
 
+          totalCardPayments: {
+            $sum: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: {
+                      $ifNull: [
+                        "$allPayments",
+                        [],
+                      ],
+                    },
 
+                    as: "p",
 
-const getRegisterDataByOutlet = catchAsync(async (req: AuthenticatedRequest, res: Response) => {
-  const { outletId, startDate, endDate, reportDuration } = req.query;
+                    cond: {
+                      $in: [
+                        {
+                          $toLower:
+                            "$$p.paymentModeName",
+                        },
+                        [
+                          "card",
+                          "credit",
+                          "debit",
+                          "debit card",
+                          "credit card",
+                          "card swipe",
+                        ],
+                      ],
+                    },
+                  },
+                },
 
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
-  const skip = (page - 1) * limit;
+                as: "p",
 
-  const match: any = { isDeleted: false };
+                in: {
+                  $ifNull: [
+                    "$$p.totalAmount",
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
 
-  if (outletId) {
-    match.outletId = new mongoose.Types.ObjectId(outletId as string);
+      // ✅ CARD ADJUSTMENT
+      {
+        $addFields: {
+          totalCardPaymentsAdjusted:
+          {
+            $subtract: [
+              {
+                $ifNull: [
+                  "$totalCardPayments",
+                  0,
+                ],
+              },
+
+              {
+                $ifNull: [
+                  "$cashUsageCardSum",
+                  0,
+                ],
+              },
+            ],
+          },
+        },
+      },
+
+      // ✅ EXPECTED CASH
+      {
+        $addFields: {
+          expectedPhysicalCash: {
+            $subtract: [
+              {
+                $add: [
+                  {
+                    $ifNull: [
+                      "$openingBalance",
+                      0,
+                    ],
+                  },
+
+                  {
+                    $ifNull: [
+                      "$totalCashAmount",
+                      0,
+                    ],
+                  },
+                ],
+              },
+
+              {
+                $add: [
+                  {
+                    $ifNull: [
+                      "$totalPayouts",
+                      0,
+                    ],
+                  },
+
+                  {
+                    $ifNull: [
+                      "$bankDeposit",
+                      0,
+                    ],
+                  },
+
+                  {
+                    $ifNull: [
+                      "$cashUsageCashSum",
+                      0,
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+
+      // ✅ VARIANCE
+      {
+        $addFields: {
+          variance: {
+            $subtract: [
+              {
+                $ifNull: [
+                  "$cashAmount",
+                  0,
+                ],
+              },
+
+              {
+                $ifNull: [
+                  "$expectedPhysicalCash",
+                  0,
+                ],
+              },
+            ],
+          },
+        },
+      },
+
+      // ✅ SORT
+      {
+        $sort: {
+          openedAt: -1,
+        },
+      },
+
+      // ✅ PAGINATION
+      {
+        $skip: skip,
+      },
+
+      {
+        $limit: limit,
+      },
+    ];
+
+    // ================= DATA =================
+
+    const registerData =
+      await SalesRegister.aggregate(
+        pipeline
+      );
+
+    const totalCount =
+      await SalesRegister.countDocuments(
+        match
+      );
+
+    // ================= RESPONSE =================
+
+    res.status(200).json({
+      success: true,
+
+      existingOpenRegister,
+
+      data: {
+        data: registerData,
+
+        pagination: {
+          total: totalCount,
+          page,
+          limit,
+
+          pages: Math.ceil(
+            totalCount / limit
+          ),
+        },
+      },
+    });
   }
-
-  let start: Date;
-  let end: Date;
-  const today = new Date();
-
-  // ✅ SMART DATE LOGIC
-  if (startDate && endDate) {
-    start = new Date(startDate as string);
-    start.setHours(0, 0, 0, 0);
-
-    end = new Date(endDate as string);
-    end.setHours(23, 59, 59, 999);
-  } else {
-    switch (reportDuration) {
-
-      case "YEARLY":
-        start = new Date(today.getFullYear(), 0, 1);
-        end = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
-        break;
-
-      case "MONTHLY":
-        start = new Date(today.getFullYear(), today.getMonth(), 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-        break;
-
-      case "WEEKLY": {
-        const current = new Date();
-        const day = current.getDay();
-        const diff = current.getDate() - day + (day === 0 ? -6 : 1); // Monday start
-        start = new Date(current.setDate(diff));
-        start.setHours(0, 0, 0, 0);
-
-        end = new Date();
-        end.setHours(23, 59, 59, 999);
-        break;
-      }
-
-      case "DAILY":
-      default:
-        start = new Date();
-        start.setHours(0, 0, 0, 0);
-        end = new Date();
-        end.setHours(23, 59, 59, 999);
-        break;
-    }
-  }
-
-  match.openedAt = { $gte: start, $lte: end };
-
-  const existingOpenRegister = await SalesRegister.findOne({
-    outletId,
-    isOpened: true,
-    isClosed: false,
-    isDeleted: false,
-  });
-
-  const pipeline: PipelineStage[] = [
-
-    { $match: match },
-
-    // 🔹 Flatten Payments
-    {
-      $addFields: {
-        allPayments: {
-          $reduce: {
-            input: { $ifNull: ["$closeRegister", []] },
-            initialValue: [],
-            in: { $concatArrays: ["$$value", { $ifNull: ["$$this.payments", []] }] }
-          }
-        },
-
-        totalPayouts: {
-          $sum: {
-            $map: {
-              input: { $ifNull: ["$closeRegister", []] },
-              as: "cr",
-              in: { $ifNull: ["$$cr.payout", 0] }
-            }
-          }
-        },
-
-        cashUsageCashSum: {
-          $sum: {
-            $map: {
-              input: {
-                $filter: {
-                  input: { $ifNull: ["$cashUsage", []] },
-                  as: "cu",
-                  cond: { $eq: [{ $toLower: "$$cu.paymentMode" }, "cash"] }
-                }
-              },
-              as: "cu",
-              in: { $ifNull: ["$$cu.amount", 0] }
-            }
-          }
-        },
-
-        cashUsageCardSum: {
-          $sum: {
-            $map: {
-              input: {
-                $filter: {
-                  input: { $ifNull: ["$cashUsage", []] },
-                  as: "cu",
-                  cond: {
-                    $in: [
-                      { $toLower: "$$cu.paymentMode" },
-                      ["card", "credit", "debit", "debit card", "credit card", "card swipe"]
-                    ]
-                  }
-                }
-              },
-              as: "cu",
-              in: { $ifNull: ["$$cu.amount", 0] }
-            }
-          }
-        }
-      }
-    },
-
-    // 🔹 Payment Totals
-    {
-      $addFields: {
-
-        totalCashAmount: {
-          $sum: {
-            $map: {
-              input: {
-                $filter: {
-                  input: { $ifNull: ["$allPayments", []] },
-                  as: "p",
-                  cond: { $eq: [{ $toLower: "$$p.paymentModeName" }, "cash"] }
-                }
-              },
-              as: "p",
-              in: {
-                $toDouble: {
-                  $replaceAll: {
-                    input: { $toString: { $ifNull: ["$$p.manual", 0] } },
-                    find: ",",
-                    replacement: ""
-                  }
-                }
-              }
-            }
-          }
-        },
-
-        totalCardPayments: {
-          $sum: {
-            $map: {
-              input: {
-                $filter: {
-                  input: { $ifNull: ["$allPayments", []] },
-                  as: "p",
-                  cond: {
-                    $in: [
-                      { $toLower: "$$p.paymentModeName" },
-                      ["card", "credit", "debit", "debit card", "credit card", "card swipe"]
-                    ]
-                  }
-                }
-              },
-              as: "p",
-              in: { $ifNull: ["$$p.totalAmount", 0] }
-            }
-          }
-        }
-      }
-    },
-
-    {
-      $addFields: {
-        totalCardPaymentsAdjusted: {
-          $subtract: [{ $ifNull: ["$totalCardPayments", 0] }, { $ifNull: ["$cashUsageCardSum", 0] }]
-        }
-      }
-    },
-
-    // 🔹 Expected Cash + Variance
-    {
-      $addFields: {
-        expectedPhysicalCash: {
-          $subtract: [
-            { $add: [{ $ifNull: ["$openingBalance", 0] }, { $ifNull: ["$totalCashAmount", 0] }] },
-            {
-              $add: [
-                { $ifNull: ["$totalPayouts", 0] },
-                { $ifNull: ["$bankDeposit", 0] },
-                { $ifNull: ["$cashUsageCashSum", 0] }
-              ]
-            }
-          ]
-        }
-      }
-    },
-
-    {
-      $addFields: {
-        variance: {
-          $subtract: [
-            { $ifNull: ["$cashAmount", 0] },
-            { $ifNull: ["$expectedPhysicalCash", 0] }
-          ]
-        }
-      }
-    },
-
-    { $sort: { openedAt: -1 } },
-    { $skip: skip },
-    { $limit: limit }
-  ];
-
-  const registerData = await SalesRegister.aggregate(pipeline);
-  const totalCount = await SalesRegister.countDocuments(match);
-
-  res.status(200).json({
-    success: true,
-    existingOpenRegister,
-    data: {data:registerData,pagination: {
-      total: totalCount,
-      page,
-      limit,
-      pages: Math.ceil(totalCount / limit),
-    }},
-    
-  });
-});
+);
 
 
 
@@ -2369,8 +2916,8 @@ const getGiftCardChartDataReportByOutlets = catchAsync(
     }
 
     else if (reportDuration === "YEARLY") {
-      labels = ["Jan","Feb","Mar","Apr","May","Jun",
-                "Jul","Aug","Sep","Oct","Nov","Dec"];
+      labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     }
 
     else if (reportDuration === "CUSTUM") {
@@ -2381,8 +2928,8 @@ const getGiftCardChartDataReportByOutlets = catchAsync(
           temp.setDate(temp.getDate() + 1);
         }
       } else {
-        labels = ["Jan","Feb","Mar","Apr","May","Jun",
-                  "Jul","Aug","Sep","Oct","Nov","Dec"];
+        labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       }
     }
 
@@ -2443,8 +2990,8 @@ const getGiftCardChartDataReportByOutlets = catchAsync(
     const outlets = [...new Set(giftCardSalesByOutlets.map((s) => s.outletName))];
 
     const chartColors = [
-      "#FF6384","#36A2EB","#FFCE56",
-      "#4BC0C0","#9966FF","#FF9F40",
+      "#FF6384", "#36A2EB", "#FFCE56",
+      "#4BC0C0", "#9966FF", "#FF9F40",
     ];
 
     const datasets = outlets.map((outlet, index) => {
@@ -3711,8 +4258,8 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
     const prevAvgSaleValue =
       prevInv.saleCount > 0
         ? Number(
-            (prevInv.revenue / prevInv.saleCount).toFixed(2)
-          )
+          (prevInv.revenue / prevInv.saleCount).toFixed(2)
+        )
         : 0;
 
     // ✅ AVG ITEMS PER SALE
@@ -3724,26 +4271,26 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
     const prevAvgItemsPerSale =
       prevInv.saleCount > 0
         ? Number(
-            (prevInv.itemsSold / prevInv.saleCount).toFixed(2)
-          )
+          (prevInv.itemsSold / prevInv.saleCount).toFixed(2)
+        )
         : 0;
 
     // ✅ DISCOUNT %
     const discountedPercent =
       inv.revenue > 0
         ? Number(
-            ((inv.discounted / inv.revenue) * 100).toFixed(2)
-          )
+          ((inv.discounted / inv.revenue) * 100).toFixed(2)
+        )
         : 0;
 
     const prevDiscountedPercent =
       prevInv.revenue > 0
         ? Number(
-            (
-              (prevInv.discounted / prevInv.revenue) *
-              100
-            ).toFixed(2)
-          )
+          (
+            (prevInv.discounted / prevInv.revenue) *
+            100
+          ).toFixed(2)
+        )
         : 0;
 
     return {
@@ -3825,10 +4372,10 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
     outletsData.reduce((sum, o) => sum + o.grossProfit, 0),
 
     prevInvoiceAgg.reduce((sum, o) => sum + o.revenue, 0) -
-      prevPayoutAgg.reduce(
-        (sum, o) => sum + (o.totalPayout || 0),
-        0
-      )
+    prevPayoutAgg.reduce(
+      (sum, o) => sum + (o.totalPayout || 0),
+      0
+    )
   );
 
   // ✅ DISCOUNTED
@@ -4067,22 +4614,50 @@ const getRetailDashboardData = catchAsync(async (req: Request, res: Response) =>
 // );
 
 const getPaymentReports = catchAsync(async (req: any, res: any) => {
-  const { startDate, endDate, outletId, reportDuration } = req.query;
+  const {
+    startDate,
+    endDate,
+    outletId,
+    reportDuration,
+  } = req.query;
 
   if (!outletId) {
-    throw new ApiError(httpStatus.BAD_REQUEST, "outletId is required");
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "outletId is required"
+    );
   }
 
-  // const outletObjId = new mongoose.Types.ObjectId(outletId as string);
-  const outletIdsArray = (outletId as string)
-  .split(",")
-  .map((id) => new mongoose.Types.ObjectId(id));
+  /* =========================================================
+     ✅ OUTLET FILTER
+     - IF ALL => NO FILTER
+     - ELSE => FILTER SELECTED OUTLETS
+  ========================================================== */
+
+  let outletMatch: any = {};
+
+  if (outletId !== "ALL") {
+    const outletIdsArray = (outletId as string)
+      .split(",")
+      .map(
+        (id) =>
+          new mongoose.Types.ObjectId(id)
+      );
+
+    outletMatch = {
+      outletId: { $in: outletIdsArray },
+    };
+  }
 
   let start: Date;
   let end: Date;
+
   const today = new Date();
 
-  // ✅ SMART DATE LOGIC
+  /* =========================================================
+     ✅ DATE FILTER
+  ========================================================== */
+
   if (startDate && endDate) {
     start = new Date(startDate as string);
     start.setHours(0, 0, 0, 0);
@@ -4092,206 +4667,402 @@ const getPaymentReports = catchAsync(async (req: any, res: any) => {
   } else {
     switch (reportDuration) {
       case "YEARLY":
-        start = new Date(today.getFullYear(), 0, 1);
-        end = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
+        start = new Date(
+          today.getFullYear(),
+          0,
+          1
+        );
+
+        end = new Date(
+          today.getFullYear(),
+          11,
+          31,
+          23,
+          59,
+          59,
+          999
+        );
+
         break;
 
       case "MONTHLY":
-        start = new Date(today.getFullYear(), today.getMonth(), 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+        start = new Date(
+          today.getFullYear(),
+          today.getMonth(),
+          1
+        );
+
+        end = new Date(
+          today.getFullYear(),
+          today.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+          999
+        );
+
         break;
 
       case "WEEKLY": {
         const current = new Date();
+
         const day = current.getDay();
-        const diff = day === 0 ? -6 : 1 - day; // Monday start
-        start = new Date(current.setDate(current.getDate() + diff));
+
+        const diff =
+          day === 0 ? -6 : 1 - day;
+
+        start = new Date(
+          current.setDate(
+            current.getDate() + diff
+          )
+        );
+
         start.setHours(0, 0, 0, 0);
 
         end = new Date();
-        end.setHours(23, 59, 59, 999);
+
+        end.setHours(
+          23,
+          59,
+          59,
+          999
+        );
+
         break;
       }
 
       case "DAILY":
       default:
         start = new Date();
+
         start.setHours(0, 0, 0, 0);
+
         end = new Date();
-        end.setHours(23, 59, 59, 999);
+
+        end.setHours(
+          23,
+          59,
+          59,
+          999
+        );
+
         break;
     }
   }
 
   /* =========================================================
-     1) INVOICE WEEKLY AGGREGATION
+     ✅ INVOICE AGGREGATION
   ========================================================== */
 
-  const weeklyData = await Invoice.aggregate([
-    {
-      $match: {
-        isDeleted: false,
-        outletId: { $in: outletIdsArray },
-        invoiceDate: { $gte: start, $lte: end },
-      },
-    },
-    { $unwind: "$amountReceived" },
-    {
-      $addFields: {
-        weekStartDate: {
-          $dateTrunc: {
-            date: "$invoiceDate",
-            unit: "week",
-            startOfWeek: "Mon",
-            timezone: "Asia/Kolkata",
+  const weeklyData =
+    await Invoice.aggregate([
+      {
+        $match: {
+          isDeleted: false,
+
+          ...outletMatch,
+
+          invoiceDate: {
+            $gte: start,
+            $lte: end,
           },
         },
       },
-    },
-    {
-      $group: {
-        _id: {
-          weekStartDate: "$weekStartDate",
-          paymentModeId: "$amountReceived.paymentModeId",
-        },
-        totalAmount: { $sum: { $ifNull: ["$amountReceived.amount", 0] } },
+
+      {
+        $unwind: "$amountReceived",
       },
-    },
-  ]);
+
+      {
+        $addFields: {
+          weekStartDate: {
+            $dateTrunc: {
+              date: "$invoiceDate",
+              unit: "week",
+              startOfWeek: "Mon",
+              timezone:
+                "Asia/Kolkata",
+            },
+          },
+        },
+      },
+
+      {
+        $group: {
+          _id: {
+            weekStartDate:
+              "$weekStartDate",
+
+            paymentModeId:
+              "$amountReceived.paymentModeId",
+          },
+
+          totalAmount: {
+            $sum: {
+              $ifNull: [
+                "$amountReceived.amount",
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
 
   /* =========================================================
-     2) BUILD CONTINUOUS WEEKS
+     ✅ CONTINUOUS WEEKS
   ========================================================== */
 
   const weeks: string[] = [];
-  const first = new Date(start);
-  const day = first.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  first.setDate(first.getDate() + diff);
 
-  for (let cur = new Date(first); cur <= end; cur.setDate(cur.getDate() + 7)) {
-    weeks.push(cur.toISOString().split("T")[0]);
+  const first = new Date(start);
+
+  const day = first.getDay();
+
+  const diff =
+    day === 0 ? -6 : 1 - day;
+
+  first.setDate(
+    first.getDate() + diff
+  );
+
+  for (
+    let cur = new Date(first);
+    cur <= end;
+    cur.setDate(cur.getDate() + 7)
+  ) {
+    weeks.push(
+      cur.toISOString().split("T")[0]
+    );
   }
 
   /* =========================================================
-     3) PAYMENT MODES
+     ✅ PAYMENT MODES
   ========================================================== */
 
-  const paymentModes = await PaymentMode.find({
-    isDeleted: false,
-    isActive: true,
-  })
-    .select({ _id: 1, modeName: 1 })
-    .lean();
+  const paymentModes =
+    await PaymentMode.find({
+      isDeleted: false,
+      isActive: true,
+    })
+      .select({
+        _id: 1,
+        modeName: 1,
+      })
+      .lean();
 
-  const totals: Record<string, Record<string, number>> = {};
+  const totals: Record<
+    string,
+    Record<string, number>
+  > = {};
 
   weeklyData.forEach((d) => {
-    const pmId = String(d._id.paymentModeId);
-    const w = new Date(d._id.weekStartDate).toISOString().split("T")[0];
+    const pmId = String(
+      d._id.paymentModeId
+    );
 
-    if (!totals[pmId]) totals[pmId] = {};
-    totals[pmId][w] = (totals[pmId][w] || 0) + (Number(d.totalAmount) || 0);
+    const w = new Date(
+      d._id.weekStartDate
+    )
+      .toISOString()
+      .split("T")[0];
+
+    if (!totals[pmId]) {
+      totals[pmId] = {};
+    }
+
+    totals[pmId][w] =
+      (totals[pmId][w] || 0) +
+      (Number(d.totalAmount) || 0);
   });
 
   /* =========================================================
-     4) CASH USAGE WEEKLY DEDUCTION
+     ✅ CASH USAGE DEDUCTION
   ========================================================== */
 
-  const cashUsageWeekly = await SalesRegister.aggregate([
-    {
-      $match: {
-        isDeleted: false,
-        outletId: { $in: outletIdsArray },
+  const cashUsageWeekly =
+    await SalesRegister.aggregate([
+      {
+        $match: {
+          isDeleted: false,
 
+          ...outletMatch,
+        },
       },
-    },
-    { $unwind: "$cashUsage" },
-    {
-      $match: {
-        "cashUsage.createdAt": { $gte: start, $lte: end },
+
+      {
+        $unwind: "$cashUsage",
       },
-    },
-    {
-      $addFields: {
-        weekStartDate: {
-          $dateTrunc: {
-            date: "$cashUsage.createdAt",
-            unit: "week",
-            startOfWeek: "Mon",
-            timezone: "Asia/Kolkata",
+
+      {
+        $match: {
+          "cashUsage.createdAt": {
+            $gte: start,
+            $lte: end,
           },
         },
       },
-    },
-    {
-      $group: {
-        _id: {
-          weekStartDate: "$weekStartDate",
-          paymentMode: { $toLower: "$cashUsage.paymentMode" },
-        },
-        totalUsage: { $sum: { $ifNull: ["$cashUsage.amount", 0] } },
-      },
-    },
-  ]);
 
-  const isCardish = (s: string) => {
+      {
+        $addFields: {
+          weekStartDate: {
+            $dateTrunc: {
+              date:
+                "$cashUsage.createdAt",
+
+              unit: "week",
+
+              startOfWeek: "Mon",
+
+              timezone:
+                "Asia/Kolkata",
+            },
+          },
+        },
+      },
+
+      {
+        $group: {
+          _id: {
+            weekStartDate:
+              "$weekStartDate",
+
+            paymentMode: {
+              $toLower:
+                "$cashUsage.paymentMode",
+            },
+          },
+
+          totalUsage: {
+            $sum: {
+              $ifNull: [
+                "$cashUsage.amount",
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+  const isCardish = (
+    s: string
+  ) => {
     const t = s.toLowerCase();
-    return t.includes("card") || t.includes("credit") || t.includes("debit");
+
+    return (
+      t.includes("card") ||
+      t.includes("credit") ||
+      t.includes("debit")
+    );
   };
 
-  let cashPmId: string | null = null;
-  let cardPmId: string | null = null;
+  let cashPmId: string | null =
+    null;
+
+  let cardPmId: string | null =
+    null;
 
   for (const pm of paymentModes) {
-    if (!cashPmId && pm.modeName.toLowerCase() === "cash") {
+    if (
+      !cashPmId &&
+      pm.modeName.toLowerCase() ===
+        "cash"
+    ) {
       cashPmId = String(pm._id);
     }
-    if (!cardPmId && isCardish(pm.modeName)) {
+
+    if (
+      !cardPmId &&
+      isCardish(pm.modeName)
+    ) {
       cardPmId = String(pm._id);
     }
   }
 
   cashUsageWeekly.forEach((u) => {
-    const w = new Date(u._id.weekStartDate).toISOString().split("T")[0];
-    const usage = Number(u.totalUsage) || 0;
+    const w = new Date(
+      u._id.weekStartDate
+    )
+      .toISOString()
+      .split("T")[0];
+
+    const usage =
+      Number(u.totalUsage) || 0;
+
     const mode = u._id.paymentMode;
 
-    if (mode === "cash" && cashPmId) {
-      if (!totals[cashPmId]) totals[cashPmId] = {};
-      totals[cashPmId][w] = (totals[cashPmId][w] || 0) - usage;
-    } else if (isCardish(mode) && cardPmId) {
-      if (!totals[cardPmId]) totals[cardPmId] = {};
-      totals[cardPmId][w] = (totals[cardPmId][w] || 0) - usage;
+    if (
+      mode === "cash" &&
+      cashPmId
+    ) {
+      if (!totals[cashPmId]) {
+        totals[cashPmId] = {};
+      }
+
+      totals[cashPmId][w] =
+        (totals[cashPmId][w] || 0) -
+        usage;
+    } else if (
+      isCardish(mode) &&
+      cardPmId
+    ) {
+      if (!totals[cardPmId]) {
+        totals[cardPmId] = {};
+      }
+
+      totals[cardPmId][w] =
+        (totals[cardPmId][w] || 0) -
+        usage;
     }
   });
 
   /* =========================================================
-     5) BUILD PIVOT TABLE
+     ✅ BUILD PIVOT TABLE
   ========================================================== */
 
-  const pivotTable = paymentModes.map((pm: any) => {
-    const pmId = String(pm._id);
-    const row: any = { paymentMode: pm.modeName };
-    let rowTotal = 0;
+  const pivotTable =
+    paymentModes.map((pm: any) => {
+      const pmId = String(pm._id);
 
-    weeks.forEach((w) => {
-      const amt = totals[pmId]?.[w] ?? 0;
-      row[w] = amt;
-      rowTotal += amt;
+      const row: any = {
+        paymentMode: pm.modeName,
+      };
+
+      let rowTotal = 0;
+
+      weeks.forEach((w) => {
+        const amt =
+          totals[pmId]?.[w] ?? 0;
+
+        row[w] = amt;
+
+        rowTotal += amt;
+      });
+
+      row.total = rowTotal;
+
+      return row;
     });
 
-    row.total = rowTotal;
-    return row;
-  });
+  /* =========================================================
+     ✅ RESPONSE
+  ========================================================== */
 
-  return res.status(httpStatus.OK).json({
-    success: true,
-    startDate: start,
-    endDate: end,
-    weeks,
-    data: pivotTable,
-  });
+  return res
+    .status(httpStatus.OK)
+    .json({
+      success: true,
+
+      startDate: start,
+
+      endDate: end,
+
+      weeks,
+
+      data: pivotTable,
+    });
 });
 
 const toObjectId = (v?: string) =>
@@ -4406,197 +5177,197 @@ const getSalesLedgerReports = catchAsync(
        🔹 PIPELINE
     ========================================================== */
 
-  const pipeline: any[] = [
-  { $match: match },
+    const pipeline: any[] = [
+      { $match: match },
 
-  // USER
- {
-  $addFields: {
-    employeeObjectId: {
-      $cond: [
-        { $eq: [{ $type: "$employeeId" }, "objectId"] },
-        "$employeeId",
-        { $toObjectId: "$employeeId" }
-      ]
-    }
-  }
-},
-{
-  $lookup: {
-    from: "users",
-    localField: "employeeObjectId",
-    foreignField: "_id",
-    as: "user",
-  },
-},
-{ $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      // USER
+      {
+        $addFields: {
+          employeeObjectId: {
+            $cond: [
+              { $eq: [{ $type: "$employeeId" }, "objectId"] },
+              "$employeeId",
+              { $toObjectId: "$employeeId" }
+            ]
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "employeeObjectId",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
 
-  // REGISTER
-  {
-    $lookup: {
-      from: "salesregisters",
-      localField: "registerId",
-      foreignField: "_id",
-      as: "register",
-    },
-  },
-  { $unwind: { path: "$register", preserveNullAndEmptyArrays: true } },
+      // REGISTER
+      {
+        $lookup: {
+          from: "salesregisters",
+          localField: "registerId",
+          foreignField: "_id",
+          as: "register",
+        },
+      },
+      { $unwind: { path: "$register", preserveNullAndEmptyArrays: true } },
 
-  // CUSTOMER
-  {
-    $lookup: {
-      from: "customers",
-      localField: "customerId",
-      foreignField: "_id",
-      as: "customer",
-    },
-  },
-  { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
+      // CUSTOMER
+      {
+        $lookup: {
+          from: "customers",
+          localField: "customerId",
+          foreignField: "_id",
+          as: "customer",
+        },
+      },
+      { $unwind: { path: "$customer", preserveNullAndEmptyArrays: true } },
 
-  // 🔥 FIX 1: SAFE TOTAL CALCULATION
-  {
-    $addFields: {
-      computedTotalAmount: {
-        $cond: [
-          { $gt: ["$totalAmount", 0] },
-          "$totalAmount",
-          {
+      // 🔥 FIX 1: SAFE TOTAL CALCULATION
+      {
+        $addFields: {
+          computedTotalAmount: {
+            $cond: [
+              { $gt: ["$totalAmount", 0] },
+              "$totalAmount",
+              {
+                $sum: {
+                  $map: {
+                    input: { $ifNull: ["$items", []] },
+                    as: "item",
+                    in: {
+                      $multiply: [
+                        { $ifNull: ["$$item.quantity", 0] },
+                        { $ifNull: ["$$item.sellingPrice", 0] },
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+
+          computedPaidAmount: {
             $sum: {
               $map: {
-                input: { $ifNull: ["$items", []] },
-                as: "item",
-                in: {
-                  $multiply: [
-                    { $ifNull: ["$$item.quantity", 0] },
-                    { $ifNull: ["$$item.sellingPrice", 0] },
-                  ],
-                },
+                input: { $ifNull: ["$amountReceived", []] },
+                as: "pay",
+                in: { $ifNull: ["$$pay.amount", 0] },
               },
             },
           },
-        ],
-      },
-
-      computedPaidAmount: {
-        $sum: {
-          $map: {
-            input: { $ifNull: ["$amountReceived", []] },
-            as: "pay",
-            in: { $ifNull: ["$$pay.amount", 0] },
-          },
         },
       },
-    },
-  },
 
-  // 🔥 FIX 2: SAFE STATUS LOGIC
-  {
-    $addFields: {
-      finalStatus: {
-        $cond: [
-          {
-            $or: [
-              { $eq: ["$isDeleted", true] },
+      // 🔥 FIX 2: SAFE STATUS LOGIC
+      {
+        $addFields: {
+          finalStatus: {
+            $cond: [
               {
-                $and: [
-                  { $ne: [{ $ifNull: ["$voidNote", ""] }, ""] },
-                  { $ne: ["$voidNote", null] },
+                $or: [
+                  { $eq: ["$isDeleted", true] },
+                  {
+                    $and: [
+                      { $ne: [{ $ifNull: ["$voidNote", ""] }, ""] },
+                      { $ne: ["$voidNote", null] },
+                    ],
+                  },
+                ],
+              },
+              "Void",
+              {
+                $cond: [
+                  { $gt: ["$balanceDue", 0] },
+                  "Pending",
+                  "Paid",
                 ],
               },
             ],
           },
-          "Void",
-          {
-            $cond: [
-              { $gt: ["$balanceDue", 0] },
-              "Pending",
-              "Paid",
-            ],
-          },
-        ],
-      },
-    },
-  },
-
-  // SEARCH
-  ...(search
-    ? [
-        {
-          $match: {
-            $or: [
-              { invoiceNumber: { $regex: search, $options: "i" } },
-              { notes: { $regex: search, $options: "i" } },
-              { "customer.name": { $regex: search, $options: "i" } },
-              { "customer.fullName": { $regex: search, $options: "i" } },
-            ],
-          },
         },
-      ]
-    : []),
-
-  // FINAL PROJECTION
-  {
-    $project: {
-      _id: 1,
-      date: "$invoiceDate",
-      invoiceNumber: 1,
-
-      userName: {
-        $ifNull: ["$user.name", { $ifNull: ["$user.name", "-"] }],
       },
 
-      registerCode: {
-        $ifNull: ["$register.code", { $ifNull: ["$register.name", ""] }],
-      },
-
-      customerName: {
-        $ifNull: [
-          "$customer.customerName",
+      // SEARCH
+      ...(search
+        ? [
           {
+            $match: {
+              $or: [
+                { invoiceNumber: { $regex: search, $options: "i" } },
+                { notes: { $regex: search, $options: "i" } },
+                { "customer.name": { $regex: search, $options: "i" } },
+                { "customer.fullName": { $regex: search, $options: "i" } },
+              ],
+            },
+          },
+        ]
+        : []),
+
+      // FINAL PROJECTION
+      {
+        $project: {
+          _id: 1,
+          date: "$invoiceDate",
+          invoiceNumber: 1,
+
+          userName: {
+            $ifNull: ["$user.name", { $ifNull: ["$user.name", "-"] }],
+          },
+
+          registerCode: {
+            $ifNull: ["$register.code", { $ifNull: ["$register.name", ""] }],
+          },
+
+          customerName: {
             $ifNull: [
               "$customer.customerName",
-              { $ifNull: ["$customer.phone", ""] },
+              {
+                $ifNull: [
+                  "$customer.customerName",
+                  { $ifNull: ["$customer.phone", ""] },
+                ],
+              },
             ],
           },
-        ],
-      },
 
-      note: { $ifNull: ["$notes", ""] },
-      status: "$finalStatus",
-      totalAmount: "$computedTotalAmount",
-      paidAmount: "$computedPaidAmount",
-      balanceDue: {
-        $subtract: ["$computedTotalAmount", "$computedPaidAmount"],
-      },
-    },
-  },
-
-  { $sort: { date: -1 } },
-
-  {
-    $facet: {
-      rows: [
-        { $skip: (pageNum - 1) * limitNum },
-        { $limit: limitNum },
-      ],
-      meta: [{ $count: "total" }],
-      totals: [
-        {
-          $group: {
-            _id: null,
-            totalAmount: { $sum: "$totalAmount" },
-            totalPaid: { $sum: "$paidAmount" },
+          note: { $ifNull: ["$notes", ""] },
+          status: "$finalStatus",
+          totalAmount: "$computedTotalAmount",
+          paidAmount: "$computedPaidAmount",
+          balanceDue: {
+            $subtract: ["$computedTotalAmount", "$computedPaidAmount"],
           },
         },
-      ],
-    },
-  },
-];
+      },
+
+      { $sort: { date: -1 } },
+
+      {
+        $facet: {
+          rows: [
+            { $skip: (pageNum - 1) * limitNum },
+            { $limit: limitNum },
+          ],
+          meta: [{ $count: "total" }],
+          totals: [
+            {
+              $group: {
+                _id: null,
+                totalAmount: { $sum: "$totalAmount" },
+                totalPaid: { $sum: "$paidAmount" },
+              },
+            },
+          ],
+        },
+      },
+    ];
 
     const agg = await (Invoice as any).aggregate(pipeline);
 
     const rows = agg?.[0]?.rows || [];
-    console.log('-----rows',rows)
+    console.log('-----rows', rows)
     const totalCount = agg?.[0]?.meta?.[0]?.total || 0;
     const totalsDoc = agg?.[0]?.totals?.[0] || { totalAmount: 0 };
 
@@ -4802,58 +5573,58 @@ const getRetailDashboardProductsSold = catchAsync(async (req: Request, res: Resp
       $unwind: "$items"
     },
 
-   {
-  $group: {
-    _id: "$items.itemId",
+    {
+      $group: {
+        _id: "$items.itemId",
 
-    productName: {
-      $first: "$items.itemName"
-    },
+        productName: {
+          $first: "$items.itemName"
+        },
 
-    revenue: {
-      $sum: {
-        $multiply: [
-          { $ifNull: ["$items.quantity", 0] },
-          { $ifNull: ["$items.sellingPrice", 0] }
-        ]
-      }
-    },
-
-    itemsSold: {
-      $sum: {
-        $ifNull: ["$items.quantity", 0]
-      }
-    },
-
-    // ✅ Proper proportional discount
-    discounted: {
-      $sum: {
-        $cond: [
-          { $gt: ["$totalAmount", 0] },
-
-          {
+        revenue: {
+          $sum: {
             $multiply: [
+              { $ifNull: ["$items.quantity", 0] },
+              { $ifNull: ["$items.sellingPrice", 0] }
+            ]
+          }
+        },
+
+        itemsSold: {
+          $sum: {
+            $ifNull: ["$items.quantity", 0]
+          }
+        },
+
+        // ✅ Proper proportional discount
+        discounted: {
+          $sum: {
+            $cond: [
+              { $gt: ["$totalAmount", 0] },
+
               {
-                $divide: [
+                $multiply: [
                   {
-                    $multiply: [
-                      { $ifNull: ["$items.quantity", 0] },
-                      { $ifNull: ["$items.sellingPrice", 0] }
+                    $divide: [
+                      {
+                        $multiply: [
+                          { $ifNull: ["$items.quantity", 0] },
+                          { $ifNull: ["$items.sellingPrice", 0] }
+                        ]
+                      },
+                      "$totalAmount"
                     ]
                   },
-                  "$totalAmount"
+                  { $ifNull: ["$totalDiscount", 0] }
                 ]
               },
-              { $ifNull: ["$totalDiscount", 0] }
-            ]
-          },
 
-          0
-        ]
+              0
+            ]
+          }
+        }
       }
-    }
-  }
-},
+    },
 
     {
       $sort: {
@@ -4865,15 +5636,15 @@ const getRetailDashboardProductsSold = catchAsync(async (req: Request, res: Resp
       $limit: 10
     },
 
-   {
-  $project: {
-    _id: 1,
-    productName: 1,
-    revenue: { $round: ["$revenue", 2] },
-    itemsSold: 1,
-    discounted: { $round: ["$discounted", 2] }
-  }
-}
+    {
+      $project: {
+        _id: 1,
+        productName: 1,
+        revenue: { $round: ["$revenue", 2] },
+        itemsSold: 1,
+        discounted: { $round: ["$discounted", 2] }
+      }
+    }
   ]);
 
   res.status(200).json({
@@ -5042,91 +5813,166 @@ const getCashMovementReport = catchAsync(
       outletId,
       startDate,
       endDate,
+      cashTypes,
     } = req.query;
 
-    if (!outletId || !startDate || !endDate) {
+    if (!startDate || !endDate) {
+
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "outletId, startDate and endDate are required"
+        "startDate and endDate are required"
       );
     }
 
     const start = new Date(startDate as string);
+
     start.setHours(0, 0, 0, 0);
 
     const end = new Date(endDate as string);
+
     end.setHours(23, 59, 59, 999);
 
-  const salesRegisters = await SalesRegister.find({
-  outletId: new mongoose.Types.ObjectId(outletId as string),
-});
+    // ✅ MATCH QUERY
+    const match: any = {
+      isDeleted: false,
+      openedAt: {
+        $gte: start,
+        $lte: end,
+      },
+    };
 
-let cashIn = 0;
-let cashOut = 0;
-let pettyCashIn = 0;
-let pettyCashOut = 0;
+    // ✅ ALL outlet support
+    if (
+      outletId &&
+      outletId !== "ALL"
+    ) {
 
-salesRegisters.forEach((register: any) => {
-
-  // ✅ Register open date filter
-  const registerDate = new Date(register?.openedAt);
-
-  if (registerDate >= start && registerDate <= end) {
-
-    // ✅ CASH IN FROM CLOSE REGISTER PAYMENTS
-    if (register?.closeRegister?.length) {
-
-      register.closeRegister.forEach((close: any) => {
-
-        if (close?.payments?.length) {
-
-          close.payments.forEach((payment: any) => {
-
-            if (
-              payment?.paymentModeName?.toLowerCase() === "cash"
-            ) {
-              cashIn += Number(payment?.totalAmount || 0);
-            }
-          });
-        }
-
-        // ✅ payout
-        cashOut += Number(close?.payout || 0);
-      });
+      match.outletId =
+        new mongoose.Types.ObjectId(
+          outletId as string
+        );
     }
 
-    // ✅ bank deposit
-    cashOut += Number(register?.bankDeposit || 0);
-  }
+    // ✅ FETCH REGISTERS
+    const salesRegisters =
+      await SalesRegister.find(match).lean();
 
-  // ✅ cash usage
-  if (register?.cashUsage?.length) {
+    let cashIn = 0;
 
-    register.cashUsage.forEach((usage: any) => {
+    let cashOut = 0;
 
-      const usageDate = new Date(usage?.createdAt);
+    let pettyCashIn = 0;
 
-      if (usageDate >= start && usageDate <= end) {
+    let pettyCashOut = 0;
 
-        const amount = Number(usage?.amount || 0);
+    salesRegisters.forEach(
+      (register: any) => {
 
-        // ✅ ALL cashUsage = expense
-        pettyCashOut += amount;
+        /* =====================================
+           CASH IN
+        ===================================== */
+
+        if (
+          register?.closeRegister?.length
+        ) {
+
+          register.closeRegister.forEach(
+            (close: any) => {
+
+              // ✅ PAYMENTS
+              if (
+                close?.payments?.length
+              ) {
+
+                close.payments.forEach(
+                  (payment: any) => {
+
+                    const mode =
+                      payment?.paymentModeName
+                        ?.toLowerCase();
+
+                    if (mode === "cash") {
+
+                      cashIn += Number(
+                        payment?.totalAmount || 0
+                      );
+                    }
+                  }
+                );
+              }
+
+              // ✅ PAYOUT
+              cashOut += Number(
+                close?.payout || 0
+              );
+            }
+          );
+        }
+
+        /* =====================================
+           BANK DEPOSIT
+        ===================================== */
+
+        cashOut += Number(
+          register?.bankDeposit || 0
+        );
+
+        /* =====================================
+           CASH USAGE
+        ===================================== */
+
+        if (
+          register?.cashUsage?.length
+        ) {
+
+          register.cashUsage.forEach(
+            (usage: any) => {
+
+              const usageDate =
+                new Date(
+                  usage?.createdAt
+                );
+
+              if (
+                usageDate >= start &&
+                usageDate <= end
+              ) {
+
+                const amount =
+                  Number(
+                    usage?.amount || 0
+                  );
+
+                const type =
+                  usage?.type
+                    ?.toLowerCase() || "";
+
+                // ✅ PETTY CASH IN
+                if (
+                  type ===
+                  "petty_cash_in"
+                ) {
+
+                  pettyCashIn += amount;
+                }
+
+                // ✅ PETTY CASH OUT
+                else {
+
+                  pettyCashOut += amount;
+                }
+              }
+            }
+          );
+        }
       }
-    });
-  }
-});
-
-    // ✅ CASH OUT
-    cashOut = Number(
-      salesRegisters.reduce(
-        (sum: number, item: any) =>
-          sum + Number(item?.bankDeposit || 0),
-        0
-      )
     );
 
-    const rows = [
+    /* =====================================
+       ROWS
+    ===================================== */
+
+    let rows = [
       {
         type: "Cash in",
         cashAdded: cashIn,
@@ -5137,7 +5983,7 @@ salesRegisters.forEach((register: any) => {
       {
         type: "Cash out",
         cashAdded: 0,
-        cashRemoved: -cashOut,
+        cashRemoved: cashOut,
         amount: -cashOut,
       },
 
@@ -5151,34 +5997,75 @@ salesRegisters.forEach((register: any) => {
       {
         type: "Petty cash out",
         cashAdded: 0,
-        cashRemoved: -pettyCashOut,
+        cashRemoved: pettyCashOut,
         amount: -pettyCashOut,
       },
     ];
 
+    /* =====================================
+       FILTER BY TYPE
+    ===================================== */
+
+    if (
+      cashTypes &&
+      cashTypes !== "ALL"
+    ) {
+
+      const map: any = {
+
+        cash_in: "Cash in",
+
+        cash_out: "Cash out",
+
+        petty_cash_in:
+          "Petty cash in",
+
+        petty_cash_out:
+          "Petty cash out",
+      };
+
+      rows = rows.filter(
+        (r) =>
+          r.type ===
+          map[cashTypes as string]
+      );
+    }
+
+    /* =====================================
+       TOTALS
+    ===================================== */
+
     const totalCashAdded =
-      cashIn + pettyCashIn;
+      rows.reduce(
+        (sum, row) =>
+          sum + row.cashAdded,
+        0
+      );
 
     const totalCashRemoved =
-      cashOut + pettyCashOut;
+      rows.reduce(
+        (sum, row) =>
+          sum + row.cashRemoved,
+        0
+      );
 
     const totalAmount =
-      totalCashAdded - totalCashRemoved;
+      totalCashAdded -
+      totalCashRemoved;
 
     const totals = {
       type: "Totals",
       cashAdded: totalCashAdded,
-      cashRemoved: -totalCashRemoved,
+      cashRemoved:
+        totalCashRemoved,
       amount: totalAmount,
     };
 
-rows.unshift(totals);
+    rows.unshift(totals);
 
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: rows,
-      
     });
   }
 );
@@ -5206,7 +6093,7 @@ export {
   getPaymentReports,
   getSalesLedgerReports,
   getGiftCardTableData,
-   getRetailDashboardProductsSold,
+  getRetailDashboardProductsSold,
   getRetailDashboardTopSalesPeople,
   getCashMovementReport
 };

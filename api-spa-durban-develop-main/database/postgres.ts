@@ -1,9 +1,9 @@
 import { Pool } from "pg";
 
 const pool = new Pool({
-  user: "spaDurban",
-  host: "bookingspadurban.c74gucmo6jpm.af-south-1.rds.amazonaws.com",
-  database: "postmate",
+  user: "postgres",
+  host: "spa-durban-db.c3a0acgmg15s.af-south-1.rds.amazonaws.com",
+  database: "test_restore",
   password: "SpaDurban4824!!",
   port: 5432,
    ssl: {

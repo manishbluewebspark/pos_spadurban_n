@@ -26,6 +26,8 @@ export type PaymentMode = {
 };
 
 export type RegisterValue = {
+  outletName:string;
+  register:string;
   openedAt: Date;
   closedAt:Date;
   _id: string;
