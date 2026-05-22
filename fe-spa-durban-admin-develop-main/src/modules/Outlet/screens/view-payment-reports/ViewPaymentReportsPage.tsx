@@ -1,6 +1,24 @@
-
-import { format, subMonths } from 'date-fns';
-import { useEffect } from 'react';
+// ✅ UPDATE IMPORTS
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+  subDays,
+  subMonths,
+  subWeeks,
+  subYears,
+} from "date-fns";
+import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import * as XLSX from 'xlsx';
@@ -55,12 +73,22 @@ const currencyFormat = (amount: number) => {
 const ViewPaymentReportsPage = () => {
   const { id } = useParams();
 
+
   const { appliedFilters, dateFilter } =
     useFilterPagination([
       'outletsId',
       'customerId',
       'reportDuration',
     ]);
+
+  const [currentDate, setCurrentDate] =
+    useState(new Date());
+
+  const selectedDuration =
+    (appliedFilters?.[2]?.value?.[0] as string) ||
+    "DAILY";
+
+
 
   const [searchParams, setSearchParams] =
     useSearchParams();
@@ -182,115 +210,167 @@ const ViewPaymentReportsPage = () => {
     );
   };
 
-  useEffect(() => {
-    const selectedDuration =
-      (appliedFilters?.[2]?.value?.[0] as string) ||
-      'DAILY';
-
-    if (!outlets?.length) return;
-
-    const now = new Date();
-
-    let startDate =
-      searchParams.get('startDate');
-
-    let endDate =
-      searchParams.get('endDate');
-
-    let reportDurationToSend =
-      selectedDuration;
-
-    let shouldUpdateDates = false;
-
+  const handlePrevious = () => {
     switch (selectedDuration) {
-      case 'YEARLY': {
-        const pastYear = new Date();
-
-        pastYear.setFullYear(
-          now.getFullYear() - 1
+      case "DAILY":
+        setCurrentDate((prev) =>
+          subDays(prev, 1)
         );
-
-        startDate = format(
-          pastYear,
-          'yyyy-MM-dd'
-        );
-
-        endDate = format(now, 'yyyy-MM-dd');
-
-        shouldUpdateDates = true;
-
-        break;
-      }
-
-      case 'MONTHLY': {
-        const pastMonth = new Date();
-
-        pastMonth.setMonth(
-          now.getMonth() - 1
-        );
-
-        startDate = format(
-          pastMonth,
-          'yyyy-MM-dd'
-        );
-
-        endDate = format(now, 'yyyy-MM-dd');
-
-        shouldUpdateDates = true;
-
-        break;
-      }
-
-      case 'WEEKLY': {
-        const pastWeek = new Date(now);
-
-        pastWeek.setDate(now.getDate() - 7);
-
-        startDate = format(
-          pastWeek,
-          'yyyy-MM-dd'
-        );
-
-        endDate = format(now, 'yyyy-MM-dd');
-
-        shouldUpdateDates = true;
-
-        break;
-      }
-
-      case 'CUSTUM':
-        reportDurationToSend = 'CUSTUM';
-        shouldUpdateDates = false;
         break;
 
-      case 'DAILY':
+      case "WEEKLY":
+        setCurrentDate((prev) =>
+          subWeeks(prev, 1)
+        );
+        break;
+
+      case "MONTHLY":
+        setCurrentDate((prev) =>
+          subMonths(prev, 1)
+        );
+        break;
+
+      case "YEARLY":
+        setCurrentDate((prev) =>
+          subYears(prev, 1)
+        );
+        break;
+
       default:
-        startDate = format(now, 'yyyy-MM-dd');
-        endDate = format(now, 'yyyy-MM-dd');
-        shouldUpdateDates = true;
         break;
     }
+  };
 
-    const currentStart =
-      searchParams.get('startDate');
+  const getDateLabel = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        return format(
+          currentDate,
+          "MMM d, yyyy"
+        );
 
-    const currentEnd =
-      searchParams.get('endDate');
+      case "WEEKLY":
+        return `${format(
+          startOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "MMM d"
+        )} - ${format(
+          endOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "MMM d, yyyy"
+        )}`;
 
-    const currentDuration =
-      searchParams.get('reportDuration');
+      case "MONTHLY":
+        return format(
+          currentDate,
+          "MMMM yyyy"
+        );
 
-    const currentOutlet =
-      searchParams.get('outletIds');
+      case "YEARLY":
+        return format(currentDate, "yyyy");
 
-    if (
-      currentStart === startDate &&
-      currentEnd === endDate &&
-      currentDuration ===
-        reportDurationToSend &&
-      currentOutlet
-    ) {
-      return;
+      default:
+        return "";
+    }
+  };
+
+
+  const handleNext = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        setCurrentDate((prev) =>
+          addDays(prev, 1)
+        );
+        break;
+
+      case "WEEKLY":
+        setCurrentDate((prev) =>
+          addWeeks(prev, 1)
+        );
+        break;
+
+      case "MONTHLY":
+        setCurrentDate((prev) =>
+          addMonths(prev, 1)
+        );
+        break;
+
+      case "YEARLY":
+        setCurrentDate((prev) =>
+          addYears(prev, 1)
+        );
+        break;
+
+      default:
+        break;
+    }
+  };
+
+
+  useEffect(() => {
+    if (!outlets?.length) return;
+
+    let startDate = "";
+    let endDate = "";
+
+    switch (selectedDuration) {
+      case "DAILY":
+        startDate = format(
+          startOfDay(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfDay(currentDate),
+          "yyyy-MM-dd"
+        );
+        break;
+
+      case "WEEKLY":
+        startDate = format(
+          startOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "yyyy-MM-dd"
+        );
+        break;
+
+      case "MONTHLY":
+        startDate = format(
+          startOfMonth(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfMonth(currentDate),
+          "yyyy-MM-dd"
+        );
+        break;
+
+      case "YEARLY":
+        startDate = format(
+          startOfYear(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfYear(currentDate),
+          "yyyy-MM-dd"
+        );
+        break;
+
+      case "CUSTUM":
+      default:
+        return;
     }
 
     const newSearchParams =
@@ -298,36 +378,32 @@ const ViewPaymentReportsPage = () => {
         searchParams.toString()
       );
 
-    if (
-      shouldUpdateDates &&
-      startDate &&
-      endDate
-    ) {
-      newSearchParams.set(
-        'startDate',
-        startDate
-      );
-
-      newSearchParams.set(
-        'endDate',
-        endDate
-      );
-    }
-
-    if (!currentOutlet) {
-      newSearchParams.set(
-        'outletIds',
-        outlets?.[0]?._id || ''
-      );
-    }
-
     newSearchParams.set(
-      'reportDuration',
-      reportDurationToSend
+      "startDate",
+      startDate
     );
 
+    newSearchParams.set("endDate", endDate);
+
+    newSearchParams.set(
+      "reportDuration",
+      selectedDuration
+    );
+
+    if (!searchParams.get("outletsId")) {
+      newSearchParams.set(
+        "outletsId",
+        outlets?.[0]?._id || ""
+      );
+    }
+
     setSearchParams(newSearchParams);
-  }, [appliedFilters, outlets]);
+
+  }, [
+    currentDate,
+    selectedDuration,
+    outlets,
+  ]);
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] p-6 flex flex-col gap-5">
@@ -352,60 +428,103 @@ const ViewPaymentReportsPage = () => {
       {/* Filters */}
       <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
         <Authorization permission="OUTLET_LIST">
+          <div className="flex items-center justify-between bg-white border rounded-xl px-4 py-3 mb-4">
+
+            <button
+              onClick={handlePrevious}
+              className="border rounded px-3 py-1"
+            >
+              ←
+            </button>
+
+            <div className="font-semibold text-lg">
+              {getDateLabel()}
+            </div>
+
+            <button
+              onClick={handleNext}
+              className="border rounded px-3 py-1"
+            >
+              →
+            </button>
+
+          </div>
           <MOLFilterBar
             hideSearch={true}
             filters={[
+              // ✅ OUTLET
               {
-                filterType: 'multi-select',
-                label: 'Outlet',
-                fieldName: 'outletsId',
-                options:
-                  outlets?.map((o: any) => ({
-                    label: o.name,
-                    value: o._id,
-                  })) || [],
+                filterType: "single-select",
+                label: "Outlet",
+                fieldName: "outletsId",
+
+                options: [
+                  {
+                    label: "All Outlets",
+                    value: "ALL",
+                  },
+
+                  ...(outlets?.map((el: any) => ({
+                    label: el?.name,
+                    value: el?._id,
+                  })) || []),
+                ],
 
                 renderOption: (option) =>
                   option.label,
 
-                isOptionEqualToSearchValue:
-                  (option, value) => {
-                    return option?.label.includes(
-                      value
-                    );
-                  },
+                isOptionEqualToSearchValue: (
+                  option,
+                  value
+                ) => {
+                  return option?.label
+                    ?.toLowerCase()
+                    ?.includes(value?.toLowerCase());
+                },
               },
 
-              {
-                filterType: 'date',
-                fieldName: 'createdAt',
-                dateFilterKeyOptions: [
+              // ✅ DATE ONLY FOR CUSTOM
+              ...(selectedDuration === "CUSTUM"
+                ? [
                   {
-                    label: 'startDate',
-                    value: startDate,
-                  },
-                  {
-                    label: 'endDate',
-                    value: endDate,
-                  },
-                ],
-              },
+                    filterType: "date" as const,
+                    fieldName: "createdAt",
 
+                    dateFilterKeyOptions: [
+                      {
+                        label: "startDate",
+                        value:
+                          dateFilter?.start_date || "",
+                      },
+                      {
+                        label: "endDate",
+                        value:
+                          dateFilter?.end_date || "",
+                      },
+                    ],
+                  },
+                ]
+                : []),
+
+              // ✅ DURATION
               {
-                filterType: 'single-select',
-                label: 'Select',
-                fieldName: 'reportDuration',
+                filterType: "single-select",
+                label: "Select",
+                fieldName: "reportDuration",
+
                 options: salesData || [],
 
                 renderOption: (option) =>
                   option.label,
 
-                isOptionEqualToSearchValue:
-                  (option, value) => {
-                    return option?.label.includes(
-                      value
-                    );
-                  },
+                isOptionEqualToSearchValue: (
+                  option,
+                  value
+                ) => {
+                  return option?.label
+                    ?.toLowerCase()
+                    ?.includes(value?.toLowerCase());
+                },
               },
             ]}
           />

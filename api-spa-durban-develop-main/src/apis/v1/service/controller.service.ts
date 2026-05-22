@@ -1097,6 +1097,71 @@ if (endDate) {
   });
 });
 
+const runDynamicQuery = catchAsync(async (req: Request, res: Response) => {
+  try {
+    // Receive the SQL query from request body (sent by your React query builder)
+    const { query: sqlQuery } = req.body;
+    
+    console.log('Received SQL Query:', sqlQuery);
+
+    if (!sqlQuery) {
+      return res.status(400).json({
+        success: false,
+        message: "SQL query is required in request body",
+      });
+    }
+
+    // Security: Basic SQL injection prevention
+    // Allow only SELECT statements (prevent DROP, DELETE, UPDATE, INSERT, etc.)
+    const normalizedQuery = sqlQuery.trim().toUpperCase();
+    if (!normalizedQuery.startsWith('SELECT')) {
+      return res.status(403).json({
+        success: false,
+        message: "Only SELECT queries are allowed for security reasons",
+      });
+    }
+
+    // Optional: Add additional security checks
+    const dangerousKeywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE'];
+    for (const keyword of dangerousKeywords) {
+      if (normalizedQuery.includes(keyword)) {
+        return res.status(403).json({
+          success: false,
+          message: `Query contains forbidden keyword: ${keyword}. Only SELECT statements are allowed.`,
+        });
+      }
+    }
+
+    // Execute the dynamic SQL query
+    const result = await pool.query(sqlQuery);
+    
+    // Extract limit from query for response metadata (optional)
+    let limit = result.rows.length;
+    const limitMatch = sqlQuery.match(/LIMIT\s+(\d+)/i);
+    if (limitMatch) {
+      limit = parseInt(limitMatch[1]);
+    }
+
+    res.status(200).json({
+      success: true,
+      count: result.rows.length,
+      limit: limit,
+      data: result.rows,
+    });
+
+  } catch (error: any) {
+    console.error('Query execution error:', error);
+    
+    // Send detailed error message for debugging
+    res.status(500).json({
+      success: false,
+      message: error.message || "Query execution failed",
+      error: error.message,
+      details: error.stack,
+    });
+  }
+});
+
 
 // const getAllBookings = catchAsync(async (req: Request, res: Response) => {
 //   const { outletId, mobile, email, searchValue = "", serviceName, startDate, endDate, page = 1, limit = 10 } = req.query;
@@ -1319,5 +1384,6 @@ export {
   createBookingSyncService,
   updateBookingSyncService,
   deleteServiceByBookingId,
-  getCustomerChartData
+  getCustomerChartData,
+  runDynamicQuery
 };

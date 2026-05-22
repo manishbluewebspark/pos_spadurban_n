@@ -438,16 +438,16 @@ const navigation: (params?: {
           },
           permission: 'REPORT_SALES_BY_OUTLET',
         },
-         {
-          title: 'Outlets',
-          icon: IconReceiptTax,
-          path: 'outlet/outlet-report',
-          searchParams: {
-            page: '1',
-            limit: '10',
-          },
-          permission: 'REPORT_OUTLET',
-        },
+        //  {
+        //   title: 'Outlets',
+        //   icon: IconReceiptTax,
+        //   path: 'outlet/outlet-report',
+        //   searchParams: {
+        //     page: '1',
+        //     limit: '10',
+        //   },
+        //   permission: 'REPORT_OUTLET',
+        // },
         {
           title: 'Gift Card Reports',
           icon: IconReceiptTax,
@@ -460,7 +460,7 @@ const navigation: (params?: {
         },
          
         {
-          title: 'Closure Summary',
+          title: 'Register Closures',
           icon: IconReceiptTax,
           path: 'outlet/view-register',
           searchParams: {
@@ -489,16 +489,16 @@ const navigation: (params?: {
           },
           permission: 'CASH_MOVEMENT_REPORT',
         },
-         {
-          title: 'Sales Ledger',
-          icon: IconReceiptTax,
-          path: 'outlet/sales-ledger',
-          searchParams: {
-            page: '1',
-            limit: '10',
-          },
-          permission: 'SALES_LEDGER',
-        },
+        //  {
+        //   title: 'Sales Ledger',
+        //   icon: IconReceiptTax,
+        //   path: 'outlet/sales-ledger',
+        //   searchParams: {
+        //     page: '1',
+        //     limit: '10',
+        //   },
+        //   permission: 'SALES_LEDGER',
+        // },
 
         {
           title: 'Booking Summary',

@@ -1,4 +1,23 @@
-import { format, subMonths } from 'date-fns';
+// ✅ UPDATE IMPORTS
+import {
+  addDays,
+  addMonths,
+  addWeeks,
+  addYears,
+  endOfDay,
+  endOfMonth,
+  endOfWeek,
+  endOfYear,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  startOfYear,
+  subDays,
+  subMonths,
+  subWeeks,
+  subYears,
+} from "date-fns";
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -99,7 +118,8 @@ const ViewOutletRegisterPage = () => {
 
   const [selectedRegister, setSelectedRegister] = useState<any>(null);
   const [showPayoutModal, setShowPayoutModal] = useState(false);
-
+  const [currentDate, setCurrentDate] =
+    useState(new Date());
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
   const handleViewPayouts = (row: any) => {
     setSelectedRegister(row);
@@ -111,408 +131,588 @@ const ViewOutletRegisterPage = () => {
     setShowPaymentsModal(true);
   };
 
+  const selectedDuration =
+    (appliedFilters?.[2]?.value?.[0] as string) ||
+    "DAILY";
 
 
-  const tableHeaders: TableHeader<RegisterValue>[] = [
-    {
-      fieldName: 'openedAt',
-      headerName: 'Time Opened',
-      flex: 'flex-[1_1_0%]',
-      sortable: true,
-      sortKey: 'openedAt',
-      extraClasses: () => '',
-      stopPropagation: true,
-      render: (row: any) => {
-        const date = row.openedAt ? new Date(row.openedAt) : null;
-        return date ? formatZonedDate(date) : '-';
-      }
-    },
-    {
-      fieldName: 'closedAt',
-      headerName: 'Time Closed',
-      flex: 'flex-[1_1_0%]',
-      sortable: true,
-      sortKey: 'closedAt',
-      extraClasses: () => '',
-      stopPropagation: true,
-      render: (row: any) => {
-        const date = row.closedAt ? new Date(row.closedAt) : null;
-        return date ? formatZonedDate(date) : '-';
-      }
-    },
-    {
-      fieldName: 'openingBalance',
-      headerName: 'Cash',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">
-            {row?.openingBalance ?? '-'}
-          </span>
 
-          <span
-            className={`text-sm ${row?.totalCashAmount < 0
-                ? 'text-red-500'
-                : 'text-green-600'
-              }`}
-          >
-            {row?.totalCashAmount
-              ? `${row.totalCashAmount > 0 ? '+' : ''}${row.totalCashAmount}`
-              : '-'}
-          </span>
-        </div>
-      ),
-    },
-    {
-      fieldName: 'bankDeposit',
-      headerName: 'Bank Deposite',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => (row?.bankDeposit ? row.bankDeposit : '-'),
-    },
-    {
-      fieldName: 'totalPayouts',
-      headerName: 'Total Payout',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => (row?.totalPayouts ? row.totalPayouts : '-'),
-    },
+  const handlePrevious = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        setCurrentDate((prev) =>
+          subDays(prev, 1)
+        );
+        break;
 
-    {
-      fieldName: 'carryForwardBalance',
-      headerName: 'C/F Balance',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => (row?.carryForwardBalance ? row.carryForwardBalance : '-'),
-    },
-    // {
-    //   fieldName: 'closeRegister',
-    //   headerName: 'Payment Summary',
-    //   flex: 'flex-[3_1_0%]',
-    //   render: (row: any) => {
-    //     if (!Array.isArray(row?.closeRegister)) return '-';
+      case "WEEKLY":
+        setCurrentDate((prev) =>
+          subWeeks(prev, 1)
+        );
+        break;
 
-    //     return (
-    //       <div className="space-y-2 text-sm">
-    //         {row.closeRegister.map((entry: any, index: number) => (
-    //           <div key={index} className="border rounded p-2 bg-gray-50">
-    //             {/* <div className="font-semibold">
-    //             {new Date(entry.date).toLocaleDateString('en-GB')}
-    //           </div> */}
-    //             <ul className="list-disc pl-4 mt-1 space-y-1">
-    //               {entry.payments?.map((payment: any, i: number) => (
-    //                 <li key={i}>
-    //                   <span className="capitalize font-medium">{payment.paymentModeName}</span>:
-    //                   Total: R {payment.totalAmount?.toFixed(2)} | Manual: R {payment.manual || '0'}
-    //                   {payment.reason && (
-    //                     <span className="text-orange-600 ml-1">
-    //                       (Reason: {payment.reason})
-    //                     </span>
-    //                   )}
-    //                 </li>
-    //               ))}
-    //             </ul>
-    //           </div>
-    //         ))}
-    //       </div>
-    //     );
-    //   }
-    // },
-    // {
-    //   fieldName: 'registerStatus',
-    //   headerName: 'Register Status',
-    //   flex: 'flex-[1_1_0%]',
-    //   render: (row: any) => {
-    //     if (row.isClosed) return 'Closed';
-    //     if (row.isOpened) return 'Opened';
-    //     return 'Not Opened';
-    //   }
-    // },
-    {
-      fieldName: 'closeRegister',
-      headerName: 'Payment Summary',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => (
-        <button
-          className="text-white px-3 py-1 rounded hover:opacity-90"
-          style={{ backgroundColor: '#006972' }}
-          onClick={() => handleViewPayments(row)}
-        >
-          View Payments
-        </button>
-      ),
-    },
+      case "MONTHLY":
+        setCurrentDate((prev) =>
+          subMonths(prev, 1)
+        );
+        break;
 
+      case "YEARLY":
+        setCurrentDate((prev) =>
+          subYears(prev, 1)
+        );
+        break;
 
-    // {
-    //   fieldName: 'cashUsageReason',
-    //   headerName: 'Cash Usage Reason',
-    //   flex: 'flex-[1_1_0%]',
-    // },
-    {
-      fieldName: 'actions',
-      headerName: 'Payouts',
-      flex: 'flex-[1_1_0%]',
-      render: (row: any) => (
-        <button
-          className="text-white px-3 py-1 rounded hover:opacity-90"
-          style={{ backgroundColor: '#006972' }}
-          onClick={() => handleViewPayouts(row)}
-        >
-          View Payouts
-        </button>
-      ),
+      default:
+        break;
     }
-  ];
+  };
+
+  const handleNext = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        setCurrentDate((prev) =>
+          addDays(prev, 1)
+        );
+        break;
+
+      case "WEEKLY":
+        setCurrentDate((prev) =>
+          addWeeks(prev, 1)
+        );
+        break;
+
+      case "MONTHLY":
+        setCurrentDate((prev) =>
+          addMonths(prev, 1)
+        );
+        break;
+
+      case "YEARLY":
+        setCurrentDate((prev) =>
+          addYears(prev, 1)
+        );
+        break;
+
+      default:
+        break;
+    }
+  };
+
+
+  const getDateLabel = () => {
+    switch (selectedDuration) {
+      case "DAILY":
+        return format(
+          currentDate,
+          "MMM d, yyyy"
+        );
+
+      case "WEEKLY":
+        return `${format(
+          startOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "MMM d"
+        )} - ${format(
+          endOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "MMM d, yyyy"
+        )}`;
+
+      case "MONTHLY":
+        return format(
+          currentDate,
+          "MMMM yyyy"
+        );
+
+      case "YEARLY":
+        return format(currentDate, "yyyy");
+
+      default:
+        return "";
+    }
+  };
 
 
   const filters: FilterType[] = [
+    // ✅ OUTLET
     {
-      filterType: 'single-select',
-      label: 'Outlet',
-      fieldName: 'outletsId',
-      options:
-        outlets?.map((el: any) => {
-          return {
-            label: el?.name,
-            value: el?._id,
-          };
-        }) || [],
-      renderOption: (option) => option.label,
-      isOptionEqualToSearchValue: (option, value) => {
-        return option?.label.includes(value);
+      filterType: "single-select",
+      label: "Outlet",
+      fieldName: "outletsId",
+
+      options: [
+        {
+          label: "All Outlets",
+          value: "ALL",
+        },
+
+        ...(outlets?.map((el: any) => ({
+          label: el?.name,
+          value: el?._id,
+        })) || []),
+      ],
+
+      renderOption: (option) =>
+        option.label,
+
+      isOptionEqualToSearchValue: (
+        option,
+        value
+      ) => {
+        return option?.label
+          ?.toLowerCase()
+          ?.includes(value?.toLowerCase());
       },
     },
-    {
-      filterType: 'date',
-      fieldName: 'createdAt',
-      dateFilterKeyOptions: [
+
+    // ✅ DATE ONLY FOR CUSTOM
+    ...(selectedDuration === "CUSTUM"
+      ? [
         {
-          label: 'startDate',
-          value: dateFilter?.start_date || '',
+          filterType: "date" as const,
+          fieldName: "createdAt",
+
+          dateFilterKeyOptions: [
+            {
+              label: "startDate",
+              value:
+                dateFilter?.start_date || "",
+            },
+            {
+              label: "endDate",
+              value:
+                dateFilter?.end_date || "",
+            },
+          ],
         },
-        {
-          label: 'endDate',
-          value: dateFilter?.end_date || '',
-        },
-      ],
-    },
+      ]
+      : []),
+
+    // ✅ DURATION
     {
-      filterType: 'single-select',
-      label: 'Select',
-      fieldName: 'reportDuration',
+      filterType: "single-select",
+      label: "Select",
+      fieldName: "reportDuration",
+
       options: salesData || [],
-      renderOption: (option) => option.label,
-      isOptionEqualToSearchValue: (option, value) => {
-        return option?.label.includes(value);
+
+      renderOption: (option) =>
+        option.label,
+
+      isOptionEqualToSearchValue: (
+        option,
+        value
+      ) => {
+        return option?.label
+          ?.toLowerCase()
+          ?.includes(value?.toLowerCase());
       },
     },
   ];
 
   const invoices = (data as any)?.data || [];
 
+
+  const allPaymentModes: string[] =
+    Array.from(
+      new Set<string>(
+        (
+          (data as any)?.data || []
+        ).flatMap((row: any) =>
+          (
+            row?.allPayments || []
+          ).map(
+            (p: any) =>
+              String(
+                p.paymentModeName
+              )
+          )
+        )
+      )
+    );
+
+  const dynamicPaymentHeaders =
+    allPaymentModes.map(
+      (mode: string) => ({
+        fieldName: mode,
+        headerName:
+          mode.toUpperCase(),
+
+        flex: "flex-[1_1_0%]",
+
+        render: (row: any) => {
+          const payment =
+            row?.allPayments?.find(
+              (p: any) =>
+                p.paymentModeName ===
+                mode
+            );
+
+          return payment
+            ? Number(
+              payment.totalAmount
+            ).toFixed(2)
+            : "0.00";
+        },
+      })
+    );
+
+    const totalAmountHeader = {
+  fieldName: "grandTotal",
+  headerName: "TOTAL AMOUNT",
+  flex: "flex-[1_1_0%]",
+
+  render: (row: any) => {
+    const total = (
+      row?.allPayments || []
+    ).reduce(
+      (sum: number, p: any) =>
+        sum +
+        Number(
+          p.totalAmount || 0
+        ),
+      0
+    );
+
+    return total.toFixed(2);
+  },
+};
+
+  const tableHeaders: any = [
+
+    {
+      fieldName: 'outletName',
+      headerName: 'Outlet',
+      flex: 'flex-[1_1_0%]',
+      render: (row: any) => {
+        const outlet =
+          outlets?.find(
+            (o: any) =>
+              o._id === row.outletId
+          );
+
+        return outlet?.name || '-';
+      },
+    },
+
+    {
+      fieldName: 'register',
+      headerName: 'Register',
+      flex: 'flex-[1_1_0%]',
+      render: () => 'Main Register',
+    },
+
+    {
+      fieldName: 'openedAt',
+      headerName: 'Time Opened',
+      flex: 'flex-[1_1_0%]',
+      render: (row: any) => {
+        return row?.openedAt
+          ? formatZonedDate(
+            new Date(row.openedAt)
+          )
+          : '-';
+      },
+    },
+
+    {
+      fieldName: 'closedAt',
+      headerName: 'Time Closed',
+      flex: 'flex-[1_1_0%]',
+      render: (row: any) => {
+        return row?.closedAt
+          ? formatZonedDate(
+            new Date(row.closedAt)
+          )
+          : '-';
+      },
+    },
+
+    // ✅ DYNAMIC PAYMENTS
+    ...dynamicPaymentHeaders,
+
+    {
+      fieldName: 'bankDeposit',
+      headerName: 'Bank Deposit',
+      flex: 'flex-[1_1_0%]',
+    },
+
+    {
+      fieldName: 'carryForwardBalance',
+      headerName: 'C/F Balance',
+      flex: 'flex-[1_1_0%]',
+    },
+
+    {
+      fieldName: 'variance',
+      headerName: 'Variance',
+      flex: 'flex-[1_1_0%]',
+    },
+totalAmountHeader
+  ];
+
+
+
+
   // const totalAmount = data && data?.data?.totalSalesData[0]?.totalSalesAmount || [];
   const today = new Date();
   const oneMonthAgo = subMonths(today, 1);
 
   useEffect(() => {
-    const selectedDuration =
-      (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
-
     if (!outlets?.length) return;
 
-    const now = new Date();
-
-    let startDate = searchParams.get("startDate");
-    let endDate = searchParams.get("endDate");
-
-    let reportDurationToSend = selectedDuration;
-    let shouldUpdateDates = false;
+    let startDate = "";
+    let endDate = "";
 
     switch (selectedDuration) {
-      case "YEARLY": {
-        const pastYear = new Date();
-        pastYear.setFullYear(now.getFullYear() - 1);
+      case "DAILY":
+        startDate = format(
+          startOfDay(currentDate),
+          "yyyy-MM-dd"
+        );
 
-        startDate = format(pastYear, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-        shouldUpdateDates = true;
+        endDate = format(
+          endOfDay(currentDate),
+          "yyyy-MM-dd"
+        );
         break;
-      }
 
-      case "MONTHLY": {
-        const pastMonth = new Date();
-        pastMonth.setMonth(now.getMonth() - 1);
+      case "WEEKLY":
+        startDate = format(
+          startOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "yyyy-MM-dd"
+        );
 
-        startDate = format(pastMonth, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-        shouldUpdateDates = true;
+        endDate = format(
+          endOfWeek(currentDate, {
+            weekStartsOn: 1,
+          }),
+          "yyyy-MM-dd"
+        );
         break;
-      }
 
-      case "WEEKLY": {
-        const pastWeek = new Date(now);
-        pastWeek.setDate(now.getDate() - 7);
+      case "MONTHLY":
+        startDate = format(
+          startOfMonth(currentDate),
+          "yyyy-MM-dd"
+        );
 
-        startDate = format(pastWeek, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-
-        shouldUpdateDates = true;
+        endDate = format(
+          endOfMonth(currentDate),
+          "yyyy-MM-dd"
+        );
         break;
-      }
+
+      case "YEARLY":
+        startDate = format(
+          startOfYear(currentDate),
+          "yyyy-MM-dd"
+        );
+
+        endDate = format(
+          endOfYear(currentDate),
+          "yyyy-MM-dd"
+        );
+        break;
 
       case "CUSTUM":
-        // 🔥 Custom case
-        reportDurationToSend = "CUSTUM"; // backend grouping month-wise
-        shouldUpdateDates = false; // dates free
-        break;
-
-      case "DAILY":
       default:
-        startDate = format(now, "yyyy-MM-dd");
-        endDate = format(now, "yyyy-MM-dd");
-        shouldUpdateDates = true;
-        break;
+        return;
     }
 
-    const currentStart = searchParams.get("startDate");
-    const currentEnd = searchParams.get("endDate");
-    const currentDuration = searchParams.get("reportDuration");
-    const currentOutlet = searchParams.get("outletIds");
+    const newSearchParams =
+      new URLSearchParams(
+        searchParams.toString()
+      );
 
-    if (
-      currentStart === startDate &&
-      currentEnd === endDate &&
-      currentDuration === reportDurationToSend &&
-      currentOutlet
-    ) {
-      return;
+    newSearchParams.set(
+      "startDate",
+      startDate
+    );
+
+    newSearchParams.set("endDate", endDate);
+
+    newSearchParams.set(
+      "reportDuration",
+      selectedDuration
+    );
+
+    if (!searchParams.get("outletsId")) {
+      newSearchParams.set(
+        "outletsId",
+        outlets?.[0]?._id || ""
+      );
     }
-
-    const newSearchParams = new URLSearchParams(searchParams.toString());
-
-    if (shouldUpdateDates && startDate && endDate) {
-      newSearchParams.set("startDate", startDate);
-      newSearchParams.set("endDate", endDate);
-    }
-
-    if (!currentOutlet) {
-      newSearchParams.set("outletIds", outlets?.[0]?._id || "");
-    }
-
-    newSearchParams.set("reportDuration", reportDurationToSend);
 
     setSearchParams(newSearchParams);
 
-  }, [appliedFilters, outlets]);
+  }, [
+    currentDate,
+    selectedDuration,
+    outlets,
+  ]);
 
-  const handleExportExcelClosureSummary = () => {
-    if (!(data as any)?.data || (data as any)?.data.length === 0) {
-      alert("No closure data to export!");
+  // ✅ EXCEL EXPORT
+const handleExportExcelClosureSummary =
+  () => {
+    const rows =
+      (data as any)?.data || [];
+
+    if (!rows.length) {
+      alert("No data to export!");
       return;
     }
 
-    const exportData = (data as any)?.data?.map((row: any) => {
-      const outletName =
-        outlets?.find((el: any) => el?._id === row.outletId)?.name || "N/A";
+    // ✅ ALL MODES
+    const allPaymentModes: string[] =
+      Array.from(
+        new Set(
+          rows.flatMap((row: any) =>
+            (
+              row?.allPayments || []
+            ).map(
+              (p: any) =>
+                p.paymentModeName
+            )
+          )
+        )
+      );
 
-      // 🔹 Dynamic payment mode totals
-      const paymentTotals: any = {};
+    const exportData = rows.map(
+      (row: any) => {
+        const outletName =
+          outlets?.find(
+            (el: any) =>
+              el?._id ===
+              row.outletId
+          )?.name || "-";
 
-      (row?.allPayments || []).forEach((payment: any) => {
-        const mode = payment?.paymentModeName || "Unknown";
+        const paymentColumns: any =
+          {};
 
-        if (!paymentTotals[mode]) {
-          paymentTotals[mode] = {
-            total: 0,
-            manual: 0,
-          };
-        }
+        let grandTotal = 0;
 
-        paymentTotals[mode].total += Number(payment?.totalAmount || 0);
-        paymentTotals[mode].manual += Number(payment?.manual || 0);
-      });
+        // ✅ EACH PAYMENT MODE
+        allPaymentModes.forEach(
+          (mode: string) => {
+            const total = (
+              row?.allPayments || []
+            )
+              .filter(
+                (p: any) =>
+                  p.paymentModeName ===
+                  mode
+              )
+              .reduce(
+                (
+                  sum: number,
+                  p: any
+                ) =>
+                  sum +
+                  Number(
+                    p.totalAmount ||
+                      0
+                  ),
+                0
+              );
 
-      // 🔹 Dynamic columns
-      const paymentColumns: any = {};
+            grandTotal += total;
 
-      Object.keys(paymentTotals).forEach((mode) => {
-        const formattedMode = mode
-          .replace(/\s+/g, "_")
-          .toUpperCase();
+            paymentColumns[
+              mode.toUpperCase()
+            ] = total.toFixed(2);
+          }
+        );
 
-        paymentColumns[`${formattedMode}_TOTAL`] =
-          paymentTotals[mode].total;
+        return {
+          Outlet: outletName,
 
-        paymentColumns[`${formattedMode}_MANUAL`] =
-          paymentTotals[mode].manual;
-      });
+          OpenedAt: row?.openedAt
+            ? formatZonedDate(
+                new Date(
+                  row.openedAt
+                )
+              )
+            : "-",
 
-      return {
-        Outlet: outletName,
-        OpeningBalance: row.openingBalance || 0,
-        BankDeposit: row.bankDeposit || 0,
-        CarryForwardBalance: row.carryForwardBalance || 0,
-        ExpectedPhysicalCash: row.expectedPhysicalCash || 0,
-        Variance: row.variance || 0,
+          ClosedAt: row?.closedAt
+            ? formatZonedDate(
+                new Date(
+                  row.closedAt
+                )
+              )
+            : "-",
 
-        // 🔹 Dynamic payment columns
-        ...paymentColumns,
+          OpeningCash:
+            row?.openingBalance ||
+            0,
 
-        TotalPayouts: row.totalPayouts || 0,
-        CashUsageCash: row.cashUsageCashSum || 0,
-        CashUsageCard: row.cashUsageCardSum || 0,
+          BankDeposit:
+            row?.bankDeposit || 0,
 
-        OpenedAt: row.openedAt
-          ? new Date(row.openedAt).toLocaleString()
-          : "-",
+          CarryForward:
+            row?.carryForwardBalance ||
+            0,
 
-        ClosedAt: row.closedAt
-          ? new Date(row.closedAt).toLocaleString()
-          : "-",
+          // ✅ DYNAMIC
+          ...paymentColumns,
 
-        CreatedAt: row.createdAt
-          ? new Date(row.createdAt).toLocaleString()
-          : "-",
-      };
-    });
-
-    // 🔹 Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-
-    // 🔹 Add Title
-    XLSX.utils.sheet_add_aoa(
-      worksheet,
-      [["Closure Summary Report"]],
-      { origin: "A1" }
+          // ✅ GRAND TOTAL
+          TotalAmount:
+            grandTotal.toFixed(2),
+        };
+      }
     );
 
-    // 🔹 Auto width
-    const headers = Object.keys(exportData[0] || {});
+    // ✅ SHEET
+    const worksheet =
+      XLSX.utils.json_to_sheet(
+        exportData
+      );
 
-    worksheet["!cols"] = headers.map((header) => ({
-      wch: Math.max(header.length + 5, 20),
-    }));
+    // ✅ AUTO WIDTH
+    worksheet["!cols"] =
+      Object.keys(
+        exportData[0]
+      ).map((key) => ({
+        wch: Math.max(
+          key.length + 5,
+          18
+        ),
+      }));
 
-    // 🔹 Workbook
-    const workbook = XLSX.utils.book_new();
+    // ✅ WORKBOOK
+    const workbook =
+      XLSX.utils.book_new();
 
     XLSX.utils.book_append_sheet(
       workbook,
       worksheet,
-      "ClosureSummary"
+      "RegisterClosure"
     );
 
-    // 🔹 Export
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
+    const excelBuffer =
+      XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
 
-    const blob = new Blob([excelBuffer], {
-      type: "application/octet-stream",
-    });
+    const blob = new Blob(
+      [excelBuffer],
+      {
+        type:
+          "application/octet-stream",
+      }
+    );
 
     saveAs(
       blob,
-      `ClosureSummary_${new Date()
+      `RegisterClosure_${new Date()
         .toISOString()
         .slice(0, 10)}.xlsx`
     );
@@ -531,6 +731,28 @@ const ViewOutletRegisterPage = () => {
           }}
         />
         <Authorization permission="OUTLET_LIST">
+
+          <div className="flex items-center justify-between bg-white border rounded-xl px-4 py-3 mb-4">
+
+            <button
+              onClick={handlePrevious}
+              className="border rounded px-3 py-1"
+            >
+              ←
+            </button>
+
+            <div className="font-semibold text-lg">
+              {getDateLabel()}
+            </div>
+
+            <button
+              onClick={handleNext}
+              className="border rounded px-3 py-1"
+            >
+              →
+            </button>
+
+          </div>
           {/* Table Toolbar */}
           <MOLFilterBar hideSearch={true} filters={filters} />
           <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">

@@ -87,35 +87,37 @@ export const outletApi = apiSlice.injectEndpoints({
       },
     }),
     // ================================
-// RTK QUERY API
-// ================================
+    // RTK QUERY API
+    // ================================
 
-getCashMovementReport: builder.query({
-  query: ({
-    outletId,
-    startDate,
-    endDate,
-    page = 1,
-    limit = 10,
-    sortBy,
-    sortOrder,
-  }) => {
-    const params = new URLSearchParams({
-      outletId,
-      startDate,
-      endDate,
-      page: String(page),
-      limit: String(limit),
-      sortBy,
-      sortOrder,
-    });
+    getCashMovementReport: builder.query({
+      query: ({
+        outletId,
+        startDate,
+        endDate,
+        page = 1,
+        limit = 10,
+        sortBy,
+        sortOrder,
+        cashTypes
+      }) => {
+        const params = new URLSearchParams({
+          outletId,
+          startDate,
+          endDate,
+          page: String(page),
+          limit: String(limit),
+          sortBy,
+          sortOrder,
+          cashTypes
+        });
 
-    return {
-      url: `/analytics/new/outlet/cash-movement-report?${params.toString()}`,
-      method: 'GET',
-    };
-  },
-}),
+        return {
+          url: `/analytics/new/outlet/cash-movement-report?${params.toString()}`,
+          method: 'GET',
+        };
+      },
+    }),
     GetSalesChartDataReportByOutlet: builder.query({
       query: ({ outletId, startDate, endDate, page = 1, limit = 10, reportDuration }) => {
         const params = new URLSearchParams({
@@ -246,7 +248,7 @@ getCashMovementReport: builder.query({
     GetGiftCardTableData: builder.query({
       query: ({ searchQuery, page = 1, limit = 10 }) => {
         const params = new URLSearchParams({
-          search:searchQuery,
+          search: searchQuery,
           page,
           limit
         });
@@ -293,40 +295,40 @@ getCashMovementReport: builder.query({
     }),
     // services/OutletServices.ts
 
-// ✅ Products Sold API
-GetRetailDashboardProductsSold: builder.query({
-  query: ({ outletIds, startDate, endDate, reportDuration }) => {
-    const params = new URLSearchParams({
-      outletIds,
-      startDate,
-      endDate,
-      reportDuration
-    });
+    // ✅ Products Sold API
+    GetRetailDashboardProductsSold: builder.query({
+      query: ({ outletIds, startDate, endDate, reportDuration }) => {
+        const params = new URLSearchParams({
+          outletIds,
+          startDate,
+          endDate,
+          reportDuration
+        });
 
-    return {
-      url: `/analytics/new/retail-dashboard/products-sold?${params.toString()}`,
-      method: 'GET',
-    };
-  },
-}),
+        return {
+          url: `/analytics/new/retail-dashboard/products-sold?${params.toString()}`,
+          method: 'GET',
+        };
+      },
+    }),
 
 
-// ✅ Top Sales People API
-GetRetailDashboardTopSalesPeople: builder.query({
-  query: ({ outletIds, startDate, endDate, reportDuration }) => {
-    const params = new URLSearchParams({
-      outletIds,
-      startDate,
-      endDate,
-      reportDuration
-    });
+    // ✅ Top Sales People API
+    GetRetailDashboardTopSalesPeople: builder.query({
+      query: ({ outletIds, startDate, endDate, reportDuration }) => {
+        const params = new URLSearchParams({
+          outletIds,
+          startDate,
+          endDate,
+          reportDuration
+        });
 
-    return {
-      url: `/analytics/new/retail-dashboard/top-sales-people?${params.toString()}`,
-      method: 'GET',
-    };
-  },
-}),
+        return {
+          url: `/analytics/new/retail-dashboard/top-sales-people?${params.toString()}`,
+          method: 'GET',
+        };
+      },
+    }),
     GetAllBookings: builder.query({
       query: ({ outletId, startDate, endDate, page = 1, limit = 25, searchValue }) => {
         const params = new URLSearchParams({
@@ -340,6 +342,18 @@ GetRetailDashboardTopSalesPeople: builder.query({
         return {
           url: `/new/get-all-bookings?${params.toString()}`,
           method: 'GET',
+        };
+      },
+    }),
+
+
+    GetDataByQueryBuilder: builder.query({
+      query: ({ query }) => {
+
+        return {
+          url: `/new/query-builder/run`,
+          method: 'POST',
+          body: { query }
         };
       },
     }),
@@ -417,6 +431,7 @@ export const {
   useGetGiftCardReportByOutletQuery,
   useGetRetailDashboardDataQuery,
   useGetAllBookingsQuery,
+  useGetDataByQueryBuilderQuery,
   useGetBookingChartDataQuery,
   useGetPaymentReportsQuery,
   useGetSalesLedgerReportsQuery,

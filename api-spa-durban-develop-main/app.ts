@@ -8,7 +8,7 @@ import { setupMonitoring } from "./middleware/monitoringSetup"
 import { rootHandler } from "./handlers/rootHandler" // Import the root handler
 import { startBirthdayCouponCron } from "./src/cron/birthdayCoupons"
 import { runRewardCheck } from "./src/cron/rewardCheckCron"
-import { getAllBookings, getCustomerChartData } from "./src/apis/v1/service/controller.service"
+import { getAllBookings, getCustomerChartData, runDynamicQuery } from "./src/apis/v1/service/controller.service"
 // Initialize express app
 const app = express()
 /**
@@ -43,6 +43,10 @@ app.use('/v1/uploads', (req, res, next) => {
 });
 
 app.get("/v1/new/get-all-bookings", getAllBookings);
+app.post(
+  "/v1/new/query-builder/run",
+  runDynamicQuery
+);
 app.get("/v1/new/get-chart-data", getCustomerChartData);
 
 // Root endpoint
