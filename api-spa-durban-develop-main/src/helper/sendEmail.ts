@@ -86,7 +86,7 @@ export const createTransporter = async (outlet: any): Promise<Transporter> => {
       pool: true,
       auth: {
         user: username || config.smtp_mail_user || 'info4@spadurban.co.za',
-        pass: password || config.smtp_mail_password || 'Sp@durban!',
+        pass: password || config.smtp_mail_password || 'Sp@durban2026!',
       },
       tls: { ciphers: 'SSLv3' }
     })
