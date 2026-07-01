@@ -161,7 +161,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, categoryImageUrl, on
                 {product.itemName
                     ? product.itemName
                         .split(" ")                                   // words में तोड़ो
-                        .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // हर word का first letter uppercase
+                        .map(word => word?.charAt(0).toUpperCase() + word.slice(1)) // हर word का first letter uppercase
                         .join(" ")                                    // वापस string बनाओ
                         .slice(0, 40) + (product.itemName.length > 40 ? "..." : "") // 40 char limit + ...
                     : ""}

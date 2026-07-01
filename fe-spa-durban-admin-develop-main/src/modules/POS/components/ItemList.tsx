@@ -288,7 +288,7 @@ items.forEach((item) => {
     ...(categoryData ?? []).map(item => ({
       ...item,
       categoryName: item.categoryName
-        ? item.categoryName.charAt(0).toUpperCase() + item.categoryName.slice(1)
+        ? item?.categoryName?.charAt(0).toUpperCase() + item.categoryName.slice(1)
         : ""
     }))
   ];

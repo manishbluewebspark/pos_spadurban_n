@@ -893,7 +893,7 @@ const CloseRegisterFormLayout = ({
                   {/* Left Side */}
                   <div className="flex items-center gap-2">
                     <IconCreditCard size={16} className="text-gray-600" />
-                    <span className="text-sm font-medium">{mode.charAt(0).toUpperCase() + mode.slice(1)} <span className='text-xs text-gray-500'>click to print</span></span>
+                    <span className="text-sm font-medium">{mode?.charAt(0).toUpperCase() + mode.slice(1)} <span className='text-xs text-gray-500'>click to print</span></span>
                   </div>
 
                   {/* Amount */}

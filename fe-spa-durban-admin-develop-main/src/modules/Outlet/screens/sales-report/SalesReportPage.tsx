@@ -1,633 +1,4 @@
-// import { endOfDay, endOfMonth, endOfWeek, format, startOfDay, startOfMonth, startOfWeek, subMonths, subWeeks } from 'date-fns';
-// import { useEffect, useState } from 'react';
-// import { useSelector } from 'react-redux';
-// import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-// import ATMPageHeader from 'src/components/atoms/ATMPageHeader/ATMPageHeader';
-// import ATMPagination from 'src/components/atoms/ATMPagination/ATMPagination';
-// import Authorization from 'src/components/Authorization/Authorization';
-// import MOLFilterBar, { FilterType } from 'src/components/molecules/MOLFilterBar/MOLFilterBar';
-// import MOLTable, { TableHeader } from 'src/components/molecules/MOLTable/MOLTable';
-// import { useFilterPagination } from 'src/hooks/useFilterPagination';
-// import { SalesReport } from 'src/modules/Invoices/models/Invoices.model';
-// import { RootState } from 'src/store';
-// import { isAuthorized } from 'src/utils/authorization';
-// import { useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
-// import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
-// import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
-// import { formatZonedDate } from 'src/utils/formatZonedDate';
-// import * as XLSX from 'xlsx';
-// import { useFetchData } from 'src/hooks/useFetchData';
-// import { IconEye } from '@tabler/icons-react';
-// import ATMDialog from 'src/components/atoms/ATMDialog/ATMDialog';
-
-
-// const salesData = [
-//   {
-//     label: 'Monthly',
-//     value: 'MONTHLY',
-//   },
-//   {
-//     label: 'Weekly',
-//     value: 'WEEKLY',
-//   },
-//   {
-//     label: 'Daily',
-//     value: 'DAILY',
-//   },
-// ];
-
-// const SalesReportPage = () => {
-//   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-//   const [open, setOpen] = useState(false);
-//   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
-//     useFilterPagination(['outletIds', 'customerId', 'reportDuration']);
-//   const [searchParams, setSearchParams] = useSearchParams();
-//   console.log('------appliedFilters', appliedFilters)
-//   const { outlets } = useSelector((state: RootState) => state.auth);
-//   // const { data, isLoading, error } = useGetSalesReportByOutletQuery({
-//   //   outletId: appliedFilters?.[0]?.value,
-//   //   startDate: dateFilter?.start_date,
-//   //   endDate: dateFilter?.end_date,
-//   //   page: page,
-//   //   limit: limit,
-//   //   sortBy: orderBy || 'createdAt',
-//   //   sortOrder: orderValue || 'desc',
-//   //   reportDuration:appliedFilters?.[2]?.value
-//   // });
-
-//   const { data, isLoading, totalData, totalPages } = useFetchData(
-//     useGetSalesReportByOutletQuery,
-//     {
-//       body: {
-//         outletId: appliedFilters?.[0]?.value,
-//         startDate: dateFilter?.start_date,
-//         endDate: dateFilter?.end_date,
-//         page,
-//         limit,
-//         sortBy: orderBy || 'createdAt',
-//         sortOrder: orderValue || 'desc',
-//         reportDuration: appliedFilters?.[2]?.value,
-//       },
-//     }
-//   );
-
-
-//   console.log('--ssss----data', data)
-
-//   const outletId = appliedFilters?.[0]?.value || "";
-//   const reportDuration = appliedFilters?.[2]?.value || "";
-//   const startDate = dateFilter?.start_date || "";
-//   const endDate = dateFilter?.end_date || "";
-
-//   const { data: chartData, isFetching, refetch } = useGetSalesChartDataReportByOutletQuery(
-//     {
-//       outletId,
-//       startDate,
-//       endDate,
-//       reportDuration,
-//     },
-//     {
-//       skip: !outletId || !startDate || !endDate || !reportDuration, // ✅ Jab tak sab values na ho query skip karo
-//       refetchOnMountOrArgChange: true, // ✅ har arg change par refetch karega
-//     }
-//   );
-
-
-//   const filterValue = appliedFilters?.[2]?.value; // string[] | undefined
-
-//   const periodLabel =
-//     filterValue?.includes("MONTHLY")
-//       ? "Month"
-//       : filterValue?.includes("WEEKLY")
-//         ? "Week"
-//         : filterValue?.includes("DAILY")
-//           ? "Day"
-//           : "";
-
-
-//   // const salesByDate = chartData?.data?.salesByDate || [];
-//   const salesByPaymentMode = chartData?.data?.salesByPaymentMode || [];
-//   const topCustomers = chartData?.data?.topCustomers || [];
-//   const datasets = chartData?.data?.datasets || [];
-//   const dataLabel = chartData?.data?.labels || [];
-//   // console.log('----chartData', chartData)
-
-
-//   const tableHeaders: TableHeader<SalesReport>[] = [
-//     {
-//       fieldName: 'invoiceNumber',
-//       headerName: 'Invoice N0.',
-//       flex: 'flex-[1_0_0%]',
-//     },
-//     {
-//       fieldName: 'customerName',
-//       headerName: 'Customer Name',
-//       flex: 'flex-[1_0_0%]',
-//     },
-//     {
-//       fieldName: 'cashBackDiscount',
-//       headerName: 'Discount',
-//       flex: 'flex-[1_0_0%]',
-//     },
-//     {
-//       fieldName: 'totalAmount',
-//       headerName: 'Total Amount',
-//       flex: 'flex-[1_0_0%]',
-//       sortable: true,
-//       sortKey: 'totalAmount',
-//     },
-//     {
-//       fieldName: 'balanceDue',
-//       headerName: 'Balance Due',
-//       flex: 'flex-[1_0_0%]',
-//     },
-//     {
-//       fieldName: 'createdAt',
-//       headerName: 'Date',
-//       flex: 'flex-[1_1_0%]',
-//       sortable: true,
-//       sortKey: 'createdAt',
-//       extraClasses: () => '',
-//       stopPropagation: true,
-//       render: (row: any) => {
-//         const date = row.createdAt ? new Date(row.createdAt) : null;
-//         // return date ? format(date, 'dd-MM-yyyy') : '-';
-//         return date ? formatZonedDate(date) : '-';
-//       },
-//     },
-//     {
-//       fieldName: 'status',
-//       headerName: 'Status',
-//       align: 'center',
-//       flex: 'flex-[1_1_0%]',
-//       renderCell: (item) => (
-//         <div>
-//           {item.status && item.status.trim() !== '' ? (
-//             <span className="text-red-700 bg-red-100 py-[3px] font-medium px-2 rounded-lg border-slate-300">
-//               {item.status}
-//             </span>
-//           ) : item?.balanceDue > 0 ? (
-//             <span className="text-yellow-700 bg-yellow-100 py-[3px] font-medium px-2 rounded-lg border-slate-300">
-//               Unpaid
-//             </span>
-//           ) : (
-//             <span className="text-green-700 bg-green-100 py-[3px] font-medium px-2 rounded-lg border-slate-300">
-//               Paid
-//             </span>
-//           )}
-//         </div>
-//       ),
-//     },
-//     {
-//   fieldName: 'actions',
-//   headerName: 'Actions',
-//   flex: 'flex-[1_0_0%]',
-//   align: 'center',
-//   renderCell: (item) => (
-//     <div className="flex justify-center items-center">
-//       <IconEye
-//       color='#006972'
-//         onClick={() => {
-//           setSelectedInvoice(item);
-//           setOpen(true);
-//         }}
-//         size={18}
-//         className="cursor-pointer text-blue-600 hover:text-blue-800"
-//       />
-//     </div>
-//   ),
-// }
-
-//   ]
-
-//   const filters: FilterType[] = [
-//     {
-//       filterType: 'date',
-//       fieldName: 'createdAt',
-//       dateFilterKeyOptions: [
-//         {
-//           label: 'startDate',
-//           value: dateFilter?.start_date || '',
-//         },
-//         {
-//           label: 'endDate',
-//           value: dateFilter?.end_date || '',
-//         },
-//       ],
-//     },
-//     {
-//       filterType: 'single-select',
-//       label: 'Outlets',
-//       fieldName: 'outletIds',
-//       options:
-//         outlets?.map((el) => {
-//           return {
-//             label: el?.name,
-//             value: el?._id,
-//           };
-//         }) || [],
-//       renderOption: (option) => option.label,
-//       isOptionEqualToSearchValue: (option, value) => {
-//         return option?.label.includes(value);
-//       },
-//     },
-//     {
-//       filterType: 'single-select',
-//       label: 'Select',
-//       fieldName: 'reportDuration',
-//       options: salesData || [],
-//       renderOption: (option) => option.label,
-//       isOptionEqualToSearchValue: (option, value) => {
-//         return option?.label.includes(value);
-//       },
-//     },
-//   ];
-
-//   const invoices = (data as any)?.invoices || [];
-//   const totalAmount = (data as any)?.totalSalesData?.[0]?.totalSalesAmount || 0;
-
-
-
-//   const today = new Date();
-//   const oneMonthAgo = subMonths(today, 1);
-
-//   // useEffect(() => {
-//   //   if (!dateFilter?.start_date && !dateFilter?.end_date) {
-//   //     const newSearchParams = new URLSearchParams(searchParams); // Clone existing searchParams
-//   //     newSearchParams.set('startDate', format(oneMonthAgo, 'yyyy-MM-dd') || '');
-//   //     newSearchParams.set('endDate', format(new Date(), 'yyyy-MM-dd') || '');
-//   //     newSearchParams.set('outletIds', outlets?.[0]._id);
-//   //     newSearchParams.set('reportDuration', "MONTHLY");
-//   //     setSearchParams(newSearchParams)
-//   //   }
-//   // }, [dateFilter, outlets]);
-
-//   useEffect(() => {
-//     const reportDuration =
-//       (appliedFilters?.[2]?.value?.[0] as string) || "DAILY";
-
-//     if (!outlets?.length) return;
-
-//     let startDate = searchParams.get("startDate");
-//     let endDate = searchParams.get("endDate");
-//     let shouldUpdateDates = false;
-
-//     // ✅ Agar duration dropdown select hua hai toh hamesha dates override karo
-//     switch (reportDuration) {
-//       case "MONTHLY":
-//         startDate = format(startOfMonth(new Date()), "yyyy-MM-dd");
-//         endDate = format(endOfMonth(new Date()), "yyyy-MM-dd");
-//         shouldUpdateDates = true;
-//         break;
-//       case "WEEKLY":
-//         startDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-//         endDate = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-//         shouldUpdateDates = true;
-//         break;
-//       case "DAILY":
-//       default:
-//         // ✅ Agar manually set nahi hai toh hi daily set karo
-//         if (!startDate || !endDate) {
-//           startDate = format(startOfDay(new Date()), "yyyy-MM-dd");
-//           endDate = format(endOfDay(new Date()), "yyyy-MM-dd");
-//           shouldUpdateDates = true;
-//         }
-//         break;
-//     }
-
-//     const currentStart = searchParams.get("startDate");
-//     const currentEnd = searchParams.get("endDate");
-//     const currentDuration = searchParams.get("reportDuration");
-//     const currentOutlet = searchParams.get("outletIds");
-
-//     // ✅ Agar kuch change hi nahi hai toh skip
-//     if (
-//       currentStart === startDate &&
-//       currentEnd === endDate &&
-//       currentDuration === reportDuration &&
-//       currentOutlet
-//     ) {
-//       return;
-//     }
-
-//     const newSearchParams = new URLSearchParams(searchParams.toString());
-
-//     if (shouldUpdateDates || !startDate || !endDate) {
-//       newSearchParams.set("startDate", startDate!);
-//       newSearchParams.set("endDate", endDate!);
-//     }
-
-//     if (!currentOutlet) {
-//       newSearchParams.set("outletIds", outlets?.[0]?._id || "");
-//     }
-
-//     newSearchParams.set("reportDuration", reportDuration);
-
-//     if (newSearchParams.toString() !== searchParams.toString()) {
-//       setSearchParams(newSearchParams);
-//     }
-//   }, [appliedFilters, outlets, setSearchParams]);
-
-
-
-
-
-
-
-
-
-//   const navigate = useNavigate();
-
-
-//   const handleExportCSV = () => {
-//     const exportData = invoices.map((inv: any) => ({
-//       InvoiceNumber: inv.invoiceNumber,
-//       CustomerName: inv.customerName,
-//       TotalAmount: inv.totalAmount,
-//       BalanceDue: inv.balanceDue,
-//       Status: inv.status || (inv.balanceDue > 0 ? 'Unpaid' : 'Paid'),
-//       Date: formatZonedDate(inv.createdAt), // you can use format() or your global time util
-//     }));
-
-//     const worksheet = XLSX.utils.json_to_sheet(exportData);
-//     const csv = XLSX.utils.sheet_to_csv(worksheet);
-
-//     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-//     const url = window.URL.createObjectURL(blob);
-//     const link = document.createElement('a');
-//     link.setAttribute('href', url);
-//     link.setAttribute('download', 'Customer_Sales_Report.csv');
-//     document.body.appendChild(link);
-//     link.click();
-//     document.body.removeChild(link);
-//   };
-//   return (
-//     <>
-//       <div className="flex flex-col h-full gap-2 p-4">
-//         <ATMPageHeader
-//           heading="Outlet Sales Report"
-//           hideButton={true}
-//           buttonProps={{
-//             label: 'Back',
-//             onClick: () => navigate('/outlets'), // Navigate to previous page
-//             // position: 'left', // if your ATMPageHeader supports it
-//           }}
-//         />
-//         <Authorization permission="OUTLET_LIST">
-//           {/* Table Toolbar */}
-//           <MOLFilterBar hideSearch={true} filters={filters} />
-//           <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1">
-
-//             <div>{datasets.length > 0 && (
-//               <div className="col-span">
-//                 <ATMChart
-//                   type="line"
-//                   data={{
-//                     labels: dataLabel,
-//                     datasets: datasets
-//                   }}
-//                   options={{
-//                     responsive: true,
-//                     plugins: {
-//                       legend: { position: 'top' },
-//                       title: {
-//                         display: true,
-//                         text: `Last ${periodLabel} vs Current ${periodLabel} Sales (EOD)`,
-//                       },
-//                       tooltip: {
-//                         mode: 'index',
-//                         intersect: false,
-//                       },
-//                     },
-//                     interaction: {
-//                       mode: 'nearest',
-//                       axis: 'x',
-//                       intersect: false,
-//                     },
-//                     maintainAspectRatio: false,
-//                   }}
-//                 />
-//               </div>
-
-//             )}
-//             </div>
-//             <div className="grid grid-cols-2 gap-4 mt-5 border border-slate-300 p-2">
-//               {/* Chart 1: Sales by Date (Bar) */}
-
-
-//               {/* Chart 2: Sales by Payment Mode (Pie) */}
-//               {salesByPaymentMode.length > 0 && (
-//                 <div className="col-6">
-//                   <ATMChart
-//                     type="pie"
-//                     data={{
-//                       labels: salesByPaymentMode.map((item: any) => item._id),
-//                       datasets: [
-//                         {
-//                           label: 'Payment Modes',
-//                           data: salesByPaymentMode.map((item: any) => item.total),
-//                           backgroundColor: ['#4caf50', '#ff9800', '#f44336'],
-//                         },
-//                       ],
-//                     }}
-//                     options={{
-//                       responsive: true,
-//                       plugins: { legend: { position: 'right' } },
-//                       maintainAspectRatio: false,
-//                     }}
-//                   />
-//                 </div>
-//               )}
-
-//               {/* Chart 3: Top Customers (Doughnut) */}
-//               {topCustomers.length > 0 && (
-//                 <div className="col-6">
-//                   <ATMChart
-//                     type="doughnut"
-//                     data={{
-//                       labels: topCustomers.map((item: any) => item.customerName || 'Unnamed'),
-//                       datasets: [
-//                         {
-//                           label: 'Top Customers',
-//                           data: topCustomers.map((item: any) => item.total),
-//                           backgroundColor: ['#06b6d4', '#10b981', '#f59e0b', '#ef4444'],
-//                         },
-//                       ],
-//                     }}
-//                     options={{
-//                       responsive: true,
-//                       plugins: { legend: { position: 'right' } },
-//                       maintainAspectRatio: false,
-//                     }}
-//                   />
-//                 </div>
-//               )}
-//             </div>
-
-
-
-//             <div className="flex-1 mt-3">
-//               <MOLTable<SalesReport>
-//                 tableHeaders={tableHeaders}
-//                 data={invoices || []}
-//                 getKey={(item) => item?._id}
-//                 onEdit={undefined}
-//                 onDelete={undefined}
-//                 isLoading={isLoading}
-//               />
-//             </div>
-
-//             {/* Pagination */}
-//             <ATMPagination
-//               totalPages={totalPages}
-//               rowCount={(data as any)?.totalCount}
-//               rows={invoices || []}
-//             />
-//           </div>
-//         </Authorization>
-//         {invoices.length > 0 && (
-//           <div className="flex items-center justify-between px-4 py-3 text-lg font-semibold">
-//             <span>Total Sales Amount: R {totalAmount?.toFixed(2)}</span>
-//             <ATMButton onClick={() => handleExportCSV()}>
-//               Export CSV
-//             </ATMButton>
-//           </div>
-//         )}
-
-
-//         {open && selectedInvoice && (
-//           <ATMDialog onClose={() => setOpen(false)}>
-//             <div className="p-6 w-[600px] max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-lg">
-//               {/* Header */}
-//               <div className="flex justify-between items-center border-b pb-3 mb-4">
-//                 <h2 className="text-xl font-bold text-gray-800">Invoice Details</h2>
-//                 <button
-//                   className="text-gray-500 hover:text-gray-700"
-//                   onClick={() => setOpen(false)}
-//                 >
-//                   ✕
-//                 </button>
-//               </div>
-
-//               {/* Customer Info */}
-//               <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-//                 <div className="space-y-1">
-//                   <p><span className="font-medium">Invoice No:</span> {selectedInvoice.invoiceNumber || "-"}</p>
-//                   <p><span className="font-medium">Customer:</span> {selectedInvoice.customerName || "Walk-in"}</p>
-//                   <p><span className="font-medium">Phone:</span> {selectedInvoice.customerPhone || "-"}</p>
-//                 </div>
-//                 <div className="space-y-1 text-right">
-//                   <p><span className="font-medium">Date:</span> {new Date(selectedInvoice.createdAt).toLocaleString()}</p>
-//                   <p><span className="font-medium">Outlet:</span> {selectedInvoice.outletName}</p>
-//                   <p><span className="font-medium">Status:</span>
-//                     {selectedInvoice.balanceDue > 0 ? (
-//                       <span className="ml-1 text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded text-xs">Unpaid</span>
-//                     ) : (
-//                       <span className="ml-1 text-green-700 bg-green-100 px-2 py-0.5 rounded text-xs">Paid</span>
-//                     )}
-//                   </p>
-//                 </div>
-//               </div>
-
-//               {/* Items Table */}
-//               {selectedInvoice.items?.length > 0 && (
-//                 <div className="mb-4">
-//                   <h3 className="font-semibold mb-2 text-gray-700">Items</h3>
-//                   <table className="w-full border text-sm rounded-lg overflow-hidden">
-//                     <thead className="bg-gray-100 text-gray-700">
-//                       <tr>
-//                         <th className="border px-3 py-2 text-left">Name</th>
-//                         <th className="border px-3 py-2 text-center">Qty</th>
-//                         <th className="border px-3 py-2 text-right">Price</th>
-//                         <th className="border px-3 py-2 text-right">Total</th>
-//                       </tr>
-//                     </thead>
-//                     <tbody>
-//                       {selectedInvoice.items.map((item: any, idx: number) => (
-//                         <tr key={idx} className="hover:bg-gray-50">
-//                           <td className="border px-3 py-2">{item.itemName}</td>
-//                           <td className="border px-3 py-2 text-center">{item.quantity}</td>
-//                           <td className="border px-3 py-2 text-right">{item.sellingPrice}</td>
-//                           <td className="border px-3 py-2 text-right">{item.sellingPrice * item.quantity}</td>
-//                         </tr>
-//                       ))}
-//                     </tbody>
-//                   </table>
-//                 </div>
-//               )}
-
-//               {/* Discounts */}
-//               <div className="mb-4">
-//                 <h3 className="font-semibold mb-2 text-gray-700">Discounts</h3>
-//                 <div className="grid grid-cols-2 gap-2 text-sm">
-//                   {[
-//                     { label: 'Coupon', value: selectedInvoice.couponDiscount },
-//                     { label: 'Gift Card', value: selectedInvoice.giftCardDiscount },
-//                     { label: 'Cashback', value: selectedInvoice.cashBackDiscount },
-//                     { label: 'Loyalty', value: selectedInvoice.loyaltyPointsDiscount },
-//                     { label: 'Referral', value: selectedInvoice.referralDiscount },
-//                   ].map((d, i) => (
-//                     <div
-//                       key={i}
-//                       className="flex justify-between px-3 py-1 border rounded-md bg-gray-50"
-//                     >
-//                       <span>{d.label}</span>
-//                       <span className={d.value > 0 ? "font-semibold text-green-600" : "text-gray-400"}>
-//                         {d.value > 0 ? `R${d.value}` : "-"}
-//                       </span>
-//                     </div>
-//                   ))}
-//                 </div>
-//               </div>
-
-//               {/* Amount Summary */}
-//               <div className="border-t pt-3 text-sm space-y-1">
-//                 <div className="flex justify-between">
-//                   <span>Subtotal</span>
-//                   <span>R {selectedInvoice.totalAmount}</span>
-//                 </div>
-//                 <div className="flex justify-between">
-//                   <span>Amount Paid</span>
-//                   <span className="text-green-600">R {selectedInvoice.amountPaid}</span>
-//                 </div>
-//                 <div className="flex justify-between font-semibold">
-//                   <span>Balance Due</span>
-//                   <span className={selectedInvoice.balanceDue > 0 ? "text-red-600" : "text-green-600"}>
-//                     R {selectedInvoice.balanceDue}
-//                   </span>
-//                 </div>
-//               </div>
-
-//               {/* Footer Buttons */}
-//               {/* <div className="mt-6 flex justify-end gap-3">
-//                 <ATMButton
-//                 variant='outlined'
-//                   // className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
-//                   onClick={() => setOpen(false)}
-//                 >
-//                   Close
-//                 </ATMButton>
-//                 <ATMButton
-//                   // className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-//                 >
-//                   Print
-//                 </ATMButton>
-//               </div> */}
-//             </div>
-//           </ATMDialog>
-//         )}
-
-
-
-
-//       </div>
-//     </>
-//   )
-// };
-
-// export default SalesReportPage;
-
-// ✅ UPDATE IMPORTS
+// SalesReportPage.tsx
 import {
   addDays,
   addMonths,
@@ -649,730 +20,558 @@ import {
 } from "date-fns";
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import ATMPageHeader from 'src/components/atoms/ATMPageHeader/ATMPageHeader';
 import ATMPagination from 'src/components/atoms/ATMPagination/ATMPagination';
 import Authorization from 'src/components/Authorization/Authorization';
 import MOLFilterBar, { FilterType } from 'src/components/molecules/MOLFilterBar/MOLFilterBar';
 import MOLTable, { TableHeader } from 'src/components/molecules/MOLTable/MOLTable';
 import { useFilterPagination } from 'src/hooks/useFilterPagination';
-import { SalesReport } from 'src/modules/Invoices/models/Invoices.model';
 import { RootState } from 'src/store';
-import { isAuthorized } from 'src/utils/authorization';
-import { useGetSalesChartDataReportByOutletQuery, useGetSalesReportByOutletQuery } from '../../service/OutletServices';
+import { useGetSalesReportByOutletQuery } from '../../service/OutletServices';
 import ATMChart from 'src/components/atoms/ATMChart/ATMChart';
-import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 import * as XLSX from 'xlsx';
 import { useFetchData } from 'src/hooks/useFetchData';
 import { IconEye } from '@tabler/icons-react';
 import ATMDialog from 'src/components/atoms/ATMDialog/ATMDialog';
+import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 
-const salesData = [
-  {
-    label: 'Daily',
-    value: 'DAILY',
-  },
-  {
-    label: 'Weekly',
-    value: 'WEEKLY',
-  },
-  {
-    label: 'Monthly',
-    value: 'MONTHLY',
-  },
-  {
-    label: 'Yearly',
-    value: 'YEARLY',
-  },
-  {
-    label: 'Custum',
-    value: 'CUSTUM',
-  },
+// Report Types
+const reportTypes = [
+  { label: 'Sales Summary', value: 'SALES_SUMMARY' },
+  { label: 'User', value: 'USER' },
+  { label: 'Outlet', value: 'OUTLET' },
+  { label: 'Register', value: 'REGISTER' },
+  { label: 'Customer', value: 'CUSTOMER' },
+  { label: 'Customer Group', value: 'CUSTOMER_GROUP' },
+  { label: 'Promotion', value: 'PROMOTION' },
+];
+
+// Measure Types
+const measureTypes = [
+  { label: 'Avg. items per sale', value: 'AVG_ITEMS_PER_SALE' },
+  { label: 'Avg. Sale value', value: 'AVG_SALE_VALUE' },
+  { label: 'Customer count', value: 'CUSTOMER_COUNT' },
+  { label: 'Discounted', value: 'DISCOUNTED' },
+  { label: 'Discounted %', value: 'DISCOUNTED_PERCENT' },
+  { label: 'Sale Count', value: 'SALE_COUNT' },
+  { label: 'Sale With Customer', value: 'SALE_WITH_CUSTOMER' },
+  { label: 'Revenue', value: 'REVENUE' },
+];
+
+// Comparison Types
+const comparisonTypes = [
+  { label: 'No comparison', value: 'NO_COMPARISON' },
+  { label: 'Same Date in Previous year', value: 'SAME_DATE_PREVIOUS_YEAR' },
+  { label: 'Same period in previous year', value: 'SAME_PERIOD_PREVIOUS_YEAR' },
+];
+
+// Time Period Types
+const timePeriods = [
+  { label: 'Daily', value: 'DAILY' },
+  { label: 'Weekly', value: 'WEEKLY' },
+  { label: 'Monthly', value: 'MONTHLY' },
+  { label: 'Yearly', value: 'YEARLY' },
+  { label: 'Custom', value: 'CUSTOM' },
 ];
 
 const SalesReportPage = () => {
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  const [open, setOpen] = useState(false);
-  const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
-    useFilterPagination(['outletIds', 'customerId', 'reportDuration']);
   const [searchParams, setSearchParams] = useSearchParams();
-
   const { outlets } = useSelector((state: RootState) => state.auth);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [openDialog, setOpenDialog] = useState(false);
 
+  const { appliedFilters, dateFilter, page, limit, orderBy, orderValue } = useFilterPagination([
+    'reportType', 
+    'outletId', 
+    'measure', 
+    'comparison', 
+    'timePeriod'
+  ]);
+
+  // Get filter values
+  const selectedReportType = appliedFilters?.[0]?.value?.[0] || 'SALES_SUMMARY';
+  const selectedOutlet = appliedFilters?.[1]?.value?.[0] || outlets?.[0]?._id || '';
+  const selectedMeasure = appliedFilters?.[2]?.value?.[0] || 'AVG_ITEMS_PER_SALE';
+  const selectedComparison = appliedFilters?.[3]?.value?.[0] || 'NO_COMPARISON';
+  const selectedTimePeriod = appliedFilters?.[4]?.value?.[0] || 'DAILY';
+
+  // Get date range
+  const startDate = dateFilter?.start_date || '';
+  const endDate = dateFilter?.end_date || '';
+
+  // Fetch sales report data
   const { data, isLoading, totalData, totalPages } = useFetchData(
     useGetSalesReportByOutletQuery,
     {
       body: {
-        outletId: appliedFilters?.[0]?.value,
-        startDate: dateFilter?.start_date,
-        endDate: dateFilter?.end_date,
+        outletId: selectedOutlet,
+        startDate: startDate,
+        endDate: endDate,
         page,
         limit,
-        sortBy: orderBy || 'createdAt',
+        sortBy: orderBy || 'revenue',
         sortOrder: orderValue || 'desc',
-        reportDuration: appliedFilters?.[2]?.value,
+        reportDuration: selectedTimePeriod,
+        reportType: selectedReportType,
+        measure: selectedMeasure,
+        comparison: selectedComparison,
       },
     }
   );
 
-  const [currentDate, setCurrentDate] =
-    useState(new Date());
+  // Process data for display
+  const reportData = (data as any)?.data?.reportData || [];
+  const chartData = (data as any)?.data?.chartData || null;
+  const totalRevenue = (data as any)?.data?.totalRevenue || 0;
+  const totalCost = (data as any)?.data?.totalCost || 0;
+  const totalProfit = (data as any)?.data?.totalProfit || 0;
+  const totalSales = (data as any)?.data?.totalSales || 0;
 
-  const outletId = appliedFilters?.[0]?.value || "";
-  const reportDuration = appliedFilters?.[2]?.value || "";
-  const startDate = dateFilter?.start_date || "";
-  const endDate = dateFilter?.end_date || "";
-
-  const { data: chartData, isFetching, refetch } = useGetSalesChartDataReportByOutletQuery(
-    {
-      outletId,
-      startDate,
-      endDate,
-      reportDuration,
-    },
-    {
-      skip: !outletId || !startDate || !endDate || !reportDuration,
-      refetchOnMountOrArgChange: true,
-    }
-  );
-
-  const filterValue = appliedFilters?.[2]?.value;
-
-  const periodLabel =
-    filterValue?.includes("MONTHLY")
-      ? "Month"
-      : filterValue?.includes("WEEKLY")
-        ? "Week"
-        : filterValue?.includes("DAILY")
-          ? "Day"
-          : "";
-
-  const salesByPaymentMode = chartData?.data?.salesByPaymentMode || [];
-  const topCustomers = chartData?.data?.topCustomers || [];
-  const datasets = chartData?.data?.datasets || [];
-  const dataLabel = chartData?.data?.labels || [];
-
-  const tableHeaders: TableHeader<SalesReport>[] = [
-    {
-      fieldName: 'invoiceNumber',
-      headerName: 'Invoice N0.',
-      flex: 'flex-[1_0_0%]',
-    },
-    {
-      fieldName: 'customerName',
-      headerName: 'Customer Name',
-      flex: 'flex-[1_0_0%]',
-    },
-    {
-      fieldName: 'cashBackDiscount',
-      headerName: 'Discount',
-      flex: 'flex-[1_0_0%]',
-    },
-    {
-      fieldName: 'totalAmount',
-      headerName: 'Total Amount',
-      flex: 'flex-[1_0_0%]',
-      sortable: true,
-      sortKey: 'totalAmount',
-    },
-    {
-      fieldName: 'balanceDue',
-      headerName: 'Balance Due',
-      flex: 'flex-[1_0_0%]',
-    },
-    {
-      fieldName: 'createdAt',
-      headerName: 'Date',
-      flex: 'flex-[1_1_0%]',
-      sortable: true,
-      sortKey: 'createdAt',
-      extraClasses: () => '',
-      stopPropagation: true,
-      render: (row: any) => {
-        const date = row.createdAt ? new Date(row.createdAt) : null;
-        return date ? formatZonedDate(date) : '-';
-      },
-    },
-    {
-      fieldName: 'status',
-      headerName: 'Status',
-      align: 'center',
-      flex: 'flex-[1_1_0%]',
-      renderCell: (item) => (
-        <div>
-          {item.status && item.status.trim() !== '' ? (
-            <span className="text-red-700 bg-red-100 py-[3px] font-medium px-2 rounded-lg border-slate-300">
-              {item.status}
-            </span>
-          ) : item?.balanceDue > 0 ? (
-            <span className="text-yellow-700 bg-yellow-100 py-[3px] font-medium px-2 rounded-lg border-slate-300">
-              Unpaid
-            </span>
-          ) : (
-            <span className="text-green-700 bg-green-100 py-[3px] font-medium px-2 rounded-lg border-slate-300">
-              Paid
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      fieldName: 'actions',
-      headerName: 'Actions',
-      flex: 'flex-[1_0_0%]',
-      align: 'center',
-      renderCell: (item) => (
-        <div className="flex justify-center items-center">
-          <IconEye
-            color='#006972'
-            onClick={() => {
-              setSelectedInvoice(item);
-              setOpen(true);
-            }}
-            size={18}
-            className="cursor-pointer text-blue-600 hover:text-blue-800"
-          />
-        </div>
-      ),
-    }
-  ];
-
-  const filters: FilterType[] = [
-    {
-      filterType: 'date',
-      fieldName: 'createdAt',
-      dateFilterKeyOptions: [
-        {
-          label: 'Start Date',
-          value: dateFilter?.start_date || '',
-        },
-        {
-          label: 'End Date',
-          value: dateFilter?.end_date || '',
-        },
-      ],
-    },
-    {
-      filterType: 'single-select',
-      label: 'Outlets',
-      fieldName: 'outletIds',
-      options:
-        outlets?.map((el) => {
-          return {
-            label: el?.name,
-            value: el?._id,
-          };
-        }) || [],
-      renderOption: (option) => option.label,
-      isOptionEqualToSearchValue: (option, value) => {
-        return option?.label.includes(value);
-      },
-    },
-    {
-      filterType: 'single-select',
-      label: 'View By',
-      fieldName: 'reportDuration',
-      options: salesData || [],
-      renderOption: (option) => option.label,
-      isOptionEqualToSearchValue: (option, value) => {
-        return option?.label.includes(value);
-      },
-    },
-  ];
-
-  const invoices = (data as any)?.invoices || [];
-  const totalAmount = (data as any)?.totalSalesData?.[0]?.totalSalesAmount || 0;
-
-  const today = new Date();
-  const oneMonthAgo = subMonths(today, 1);
-
-  // Reset to Daily with Today's date
-  const handleReset = () => {
-    const newSearchParams = new URLSearchParams(searchParams);
-    newSearchParams.set('startDate', format(startOfDay(new Date()), 'yyyy-MM-dd'));
-    newSearchParams.set('endDate', format(endOfDay(new Date()), 'yyyy-MM-dd'));
-    newSearchParams.set('reportDuration', 'DAILY');
-    if (outlets?.[0]?._id && !newSearchParams.get('outletIds')) {
-      newSearchParams.set('outletIds', outlets[0]._id);
-    }
-    setSearchParams(newSearchParams);
-  };
-  const selectedDuration =
-    (appliedFilters?.[2]?.value?.[0] as string) ||
-    "DAILY";
-
+  // Update dates when time period changes
   useEffect(() => {
-
-
     if (!outlets?.length) return;
 
-    let startDate = "";
-    let endDate = "";
+    let newStartDate = '';
+    let newEndDate = '';
 
-    switch (selectedDuration) {
+    if (selectedTimePeriod === 'CUSTOM') {
+      // Custom dates are handled by the date filter
+      return;
+    }
+
+    switch (selectedTimePeriod) {
       case "DAILY":
-        startDate = format(
-          startOfDay(currentDate),
-          "yyyy-MM-dd"
-        );
-
-        endDate = format(
-          endOfDay(currentDate),
-          "yyyy-MM-dd"
-        );
+        newStartDate = format(startOfDay(currentDate), "yyyy-MM-dd");
+        newEndDate = format(endOfDay(currentDate), "yyyy-MM-dd");
         break;
-
       case "WEEKLY":
-        startDate = format(
-          startOfWeek(currentDate, {
-            weekStartsOn: 1,
-          }),
-          "yyyy-MM-dd"
-        );
-
-        endDate = format(
-          endOfWeek(currentDate, {
-            weekStartsOn: 1,
-          }),
-          "yyyy-MM-dd"
-        );
+        newStartDate = format(startOfWeek(currentDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
+        newEndDate = format(endOfWeek(currentDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
         break;
-
       case "MONTHLY":
-        startDate = format(
-          startOfMonth(currentDate),
-          "yyyy-MM-dd"
-        );
-
-        endDate = format(
-          endOfMonth(currentDate),
-          "yyyy-MM-dd"
-        );
+        newStartDate = format(startOfMonth(currentDate), "yyyy-MM-dd");
+        newEndDate = format(endOfMonth(currentDate), "yyyy-MM-dd");
         break;
-
       case "YEARLY":
-        startDate = format(
-          startOfYear(currentDate),
-          "yyyy-MM-dd"
-        );
-
-        endDate = format(
-          endOfYear(currentDate),
-          "yyyy-MM-dd"
-        );
+        newStartDate = format(startOfYear(currentDate), "yyyy-MM-dd");
+        newEndDate = format(endOfYear(currentDate), "yyyy-MM-dd");
         break;
-
-      case "CUSTUM":
       default:
         return;
     }
 
-    const newSearchParams =
-      new URLSearchParams(searchParams.toString());
-
-    newSearchParams.set("startDate", startDate);
-
-    newSearchParams.set("endDate", endDate);
-
-    newSearchParams.set(
-      "reportDuration",
-      selectedDuration
-    );
-
-    if (!searchParams.get("outletIds")) {
-      newSearchParams.set(
-        "outletIds",
-        outlets?.[0]?._id || ""
-      );
+    const newSearchParams = new URLSearchParams(searchParams.toString());
+    newSearchParams.set("startDate", newStartDate);
+    newSearchParams.set("endDate", newEndDate);
+    
+    if (!searchParams.get("outletId")) {
+      newSearchParams.set("outletId", outlets?.[0]?._id || "");
     }
 
     setSearchParams(newSearchParams);
-
-  }, [currentDate, appliedFilters, outlets]);
-
-
+  }, [currentDate, selectedTimePeriod, outlets]);
 
   const handlePrevious = () => {
-    switch (selectedDuration) {
-      case "DAILY":
-        setCurrentDate((prev) =>
-          subDays(prev, 1)
-        );
-        break;
-
-      case "WEEKLY":
-        setCurrentDate((prev) =>
-          subWeeks(prev, 1)
-        );
-        break;
-
-      case "MONTHLY":
-        setCurrentDate((prev) =>
-          subMonths(prev, 1)
-        );
-        break;
-
-      case "YEARLY":
-        setCurrentDate((prev) =>
-          subYears(prev, 1)
-        );
-        break;
-
-      default:
-        break;
+    switch (selectedTimePeriod) {
+      case "DAILY": setCurrentDate(prev => subDays(prev, 1)); break;
+      case "WEEKLY": setCurrentDate(prev => subWeeks(prev, 1)); break;
+      case "MONTHLY": setCurrentDate(prev => subMonths(prev, 1)); break;
+      case "YEARLY": setCurrentDate(prev => subYears(prev, 1)); break;
+      default: break;
     }
   };
 
   const handleNext = () => {
-    switch (selectedDuration) {
-      case "DAILY":
-        setCurrentDate((prev) =>
-          addDays(prev, 1)
-        );
-        break;
-
-      case "WEEKLY":
-        setCurrentDate((prev) =>
-          addWeeks(prev, 1)
-        );
-        break;
-
-      case "MONTHLY":
-        setCurrentDate((prev) =>
-          addMonths(prev, 1)
-        );
-        break;
-
-      case "YEARLY":
-        setCurrentDate((prev) =>
-          addYears(prev, 1)
-        );
-        break;
-
-      default:
-        break;
+    switch (selectedTimePeriod) {
+      case "DAILY": setCurrentDate(prev => addDays(prev, 1)); break;
+      case "WEEKLY": setCurrentDate(prev => addWeeks(prev, 1)); break;
+      case "MONTHLY": setCurrentDate(prev => addMonths(prev, 1)); break;
+      case "YEARLY": setCurrentDate(prev => addYears(prev, 1)); break;
+      default: break;
     }
   };
 
   const getDateLabel = () => {
-    switch (selectedDuration) {
-      case "DAILY":
-        return format(
-          currentDate,
-          "MMM d, yyyy"
-        );
-
-      case "WEEKLY":
-        return `${format(
-          startOfWeek(currentDate, {
-            weekStartsOn: 1,
-          }),
-          "MMM d"
-        )} - ${format(
-          endOfWeek(currentDate, {
-            weekStartsOn: 1,
-          }),
-          "MMM d, yyyy"
-        )}`;
-
-      case "MONTHLY":
-        return format(
-          currentDate,
-          "MMMM yyyy"
-        );
-
-      case "YEARLY":
-        return format(currentDate, "yyyy");
-
-      default:
-        return "";
+    switch (selectedTimePeriod) {
+      case "DAILY": return format(currentDate, "MMM d, yyyy");
+      case "WEEKLY": return `${format(startOfWeek(currentDate, { weekStartsOn: 1 }), "MMM d")} - ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), "MMM d, yyyy")}`;
+      case "MONTHLY": return format(currentDate, "MMMM yyyy");
+      case "YEARLY": return format(currentDate, "yyyy");
+      case "CUSTOM": return `${startDate} to ${endDate}`;
+      default: return "";
     }
   };
 
-  const navigate = useNavigate();
+  // Build dynamic table headers based on report type
+  const getTableHeaders = (): TableHeader<any>[] => {
+    const baseHeaders: TableHeader<any>[] = [];
 
-  const handleExportCSV = () => {
-    const exportData = invoices.map((inv: any) => ({
-      InvoiceNumber: inv.invoiceNumber,
-      CustomerName: inv.customerName,
-      TotalAmount: inv.totalAmount,
-      BalanceDue: inv.balanceDue,
-      Status: inv.status || (inv.balanceDue > 0 ? 'Unpaid' : 'Paid'),
-      Date: formatZonedDate(inv.createdAt),
-    }));
+    // Add primary column based on report type
+    switch (selectedReportType) {
+      case 'SALES_SUMMARY':
+        baseHeaders.push(
+          { fieldName: 'outlet', headerName: 'Outlet', flex: 'flex-[1_1_0%]' },
+          { fieldName: 'register', headerName: 'Register', flex: 'flex-[1_1_0%]' }
+        );
+        break;
+      case 'USER':
+        baseHeaders.push({ fieldName: 'user', headerName: 'User', flex: 'flex-[1_1_0%]' });
+        break;
+      case 'OUTLET':
+        // Add hour columns for outlet report
+        for (let hour = 8; hour <= 23; hour++) {
+          const timeSlot = `${hour}-${hour + 1} ${hour < 12 ? 'AM' : 'PM'}`;
+          baseHeaders.push({
+            fieldName: `hour_${hour}`,
+            headerName: timeSlot,
+            flex: 'flex-[0.5_1_0%]',
+            render: (row: any) => row.hourlyData?.[hour] || 0
+          });
+        }
+        baseHeaders.push({ fieldName: 'outlet', headerName: 'Outlet', flex: 'flex-[1_1_0%]' });
+        break;
+      case 'REGISTER':
+        baseHeaders.push({ fieldName: 'register', headerName: 'Register', flex: 'flex-[1_1_0%]' });
+        break;
+      case 'CUSTOMER':
+        baseHeaders.push({ fieldName: 'customer', headerName: 'Customer', flex: 'flex-[1_1_0%]' });
+        break;
+      case 'CUSTOMER_GROUP':
+        baseHeaders.push({ fieldName: 'customerGroup', headerName: 'Customer Group', flex: 'flex-[1_1_0%]' });
+        break;
+      case 'PROMOTION':
+        baseHeaders.push({ fieldName: 'promotion', headerName: 'Promotion', flex: 'flex-[1_1_0%]' });
+        break;
+      default:
+        baseHeaders.push({ fieldName: 'name', headerName: 'Name', flex: 'flex-[1_1_0%]' });
+    }
+
+    // Add measure columns based on selected measure
+    const measureHeaders: TableHeader<any>[] = [];
+
+    if (selectedMeasure === 'AVG_ITEMS_PER_SALE' || selectedMeasure === 'ALL') {
+      measureHeaders.push({
+        fieldName: 'avgItemsPerSale',
+        headerName: 'Avg. items per sale',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.avgItemsPerSale?.toFixed(1) || '-'
+      });
+    }
+
+    if (selectedMeasure === 'AVG_SALE_VALUE' || selectedMeasure === 'ALL') {
+      measureHeaders.push({
+        fieldName: 'avgSaleValue',
+        headerName: 'Avg. Sale value',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.avgSaleValue ? `R ${row.avgSaleValue.toFixed(2)}` : '-'
+      });
+    }
+
+    if (selectedMeasure === 'CUSTOMER_COUNT' || selectedMeasure === 'ALL') {
+      measureHeaders.push({
+        fieldName: 'customerCount',
+        headerName: 'Customer count',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.customerCount || 0
+      });
+    }
+
+    if (selectedMeasure === 'DISCOUNTED' || selectedMeasure === 'ALL') {
+      measureHeaders.push({
+        fieldName: 'discounted',
+        headerName: 'Discounted',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.discounted ? `R ${row.discounted.toFixed(2)}` : 'R 0.00'
+      });
+    }
+
+    if (selectedMeasure === 'DISCOUNTED_PERCENT' || selectedMeasure === 'ALL') {
+      measureHeaders.push({
+        fieldName: 'discountedPercent',
+        headerName: 'Discounted %',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.discountedPercent ? `${row.discountedPercent}%` : '0%'
+      });
+    }
+
+    if (selectedMeasure === 'SALE_COUNT' || selectedMeasure === 'ALL') {
+      measureHeaders.push({
+        fieldName: 'saleCount',
+        headerName: 'Sale Count',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.saleCount || 0
+      });
+    }
+
+    if (selectedMeasure === 'SALE_WITH_CUSTOMER' || selectedMeasure === 'ALL') {
+      measureHeaders.push({
+        fieldName: 'saleWithCustomer',
+        headerName: 'Sale With Customer',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.saleWithCustomer || 0
+      });
+    }
+
+    if (selectedMeasure === 'REVENUE' || selectedMeasure === 'ALL') {
+      measureHeaders.push({
+        fieldName: 'revenue',
+        headerName: 'Revenue',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.revenue ? `R ${row.revenue.toFixed(2)}` : '-'
+      });
+    }
+
+    // Always show these columns
+    const defaultHeaders: TableHeader<any>[] = [
+      {
+        fieldName: 'costOfGoodsSold',
+        headerName: 'Cost of goods sold',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.costOfGoodsSold ? `R ${row.costOfGoodsSold.toFixed(2)}` : '-'
+      },
+      {
+        fieldName: 'grossProfit',
+        headerName: 'Gross profit',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.grossProfit ? `R ${row.grossProfit.toFixed(2)}` : '-'
+      },
+      {
+        fieldName: 'margin',
+        headerName: 'Margin (%)',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.margin ? `${row.margin}%` : '-'
+      },
+      {
+        fieldName: 'tax',
+        headerName: 'Tax',
+        flex: 'flex-[1_1_0%]',
+        render: (row: any) => row.tax ? `R ${row.tax.toFixed(2)}` : 'R 0.00'
+      }
+    ];
+
+    return [...baseHeaders, ...measureHeaders, ...defaultHeaders];
+  };
+
+  // Export to Excel
+  const handleExportExcel = () => {
+    if (!reportData.length) {
+      alert("No data to export!");
+      return;
+    }
+
+    const exportData = reportData.map((row: any) => {
+      const flatRow: any = {};
+      
+      // Flatten the row data
+      Object.keys(row).forEach(key => {
+        if (typeof row[key] === 'object' && row[key] !== null) {
+          if (key === 'hourlyData') {
+            Object.entries(row[key]).forEach(([hour, value]) => {
+              flatRow[`${hour}:00`] = value;
+            });
+          } else {
+            flatRow[key] = JSON.stringify(row[key]);
+          }
+        } else {
+          flatRow[key] = row[key];
+        }
+      });
+      
+      return flatRow;
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const csv = XLSX.utils.sheet_to_csv(worksheet);
+    worksheet["!cols"] = Object.keys(exportData[0]).map(() => ({ wch: 20 }));
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "SalesReport");
+    
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'Outlet_Sales_Report.csv');
+    link.href = url;
+    link.download = `SalesReport_${format(new Date(), "yyyy-MM-dd")}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
+  // Filters configuration
+  const filters: FilterType[] = [
+    {
+      filterType: "single-select",
+      label: "Report type",
+      fieldName: "reportType",
+      options: reportTypes,
+      renderOption: (option) => option.label,
+      isOptionEqualToSearchValue: (option, value) => 
+        option?.label?.toLowerCase()?.includes(value?.toLowerCase()),
+    },
+    {
+      filterType: "single-select",
+      label: "Outlet",
+      fieldName: "outletId",
+      options: [
+        { label: "All Outlets", value: "ALL" },
+        ...(outlets?.map((el: any) => ({
+          label: el?.name,
+          value: el?._id,
+        })) || []),
+      ],
+      renderOption: (option) => option.label,
+      isOptionEqualToSearchValue: (option, value) => 
+        option?.label?.toLowerCase()?.includes(value?.toLowerCase()),
+    },
+    {
+      filterType: "single-select",
+      label: "Measure",
+      fieldName: "measure",
+      options: measureTypes,
+      renderOption: (option) => option.label,
+      isOptionEqualToSearchValue: (option, value) => 
+        option?.label?.toLowerCase()?.includes(value?.toLowerCase()),
+    },
+    ...(selectedTimePeriod === "CUSTOM" ? [{
+      filterType: "date" as const,
+      fieldName: "createdAt",
+      dateFilterKeyOptions: [
+        { label: "Start Date", value: startDate },
+        { label: "End Date", value: endDate },
+      ],
+    }] : []),
+    {
+      filterType: "single-select",
+      label: "Comparison",
+      fieldName: "comparison",
+      options: comparisonTypes,
+      renderOption: (option) => option.label,
+      isOptionEqualToSearchValue: (option, value) => 
+        option?.label?.toLowerCase()?.includes(value?.toLowerCase()),
+    },
+    {
+      filterType: "single-select",
+      label: "Time Period",
+      fieldName: "timePeriod",
+      options: timePeriods,
+      renderOption: (option) => option.label,
+      isOptionEqualToSearchValue: (option, value) => 
+        option?.label?.toLowerCase()?.includes(value?.toLowerCase()),
+    },
+  ];
+
   return (
-    <>
-      <div className="flex flex-col h-full gap-2 p-4">
-        <ATMPageHeader
-          heading="Outlet Sales Report"
-          hideButton={true}
-          buttonProps={{
-            label: 'Back',
-            onClick: () => navigate('/outlets'),
-          }}
-        />
+    <div className="flex flex-col h-full gap-2 p-4">
+      <ATMPageHeader
+        heading="Sales Report"
+        buttonProps={{
+          label: 'Export Excel',
+          onClick: handleExportExcel
+        }}
+      />
 
-        {/* Reset Button */}
-
-
-        <Authorization permission="OUTLET_LIST">
-          <div className="flex items-center justify-between bg-white border rounded-xl px-4 py-3 mb-4">
-
-            <button
-              onClick={handlePrevious}
-              className="border rounded px-3 py-1"
-            >
-              ←
-            </button>
-
-            <div className="font-semibold text-lg">
-              {getDateLabel()}
+      <Authorization permission="SALES_LEDGER">
+        <div className="bg-white rounded-xl border p-4">
+          {/* Date Navigation */}
+          {selectedTimePeriod !== 'CUSTOM' && (
+            <div className="flex items-center justify-between bg-gray-50 border rounded-xl px-4 py-3 mb-4">
+              <button
+                onClick={handlePrevious}
+                className="border rounded px-3 py-1 hover:bg-gray-100"
+              >
+                ←
+              </button>
+              <div className="font-semibold text-lg">
+                {getDateLabel()}
+              </div>
+              <button
+                onClick={handleNext}
+                className="border rounded px-3 py-1 hover:bg-gray-100"
+              >
+                →
+              </button>
             </div>
+          )}
 
-            <button
-              onClick={handleNext}
-              className="border rounded px-3 py-1"
-            >
-              →
-            </button>
-
-          </div>
+          {/* Filters */}
           <MOLFilterBar hideSearch={true} filters={filters} />
 
           {/* Active Filters Display */}
           <div className="mt-2 p-2 bg-gray-50 rounded border text-sm">
-            <span className="font-medium">Active: </span>
-            {startDate} to {endDate} | View: {periodLabel}
+            <span className="font-medium">Active Filters: </span>
+            Report: {reportTypes.find(r => r.value === selectedReportType)?.label} | 
+            Outlet: {selectedOutlet === 'ALL' ? 'All Outlets' : outlets?.find(o => o._id === selectedOutlet)?.name || 'All'} | 
+            Measure: {measureTypes.find(m => m.value === selectedMeasure)?.label} | 
+            Comparison: {comparisonTypes.find(c => c.value === selectedComparison)?.label} | 
+            Period: {getDateLabel()}
           </div>
 
-          <div className="flex flex-col overflow-auto border rounded border-slate-300 p-1 mt-3">
-            <div>{datasets.length > 0 && (
-              <div className="col-span">
-                <ATMChart
-                  type="line"
-                  data={{
-                    labels: dataLabel,
-                    datasets: datasets
-                  }}
-                  options={{
-                    responsive: true,
-                    plugins: {
-                      legend: { position: 'top' },
-                      title: {
-                        display: true,
-                        text: `Sales (${periodLabel} Wise)`,
-                      },
-                      tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                      },
-                    },
-                    interaction: {
-                      mode: 'nearest',
-                      axis: 'x',
-                      intersect: false,
-                    },
-                    maintainAspectRatio: false,
-                  }}
-                />
-              </div>
-            )}
+          {/* Summary Cards */}
+          <div className="grid grid-cols-4 gap-4 mt-4">
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-600">Total Revenue</p>
+              <p className="text-xl font-bold">R {totalRevenue.toFixed(2)}</p>
             </div>
-
-            <div className="grid grid-cols-2 gap-4 mt-5 border border-slate-300 p-2">
-              {salesByPaymentMode.length > 0 && (
-                <div className="col-6">
-                  <ATMChart
-                    type="pie"
-                    data={{
-                      labels: salesByPaymentMode.map((item: any) => item._id),
-                      datasets: [
-                        {
-                          label: 'Payment Modes',
-                          data: salesByPaymentMode.map((item: any) => item.total),
-                          backgroundColor: ['#4caf50', '#ff9800', '#f44336'],
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: { legend: { position: 'right' } },
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                </div>
-              )}
-
-              {topCustomers.length > 0 && (
-                <div className="col-6">
-                  <ATMChart
-                    type="doughnut"
-                    data={{
-                      labels: topCustomers.map((item: any) => item.customerName || 'Unnamed'),
-                      datasets: [
-                        {
-                          label: 'Top Customers',
-                          data: topCustomers.map((item: any) => item.total),
-                          backgroundColor: ['#06b6d4', '#10b981', '#f59e0b', '#ef4444'],
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      plugins: { legend: { position: 'right' } },
-                      maintainAspectRatio: false,
-                    }}
-                  />
-                </div>
-              )}
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <p className="text-sm text-green-600">Total Sales</p>
+              <p className="text-xl font-bold">{totalSales}</p>
             </div>
+            <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+              <p className="text-sm text-purple-600">Total Profit</p>
+              <p className="text-xl font-bold">R {totalProfit.toFixed(2)}</p>
+            </div>
+            <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+              <p className="text-sm text-orange-600">Margin</p>
+              <p className="text-xl font-bold">{totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0}%</p>
+            </div>
+          </div>
 
-            <div className="flex-1 mt-3">
-              <MOLTable<SalesReport>
-                tableHeaders={tableHeaders}
-                data={invoices || []}
-                getKey={(item) => item?._id}
-                onEdit={undefined}
-                onDelete={undefined}
+          {/* Chart Section */}
+          {chartData && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <ATMChart 
+                data={chartData} 
+                type={selectedReportType === 'OUTLET' ? 'bar' : 'line'}
+                height={300}
+                options={{
+                  responsive: true,
+                  plugins: {
+                    legend: { position: 'top' },
+                    title: {
+                      display: true,
+                      text: `Sales Overview - ${selectedReportType}`,
+                    },
+                  },
+                }}
+              />
+            </div>
+          )}
+
+          {/* Table Section */}
+          <div className="flex flex-col overflow-auto border rounded border-slate-300 mt-4">
+            <div className="flex-1">
+              <MOLTable
+                tableHeaders={getTableHeaders()}
+                data={reportData || []}
+                getKey={(item) => item?._id || item?.id || Math.random().toString()}
                 isLoading={isLoading}
               />
             </div>
 
+            {/* Pagination */}
             <ATMPagination
-              totalPages={totalPages}
-              rowCount={(data as any)?.totalCount}
-              rows={invoices || []}
+              totalPages={totalPages || 1}
+              rowCount={totalData || 0}
+              rows={reportData || []}
             />
           </div>
-        </Authorization>
-
-        {invoices.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 text-lg font-semibold">
-            <span>Total Sales Amount: R {totalAmount?.toFixed(2)}</span>
-            <ATMButton onClick={() => handleExportCSV()}>
-              Export CSV
-            </ATMButton>
-          </div>
-        )}
-
-        {open && selectedInvoice && (
-          <ATMDialog onClose={() => setOpen(false)}>
-            <div className="p-6 w-[600px] max-h-[90vh] overflow-y-auto bg-white rounded-xl shadow-lg">
-              <div className="flex justify-between items-center border-b pb-3 mb-4">
-                <h2 className="text-xl font-bold text-gray-800">Invoice Details</h2>
-                <button
-                  className="text-gray-500 hover:text-gray-700"
-                  onClick={() => setOpen(false)}
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-                <div className="space-y-1">
-                  <p><span className="font-medium">Invoice No:</span> {selectedInvoice.invoiceNumber || "-"}</p>
-                  <p><span className="font-medium">Customer:</span> {selectedInvoice.customerName || "Walk-in"}</p>
-                  <p><span className="font-medium">Phone:</span> {selectedInvoice.customerPhone || "-"}</p>
-                </div>
-                <div className="space-y-1 text-right">
-                  <p><span className="font-medium">Date:</span> {new Date(selectedInvoice.createdAt).toLocaleString()}</p>
-                  <p><span className="font-medium">Outlet:</span> {selectedInvoice.outletName}</p>
-                  <p><span className="font-medium">Status:</span>
-                    {selectedInvoice.balanceDue > 0 ? (
-                      <span className="ml-1 text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded text-xs">Unpaid</span>
-                    ) : (
-                      <span className="ml-1 text-green-700 bg-green-100 px-2 py-0.5 rounded text-xs">Paid</span>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              {selectedInvoice.items?.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="font-semibold mb-2 text-gray-700">Items</h3>
-                  <table className="w-full border text-sm rounded-lg overflow-hidden">
-                    <thead className="bg-gray-100 text-gray-700">
-                      <tr>
-                        <th className="border px-3 py-2 text-left">Name</th>
-                        <th className="border px-3 py-2 text-center">Qty</th>
-                        <th className="border px-3 py-2 text-right">Price</th>
-                        <th className="border px-3 py-2 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedInvoice.items.map((item: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="border px-3 py-2">{item.itemName}</td>
-                          <td className="border px-3 py-2 text-center">{item.quantity}</td>
-                          <td className="border px-3 py-2 text-right">{item.sellingPrice}</td>
-                          <td className="border px-3 py-2 text-right">{item.sellingPrice * item.quantity}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              <div className="mb-4">
-                <h3 className="font-semibold mb-2 text-gray-700">Discounts</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {[
-                    { label: 'Coupon', value: selectedInvoice.couponDiscount },
-                    { label: 'Gift Card', value: selectedInvoice.giftCardDiscount },
-                    { label: 'Cashback', value: selectedInvoice.cashBackDiscount },
-                    { label: 'Loyalty', value: selectedInvoice.loyaltyPointsDiscount },
-                    { label: 'Referral', value: selectedInvoice.referralDiscount },
-                  ].map((d, i) => (
-                    <div
-                      key={i}
-                      className="flex justify-between px-3 py-1 border rounded-md bg-gray-50"
-                    >
-                      <span>{d.label}</span>
-                      <span className={d.value > 0 ? "font-semibold text-green-600" : "text-gray-400"}>
-                        {d.value > 0 ? `R${d.value}` : "-"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t pt-3 text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>R {selectedInvoice.totalAmount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Amount Paid</span>
-                  <span className="text-green-600">R {selectedInvoice.amountPaid}</span>
-                </div>
-                <div className="flex justify-between font-semibold">
-                  <span>Balance Due</span>
-                  <span className={selectedInvoice.balanceDue > 0 ? "text-red-600" : "text-green-600"}>
-                    R {selectedInvoice.balanceDue}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </ATMDialog>
-        )}
-      </div>
-    </>
-  )
+        </div>
+      </Authorization>
+    </div>
+  );
 };
 
 export default SalesReportPage;

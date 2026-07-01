@@ -20,6 +20,7 @@ import {
   eachDayOfInterval,
   startOfDay,
 } from "date-fns";
+import { buildDateQuery, calculateTotals, fetchSalesData, getHourlyData, getPaymentModeBreakdown, getTopCustomers, getTopOutletss, getTopProductsss, groupByCustomer, groupByOutlet, groupByPromotion, groupByRegister, groupByUser, prepareChartData } from "./analytics.service";
 
 export const getDateFilterQuery = (
   dateFilter: DateFilter | null,
@@ -1264,23 +1265,117 @@ const getOutletReportByDateRange = async (start: any, end: any) => {
 };
 
 //
-const getOutletReportData = async (reportDuration: string, startDate: string, endDate: string) => {
-  //
-  if (reportDuration === "MONTHLY") {
-    return await getMonthlyOutletReport();
-  }
+export const getOutletReportData = async (
+  reportDuration: string,
+  startDate: string,
+  endDate: string,
+  reportType: string,
+  measure: string,
+  comparison: string,
+  page: number,
+  limit: number,
+  sortBy: string,
+  sortOrder: string
+) => {
+  try {
 
-  //
-  if (reportDuration === "WEEKLY") {
-    return await getWeeklyOutletReport();
-  }
+    console.log('--------ddddddd')
+    // Build date query
+    const query = buildDateQuery(
+      reportDuration,
+      startDate,
+      endDate
+    );
 
-  //
-  if (reportDuration === "DAILY") {
-    return await getDailyOutletReport();
-  }
-  if (startDate && endDate) {
-    return await getOutletReportByDateRange(startDate, endDate)
+    // Get data
+    let data = await fetchSalesData(query);
+
+    // Report type filtering/grouping
+    switch (reportType) {
+      case "OUTLET":
+        data = await groupByOutlet(data);
+        break;
+
+      case "CUSTOMER":
+        data = await groupByCustomer(data);
+        break;
+
+      case "USER":
+        data = await groupByUser(data);
+        break;
+
+      case "REGISTER":
+        data = await groupByRegister(data);
+        break;
+
+      case "PROMOTION":
+        data = await groupByPromotion(data);
+        break;
+
+      default:
+        break;
+    }
+
+    // Sorting
+    data.sort((a: any, b: any) => {
+      const aVal = a?.[sortBy] || 0;
+      const bVal = b?.[sortBy] || 0;
+
+      return sortOrder === "asc"
+        ? aVal - bVal
+        : bVal - aVal;
+    });
+
+    const totalRecords = data.length;
+
+    // Pagination
+    const startIndex = (page - 1) * limit;
+    const paginatedData = data.slice(
+      startIndex,
+      startIndex + limit
+    );
+
+    const totals = calculateTotals(data);
+
+    return {
+      reportData: paginatedData,
+      totalRecords,
+      currentPage: page,
+      totalPages: Math.ceil(totalRecords / limit),
+
+      totalRevenue: totals.revenue,
+      totalSales: totals.saleCount,
+      totalProfit: totals.grossProfit,
+      totalCost: totals.cost,
+      totalTax: totals.tax,
+      margin: totals.margin,
+      avgItemsPerSale: totals.avgItemsPerSale,
+
+      chartData: prepareChartData(
+        data,
+        reportDuration,
+        reportType
+      ),
+
+      paymentModeBreakdown:
+        getPaymentModeBreakdown(data),
+
+      topCustomers: getTopCustomers(data),
+
+      topOutlet: getTopOutletss(data),
+
+      topProducts: getTopProductsss(data),
+
+      hourlyData: getHourlyData(data),
+
+      status: true,
+    };
+  } catch (error) {
+    console.error(
+      "Error in getOutletReportData:",
+      error
+    );
+    throw error;
   }
 };
 //
@@ -1292,6 +1387,5 @@ export {
   getDailyOutletReport,
   getWeeklyOutletReport,
   getMonthlyOutletReport,
-  getOutletReportData,
   getDailyOutletReportSingleDay,
 };

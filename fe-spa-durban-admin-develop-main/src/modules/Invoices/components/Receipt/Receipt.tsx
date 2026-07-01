@@ -163,7 +163,7 @@ const Receipt = () => {
     str
       ?.toLowerCase()
       .split(' ')
-      .map((word: any) => word.charAt(0).toUpperCase() + word.slice(1))
+      .map((word: any) => word?.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
 
   // console.log('-----',`${process.env.REACT_APP_BASE_URL}/${companyData?.data?.logo}`)

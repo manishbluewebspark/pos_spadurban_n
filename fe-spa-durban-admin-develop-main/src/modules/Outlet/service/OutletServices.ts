@@ -68,24 +68,29 @@ export const outletApi = apiSlice.injectEndpoints({
         };
       },
     }),
-    getSalesReportByOutlet: builder.query({
-      query: ({ outletId, startDate, endDate, page = 1, limit = 10, sortBy, sortOrder }) => {
-        const params = new URLSearchParams({
-          outletId,
-          startDate,
-          endDate,
-          page: String(page),
-          limit: String(limit),
-          sortBy,
-          sortOrder
-        });
+   // OutletServices.ts - Update the query
+getSalesReportByOutlet: builder.query({
+  query: ({ outletId, startDate, endDate, page = 1, limit = 10, sortBy, sortOrder, reportDuration, reportType, measure, comparison }) => {
+    const params = new URLSearchParams({
+      outletId: outletId || '',
+      startDate: startDate || '',
+      endDate: endDate || '',
+      page: String(page),
+      limit: String(limit),
+      sortBy: sortBy || 'revenue',
+      sortOrder: sortOrder || 'desc',
+      reportDuration: reportDuration || 'DAILY',
+      reportType: reportType || 'SALES_SUMMARY',
+      measure: measure || 'AVG_ITEMS_PER_SALE',
+      comparison: comparison || 'NO_COMPARISON'
+    });
 
-        return {
-          url: `/analytics/new/outlet/sales-report?${params.toString()}`,
-          method: 'GET',
-        };
-      },
-    }),
+    return {
+      url: `/analytics/new/outlet/sales-report?${params.toString()}`,
+      method: 'GET',
+    };
+  },
+}),
     // ================================
     // RTK QUERY API
     // ================================

@@ -231,11 +231,28 @@ const getTopOutlet = catchAsync(
 const getOutletReport = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
     const reportDuration = req.query.reportDuration as string;
-    const startDate = req.query.startDate as string
-    const endDate = req.query.endDate as string
+    const startDate = req.query.startDate as string;
+    const endDate = req.query.endDate as string;
+    const reportType = req.query.reportType as string;
+    const measure = req.query.measure as string;
+    const comparison = req.query.comparison as string;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const sortBy = req.query.sortBy as string || 'revenue';
+    const sortOrder = req.query.sortOrder as string || 'desc';
 
-    let result = await analyticsService.getOutletReportData(reportDuration, startDate, endDate);
-    //
+    let result = await analyticsService.getOutletReportData(
+      reportDuration, 
+      startDate, 
+      endDate,
+      reportType,
+      measure,
+      comparison,
+      page,
+      limit,
+      sortBy,
+      sortOrder
+    );
 
     res.status(httpStatus.OK).send({
       message: "Successfull!",
@@ -244,6 +261,7 @@ const getOutletReport = catchAsync(
     });
   }
 );
+
 
 const getOutletDailyReport = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
