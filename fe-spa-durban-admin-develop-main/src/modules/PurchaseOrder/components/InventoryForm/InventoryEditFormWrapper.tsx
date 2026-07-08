@@ -19,7 +19,7 @@ const InventoryEditFormWrapper = () => {
 
   const { data: inventorydata } = useGetInventoryByPurchaseOrderIdQuery(id);
 
-  console.log('-------', data)
+  // console.log('-------', data)
 
   const [updateInventory] = useUpdateInventoryMutation();
 
@@ -50,7 +50,7 @@ const InventoryEditFormWrapper = () => {
   };
 
 
-  console.log('----initialValues', initialValues)
+  // console.log('----initialValues', initialValues)
 
   const validationSchema = object().shape({});
 
@@ -75,7 +75,7 @@ const InventoryEditFormWrapper = () => {
     { resetForm, setSubmitting }: FormikHelpers<any>,
   ) => {
 
-    console.log('--------values',values)
+    // console.log('--------values',values)
     updateInventory({ inventoryData: getFormattedData(values?.products) }).then(
       (res: any) => {
         if (res?.error) {

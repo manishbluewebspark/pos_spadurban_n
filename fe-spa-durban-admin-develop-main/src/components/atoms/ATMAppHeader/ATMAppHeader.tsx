@@ -903,7 +903,7 @@ const ATMAppHeader = ({
         {/* Done */}
         <button
           onClick={() => {
-            console.log("Payout Amount:", display);
+            // console.log("Payout Amount:", display);
             setShowCalculatorModal(false);
           }}
           className="bg-primary text-white p-3 rounded font-semibold"

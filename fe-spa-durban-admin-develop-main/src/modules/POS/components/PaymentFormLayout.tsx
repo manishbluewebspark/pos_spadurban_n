@@ -91,7 +91,7 @@ const PaymentFormLayout = ({
     );
   }, [values.amountReceived]);
 
-  console.log('-------calculateTotalReceived', calculateTotalReceived())
+  // console.log('-------calculateTotalReceived', calculateTotalReceived())
   const isLastPaymentModeFilled = () => {
     if (values?.amountReceived?.length === 0) {
       return true;
@@ -179,7 +179,7 @@ const isButtonDisabled =
                 <div className="flex items-center justify-between p-1 text-xs font-regular">
                   <div className=" text-neutral-40"> Sub Total</div>{' '}
                   <div className="font-medium">
-                    {CURRENCY} {payAbleAmount.toFixed(2)}
+                    {CURRENCY} {payAbleAmount?.toFixed(2)}
                   </div>
                 </div>
                 {/* <div className="">
@@ -217,7 +217,7 @@ const isButtonDisabled =
                         <div className="flex flex-col items-end gap-1">
                           <span className="font-medium text-green-600">
                             - {CURRENCY}{' '}
-                            {previewData?.invoiceData?.couponDiscount.toFixed(
+                            {previewData?.invoiceData?.couponDiscount?.toFixed(
                               2,
                             )}
                           </span>
@@ -255,7 +255,7 @@ const isButtonDisabled =
                         </div>
                         <span className="font-medium text-green-600">
                           - {CURRENCY}{' '}
-                          {previewData?.invoiceData?.giftCardDiscount.toFixed(
+                          {previewData?.invoiceData?.giftCardDiscount?.toFixed(
                             2,
                           )}
                         </span>
@@ -460,7 +460,7 @@ const isButtonDisabled =
                         </div>
                         <span className="font-medium text-green-600">
                           - {CURRENCY}{' '}
-                          {previewData?.invoiceData?.usedCashBackAmount.toFixed(
+                          {previewData?.invoiceData?.usedCashBackAmount?.toFixed(
                             2,
                           )}
                         </span>
@@ -481,7 +481,7 @@ const isButtonDisabled =
                           setFieldValue(
                             'usedCashBackAmount',
                             newUseCashBackAmount
-                              ? cashBackAmount.toFixed(2)
+                              ? cashBackAmount?.toFixed(2)
                               : 0,
                           );
                         }}
@@ -491,7 +491,7 @@ const isButtonDisabled =
                       />
                       <div className="text-[12px] font-medium text-blue-800">
                         {!values?.useCashBackAmount && cashBackAmount
-                          ? cashBackAmount.toFixed(2)
+                          ? cashBackAmount?.toFixed(2)
                           : null}
                         {values?.useCashBackAmount && (
                           <ATMNumberField
@@ -518,12 +518,12 @@ const isButtonDisabled =
               {isPreviewed && previewData?.pointsToAdd ? (
                 <div className="px-4 py-1 text-xs font-medium text-green-900">
                   Loyalty Points Earned :{' '}
-                  {(previewData?.pointsToAdd).toFixed(2)}
+                  {(previewData?.pointsToAdd)?.toFixed(2)}
                 </div>
               ) : null}
               {isPreviewed && previewData?.totalCashBack ? (
                 <div className="px-4 py-1 text-xs font-medium text-green-900">
-                  Cash Back Earned : {(previewData?.totalCashBack).toFixed(2)}
+                  Cash Back Earned : {(previewData?.totalCashBack)?.toFixed(2)}
                 </div>
               ) : null}
 
@@ -534,7 +534,7 @@ const isButtonDisabled =
                     <div className="flex-1 font-medium ">Payable Amount</div>
                     <div className="min-w-[60px]  font-medium text-slate-800 text-right">
                       {CURRENCY}{' '}
-                      {previewData?.invoiceData?.totalAmount.toFixed(2) || 0}
+                      {previewData?.invoiceData?.totalAmount?.toFixed(2) || 0}
                     </div>
                   </div>
                 ) : (
@@ -718,7 +718,7 @@ const isButtonDisabled =
                   {Math.abs(
                     previewData?.invoiceData?.totalAmount -
                     calculateTotalReceived() || 0,
-                  ).toFixed(2)}
+                  )?.toFixed(2)}
                 </div>
               </div>
             </div>
@@ -755,7 +755,7 @@ const isButtonDisabled =
                         showToast("error", "Transaction number is required for EFT.");
                         return;
                       }
-                      console.log('--------------currentIndexForEFT-----', currentIndexForEFT)
+                      // console.log('--------------currentIndexForEFT-----', currentIndexForEFT)
 
                       // Set the value in Formik
                       setFieldValue(`amountReceived.${currentIndexForEFT}.txnNumber`, eftTxnNumber);

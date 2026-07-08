@@ -60,7 +60,7 @@ const AddCustomerGroupFormWrapper = (props: Props) => {
     //   };
     // }
 
-    console.log('------formattedValues', formattedValues)
+    // console.log('------formattedValues', formattedValues)
     addCashBack(formattedValues).then((res: any) => {
       if (res?.error) {
         showToast('error', res?.error?.data?.message);

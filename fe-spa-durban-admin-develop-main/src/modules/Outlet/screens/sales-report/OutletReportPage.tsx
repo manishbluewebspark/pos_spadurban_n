@@ -45,7 +45,7 @@ const OutletReportPage = () => {
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
     useFilterPagination(['outletIds', 'customerId', 'reportDuration']);
   const [searchParams, setSearchParams] = useSearchParams();
-  console.log('------appliedFilters', appliedFilters)
+  // console.log('------appliedFilters', appliedFilters)
   const outletIdss = appliedFilters?.map(f => f.value);
   const { outlets } = useSelector((state: RootState) => state.auth);
   const { data, isLoading, error } = useGetSalesReportByOutletQuery({

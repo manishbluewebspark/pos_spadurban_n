@@ -21,6 +21,24 @@ export const couponApi = apiSlice.injectEndpoints({
         };
       },
     }),
+     getCouponsByCustomer: builder.query({
+      providesTags: ['coupon'],
+      query: (customerId) => {
+        return {
+          url: `/coupon/customer/${customerId}`,
+          method: 'GET',
+        };
+      },
+    }),
+      getLoyaltyHistory: builder.query({
+      providesTags: ['coupon'],
+      query: (customerId) => {
+        return {
+          url: `/coupon/loyalty-history/${customerId}`,
+          method: 'GET',
+        };
+      },
+    }),
     addCoupon: builder.mutation({
       invalidatesTags: ['coupon'],
       query: (body) => {
@@ -69,4 +87,6 @@ export const {
   useUpdateCouponMutation,
   useDeleteCouponMutation,
   useCouponStatusMutation,
+  useGetCouponsByCustomerQuery,
+  useGetLoyaltyHistoryQuery
 } = couponApi;

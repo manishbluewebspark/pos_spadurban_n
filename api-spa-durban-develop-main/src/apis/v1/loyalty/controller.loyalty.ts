@@ -259,54 +259,57 @@ const getLoyaltys = catchAsync(
 const getLoyalty = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
     const loyalty = await loyaltyService.getLoyaltyAggrigate([
-      { $match: { _id: new mongoose.Types.ObjectId(req.params.loyaltyId) } },
-      {
-        $lookup: {
-          from: "outlets",
-          localField: "businessLocation.outletId",
-          foreignField: "_id",
-          as: "outletDetails",
-          pipeline: [
-            {
-              $match: {
-                isDeleted: false,
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                name: 1,
-              },
-            },
-          ],
-        },
-      },
-      {
-        $set: {
-          businessLocation: {
-            $map: {
-              input: "$businessLocation",
-              as: "location",
-              in: {
-                $mergeObjects: [
-                  "$$location",
-                  {
-                    outletName: {
-                      $arrayElemAt: ["$outletDetails.name", 0],
-                    },
-                  },
-                ],
-              },
-            },
+  {
+    $match: {
+      _id: new mongoose.Types.ObjectId(req.params.loyaltyId),
+    },
+  },
+
+  {
+    $unwind: "$businessLocation",
+  },
+
+  {
+    $lookup: {
+      from: "outlets",
+      localField: "businessLocation.outletId",
+      foreignField: "_id",
+      as: "outletDetails",
+      pipeline: [
+        {
+          $match: {
+            isDeleted: false,
           },
         },
-      },
-      {
-        $project: {
-          outletDetails: 0, // Unwanted field hatane ke liye
+        {
+          $project: {
+            name: 1,
+          },
         },
+      ],
+    },
+  },
+
+  {
+    $set: {
+      "businessLocation.outletName": {
+        $arrayElemAt: ["$outletDetails.name", 0],
       },
-    ]);
+    },
+  },
+
+  {
+    $group: {
+      _id: "$_id",
+      loyaltyProgramName: { $first: "$loyaltyProgramName" },
+      businessLocation: { $push: "$businessLocation" },
+      isDeleted: { $first: "$isDeleted" },
+      isActive: { $first: "$isActive" },
+      createdAt: { $first: "$createdAt" },
+      updatedAt: { $first: "$updatedAt" },
+    },
+  },
+]);
 
     if (!loyalty) {
       throw new ApiError(httpStatus.NOT_FOUND, "Loyalty not found");

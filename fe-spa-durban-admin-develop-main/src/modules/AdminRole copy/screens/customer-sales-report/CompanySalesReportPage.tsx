@@ -50,7 +50,7 @@ const CompanySalesReportPage = () => {
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue,appliedFilters } =
     useFilterPagination(['outletsId', 'customerId']);
 
-  console.log('----appliedFilters-',appliedFilters?.[0]?.value)
+  // console.log('----appliedFilters-',appliedFilters?.[0]?.value)
   const [searchParams, setSearchParams] = useSearchParams();
   const { outlets } = useSelector((state: RootState) => state.auth);
   const queryParams = useMemo(() => ({

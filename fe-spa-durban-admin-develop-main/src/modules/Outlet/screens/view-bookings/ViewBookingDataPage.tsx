@@ -43,7 +43,7 @@ const ViewBookingDataPage = () => {
     useFilterPagination(['outletsId', 'customerId']);
   const [searchParams, setSearchParams] = useSearchParams();
   const { outlets } = useSelector((state: RootState) => state.auth);
-  console.log('-------outlets', outlets)
+  // console.log('-------outlets', outlets)
   // const { data, isLoading, error, totalData, totalPages } = useGetAllBookingsQuery({
   //   // outletId: appliedFilters?.[0]?.value,
   //   startDate: dateFilter?.start_date,
@@ -69,7 +69,7 @@ const ViewBookingDataPage = () => {
   );
 
 
-  console.log('-----data', data)
+  // console.log('-----data', data)
 
   const { data: chartData } = useGetBookingChartDataQuery({
     outletId: appliedFilters?.[0]?.value,
@@ -77,7 +77,7 @@ const ViewBookingDataPage = () => {
     endDate: dateFilter?.end_date || format(new Date(), 'yyyy-MM-dd'),
   });
 
-  console.log('-----chartData', chartData)
+  // console.log('-----chartData', chartData)
 
 
   const topByServices = chartData?.charts?.topByServices || [];

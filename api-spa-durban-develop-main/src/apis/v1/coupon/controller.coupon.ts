@@ -190,6 +190,36 @@ const getCoupon = catchAsync(
   }
 )
 
+const getCouponsByCustomer = catchAsync(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const coupon = await couponService.getCouponByCustomerId(req.params.customerId)
+    if (!coupon) {
+      throw new ApiError(httpStatus.NOT_FOUND, "Coupon not found")
+    }
+    return res.status(httpStatus.OK).send({
+      message: "Successfull.",
+      data: coupon,
+      status: true,
+      code: "OK",
+      issue: null,
+    })
+  }
+)
+
+const getLoyaltyHistory = catchAsync(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const history = await couponService.getLoyaltyHistory(req.params.customerId);
+
+    return res.status(httpStatus.OK).send({
+      message: "Successfull.",
+      data: history,
+      status: true,
+      code: "OK",
+      issue: null,
+    });
+  }
+);
+
 const updateCoupon = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
     const userId = req?.body?.user
@@ -261,4 +291,6 @@ export {
   updateCoupon,
   deleteCoupon,
   toggleCouponStatus,
+  getCouponsByCustomer,
+  getLoyaltyHistory
 }

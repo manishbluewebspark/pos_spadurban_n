@@ -17,7 +17,7 @@ const TreatmentAddFormWrapper = ({ onClose, onSave }: Props) => {
       price,
     };
 
-    console.log("Treatment Data:", data);
+    // console.log("Treatment Data:", data);
 
     onSave(data); // parent ko data bhejna
     onClose(); // modal close

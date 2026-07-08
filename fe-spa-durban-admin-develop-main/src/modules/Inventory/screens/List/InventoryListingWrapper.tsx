@@ -47,7 +47,7 @@ const InventoryListingWrapper = () => {
   useEffect(()=>{
     refetch()
   },[])
-  console.log('----data', data)
+  // console.log('----data', data)
   const filters: FilterType[] = [
     {
       filterType: 'multi-select',

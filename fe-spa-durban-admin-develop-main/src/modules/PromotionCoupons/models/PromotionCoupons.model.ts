@@ -1,4 +1,5 @@
 export type PromotionCoupons = {
+  couponCode:string;
   discountByPercentage: string;
   status: string;
   _id: string;

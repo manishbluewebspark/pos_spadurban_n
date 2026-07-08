@@ -176,7 +176,7 @@ const GiftCardFormLayout = ({
     async (inputValue: any, callback: (arg0: any[]) => void) => {
       setLoading(true);
       const options = await fetchOptions(inputValue);
-      console.log('------options', options)
+      // console.log('------options', options)
       setLoading(false);
       callback(options);
     },
