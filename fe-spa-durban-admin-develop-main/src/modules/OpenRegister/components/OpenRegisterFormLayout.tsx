@@ -38,7 +38,7 @@ const OpenRegisterFormLayout = ({
     formikProps;
   const formHeading = formType === 'OPEN' ? 'Open Register' : 'Edit Register';
 
-  console.log('----openRegister-', openRegister)
+  // console.log('----openRegister-', openRegister)
   return (
     <MOLFormDialog
       title={formHeading}

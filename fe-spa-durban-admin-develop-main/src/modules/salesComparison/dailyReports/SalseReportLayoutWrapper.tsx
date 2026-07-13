@@ -45,7 +45,7 @@ const SalseReportLayoutWrapper = ({
   notes,
   onRefundNoteSave
 }: Props) => {
-  console.log('-----rowData',rowData)
+  // console.log('-----rowData',rowData)
   const da = rowData?.sales;
   return (
     <MOLFormDialog

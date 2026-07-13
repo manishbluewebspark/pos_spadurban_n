@@ -395,6 +395,7 @@ const createInvoice = catchAsync(
     } catch (error) {
       console.log('-----error', error)
     }
+    
     return res.status(httpStatus.CREATED).send({
       message: "Added successfully!",
       data: invoice,

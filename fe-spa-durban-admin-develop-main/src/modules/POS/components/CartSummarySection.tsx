@@ -153,7 +153,7 @@ const CartSummarySection = ({
 }: Props) => {
 
 
-  console.log('-----cartItems',cartItems)
+  // console.log('-----cartItems',cartItems)
   const [searchParams, setSearchParams] = useSearchParams();
   const bookingCustomer = searchParams.get('customer');
   const [loading, setLoading] = useState(false);
@@ -425,7 +425,7 @@ const CartSummarySection = ({
     async (inputValue: any, callback: (arg0: any[]) => void) => {
       setLoading(true);
       const options = await fetchOptions(inputValue);
-      console.log('------options', options)
+      // console.log('------options', options)
       setLoading(false);
       callback(options);
     },

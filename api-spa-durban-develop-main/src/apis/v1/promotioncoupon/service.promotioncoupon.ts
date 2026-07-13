@@ -170,16 +170,33 @@ const getOneByMultiField = async (
   return PromotionCoupon.findOne({ ...filter, isDeleted: false });
 };
 
+// const getPromotionCouponById = async (
+//   id: string | number
+// ): Promise<PromotionCouponDocument | null> => {
+//   if (typeof id === "string" || typeof id === "number") {
+//     return PromotionCoupon.findById({
+//       _id: new mongoose.Types.ObjectId(id),
+//       isDeleted: false,
+//     });
+//   }
+//   return null;
+// };
+
 const getPromotionCouponById = async (
   id: string | number
 ): Promise<PromotionCouponDocument | null> => {
-  if (typeof id === "string" || typeof id === "number") {
-    return PromotionCoupon.findById({
-      _id: new mongoose.Types.ObjectId(id),
-      isDeleted: false,
+  return PromotionCoupon.findOne({
+    _id: new mongoose.Types.ObjectId(id),
+    isDeleted: false,
+  })
+    .populate({
+      path: "customerId",
+      select: "customerName phone email",
+    })
+    .populate({
+      path: "serviceId",
+      select: "itemName",
     });
-  }
-  return null;
 };
 
 const aggregateAllCoupons = async (customerId: string, items: string[]) => {

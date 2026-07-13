@@ -20,131 +20,108 @@ const sendInvoice = catchAsync(async (req: AuthenticatedRequest, res: Response) 
   if (!mongoose.Types.ObjectId.isValid(invoiceId)) {
     throw new ApiError(httpStatus.BAD_REQUEST, "Invalid invoiceId.");
   }
-
-  // ✅ Find invoice and join customer
-  // const invoiceExist = await invoiceService.getInvoiceAggrigate([
-  //   {
-  //     $match: {
-  //       _id: new mongoose.Types.ObjectId(invoiceId),
-  //     },
-  //   },
-  //   {
-  //     $lookup: {
-  //       from: "customers", //new code
-  //       localField: "customerId",
-  //       foreignField: "_id",
-  //       as: "customer",
-  //     },
-  //   },
-  //   {
-  //     $addFields: {
-  //       customer: { $arrayElemAt: ["$customer", 0] }, // allow null instead of failing
-  //     },
-  //   },
-  // ]);
-
   const invoiceExist = await invoiceService.getInvoiceAggrigate([
-  {
-    $match: {
-      _id: new mongoose.Types.ObjectId(invoiceId),
-    },
-  },
-  // Join customer
-  {
-    $lookup: {
-      from: "customers",
-      localField: "customerId",
-      foreignField: "_id",
-      as: "customer",
-    },
-  },
-  {
-    $addFields: {
-      customer: { $arrayElemAt: ["$customer", 0] },
-    },
-  },
-  // Join outlet
-  {
-    $lookup: {
-      from: "outlets",
-      localField: "outletId",
-      foreignField: "_id",
-      as: "outlet",
-    },
-  },
-  {
-    $addFields: {
-      outlet: { $arrayElemAt: ["$outlet", 0] },
-    },
-  },
-  // Join company
-  {
-    $lookup: {
-      from: "companies",
-      localField: "companyId",
-      foreignField: "_id",
-      as: "company",
-    },
-  },
-  {
-    $addFields: {
-      company: { $arrayElemAt: ["$company", 0] },
-    },
-  },
-  // Lookup payment mode names from amountReceived.paymentModeId
-  {
-    $unwind: {
-      path: "$amountReceived",
-      preserveNullAndEmptyArrays: true,
-    },
-  },
-  {
-    $lookup: {
-      from: "paymentmodes",
-      localField: "amountReceived.paymentModeId",
-      foreignField: "_id",
-      as: "amountReceived.paymentMode",
-    },
-  },
-  {
-    $addFields: {
-      "amountReceived.paymentMode": {
-        $arrayElemAt: ["$amountReceived.paymentMode", 0],
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(invoiceId),
       },
     },
-  },
-  {
-    $group: {
-      _id: "$_id",
-      doc: { $first: "$$ROOT" },
-      amountReceived: { $push: "$amountReceived" },
+    // Join customer
+    {
+      $lookup: {
+        from: "customers",
+        localField: "customerId",
+        foreignField: "_id",
+        as: "customer",
+      },
     },
-  },
-  {
-    $addFields: {
-      "doc.amountReceived": "$amountReceived",
+    {
+      $addFields: {
+        customer: { $arrayElemAt: ["$customer", 0] },
+      },
     },
-  },
-  {
-    $replaceRoot: {
-      newRoot: "$doc",
+    // Join outlet
+    {
+      $lookup: {
+        from: "outlets",
+        localField: "outletId",
+        foreignField: "_id",
+        as: "outlet",
+      },
     },
-  },
-  // Extract only itemName from items array
-  {
-    $addFields: {
-      items: {
-        $map: {
-          input: "$items",
-          as: "item",
-          in: {
-            itemName: "$$item.itemName",
+    {
+      $addFields: {
+        outlet: { $arrayElemAt: ["$outlet", 0] },
+      },
+    },
+    // Join company
+    {
+      $lookup: {
+        from: "companies",
+        localField: "companyId",
+        foreignField: "_id",
+        as: "company",
+      },
+    },
+    {
+      $addFields: {
+        company: { $arrayElemAt: ["$company", 0] },
+      },
+    },
+    // Lookup payment mode names from amountReceived.paymentModeId
+    {
+      $unwind: {
+        path: "$amountReceived",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $lookup: {
+        from: "paymentmodes",
+        localField: "amountReceived.paymentModeId",
+        foreignField: "_id",
+        as: "amountReceived.paymentMode",
+      },
+    },
+    {
+      $addFields: {
+        "amountReceived.paymentMode": {
+          $arrayElemAt: ["$amountReceived.paymentMode", 0],
+        },
+      },
+    },
+    {
+      $group: {
+        _id: "$_id",
+        doc: { $first: "$$ROOT" },
+        amountReceived: { $push: "$amountReceived" },
+      },
+    },
+    {
+      $addFields: {
+        "doc.amountReceived": "$amountReceived",
+      },
+    },
+    {
+      $replaceRoot: {
+        newRoot: "$doc",
+      },
+    },
+    // Extract only itemName from items array
+    {
+      $addFields: {
+        items: {
+          $map: {
+            input: "$items",
+            as: "item",
+            in: {
+              itemName: "$$item.itemName",
+            },
           },
         },
       },
     },
-  },
-]);
+  ]);
 
 
   if (!invoiceExist || !invoiceExist.length) {
@@ -172,18 +149,18 @@ const sendInvoice = catchAsync(async (req: AuthenticatedRequest, res: Response) 
   }
 
   const formattedDate = new Date(invoice?.invoiceDate).toLocaleDateString('en-IN', {
-  day: '2-digit',
-  month: 'long', // or 'short' or '2-digit'
-  year: 'numeric',
-});
+    day: '2-digit',
+    month: 'long', // or 'short' or '2-digit'
+    year: 'numeric',
+  });
 
 
   // ✅ Prepare email data
   const buffer = fs.readFileSync(file.path);
 
   const emailData = {
-  emailSubject: 'Your SPA Payment is Confirmed – Invoice Attached',
-  emailBody: `
+    emailSubject: 'Your SPA Payment is Confirmed – Invoice Attached',
+    emailBody: `
 <table style="width: 100%; font-family: Arial, sans-serif; font-size: 16px; color: #333;">
   <tr>
     <td>
@@ -210,6 +187,21 @@ const sendInvoice = catchAsync(async (req: AuthenticatedRequest, res: Response) 
         contact our support team.
       </p>
 
+      <hr style="border:none;border-top:1px solid #e5e5e5;margin:25px 0;" />
+
+<p style="margin-top:20px;font-size:15px;color:#555;line-height:1.6;">
+  <strong>Loyalty Rewards:</strong><br />
+  Check your available loyalty points, reward coupons, gift cards, and exclusive offers by visiting the link below.
+  <br /><br />
+ <a
+  href="${process.env.FRONTEND_URL}/rewards/LoyaltyPage?customerId=${invoice.customer._id}"
+  style="color:#0d6efd;text-decoration:underline;font-weight:600;"
+>
+  Click here
+</a>
+  to view your Loyalty Rewards.
+</p>
+
       <p>We look forward to serving you again.</p>
 
       <p>
@@ -222,23 +214,24 @@ const sendInvoice = catchAsync(async (req: AuthenticatedRequest, res: Response) 
   </tr>
 </table>
 `.trim(),
-  sendTo: invoice.customer.email,
-  sendFrom: config.smtp_mail_email,
-  attachments: [
-    {
-      filename: `${invoice.invoiceNumber}.pdf`,
-      content: buffer,
-      path: file.path,
-      encoding: 'base64',
-      contentType: file.mimetype,
-    },
-  ],
-};
+    sendTo: invoice.customer.email,
+    sendFrom: config.smtp_mail_email,
+    attachments: [
+      {
+        filename: `${invoice.invoiceNumber}.pdf`,
+        content: buffer,
+        path: file.path,
+        encoding: 'base64',
+        contentType: file.mimetype,
+      },
+    ],
+  };
 
 
 
-  const sendEmailResult = await sendEmail(emailData,invoice?.outlet);
+  const sendEmailResult = await sendEmail(emailData, invoice?.outlet);
 
+  console.log('--------sendEmailResult', sendEmailResult)
   return res.status(httpStatus.CREATED).send({
     message: "Invoice sent!",
     data: sendEmailResult,
@@ -295,7 +288,7 @@ const sendEmailBYEmail = catchAsync(async (req: AuthenticatedRequest, res: Respo
     ],
   };
 
-  const sendEmailResult = await sendEmail(emailData,outlet);
+  const sendEmailResult = await sendEmail(emailData, outlet);
 
   return res.status(httpStatus.CREATED).send({
     message: "Invoice sent to outlet email!",

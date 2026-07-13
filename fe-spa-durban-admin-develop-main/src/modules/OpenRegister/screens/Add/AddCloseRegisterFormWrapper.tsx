@@ -27,7 +27,7 @@ const AddCloseRegisterFormWrapper = ({ onClose }: Props) => {
   const [sendPdfBYEmail] = useSendPdfBYEmailMutation();
   const [showSummary, setShowSummary] = useState(false);
 
-  console.log('-----onClose',onClose)
+  // console.log('-----onClose',onClose)
   const { userData, outlet, outlets } = useSelector(
     (state: RootState) => state.auth,
   );
@@ -36,7 +36,7 @@ const AddCloseRegisterFormWrapper = ({ onClose }: Props) => {
     dataType: 'VIEW',
   });
 
-  console.log('data========', data);
+  // console.log('data========', data);
 
   const initialValues: PaymentMode = {
     _id: '',
@@ -197,7 +197,7 @@ const AddCloseRegisterFormWrapper = ({ onClose }: Props) => {
         //   createdAt: new Date(), // or use item.createdAt if already present
         // })) || [],
       };
-      console.log('formattedValues=======', formattedValues);
+      // console.log('formattedValues=======', formattedValues);
       const res = await closeRegister(formattedValues).unwrap(); // Proper async handling
 
       if (res?.status) {

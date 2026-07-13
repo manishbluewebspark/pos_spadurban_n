@@ -176,6 +176,13 @@ const PromotionCouponsFormLayout = ({
     },
     1000,
   );
+
+
+  const groupOptions = [
+  { _id: 'golden-member', itemName: 'Golden Member' },
+  { _id: 'silver-member', itemName: 'Silver Member' },
+  { _id: 'new-user', itemName: 'New Users' },
+];
   return (
 
 
@@ -239,20 +246,16 @@ const PromotionCouponsFormLayout = ({
             /></div>
 
             <div className="min-w-[280px] flex-1">
-              <ATMMultiSelect
-                name="groupTarget"
-                value={values?.groupTarget || []}
-                onChange={(newValue) => setFieldValue('groupTarget', newValue)}
-                label="Customer Groups"
-                options={[
-                  { _id: 'golden-member', itemName: 'Golden Member' },
-                  { _id: 'silver-member', itemName: 'Silver Member' },
-                  { _id: 'new-user', itemName: 'New Users' },
-                ]}
-                getOptionLabel={(option) => option.itemName}
-                valueAccessKey="_id"
-                placeholder="Select Customer Groups"
-              />
+             <ATMMultiSelect
+  name="groupTarget"
+  value={values.groupTarget || []}
+  onChange={(newValue) => setFieldValue("groupTarget", newValue)}
+  label="Customer Groups"
+  options={groupOptions}
+  getOptionLabel={(option) => option.itemName}
+  valueAccessKey="_id"
+  placeholder="Select Customer Groups"
+/>
             </div>
 
 
@@ -261,16 +264,18 @@ const PromotionCouponsFormLayout = ({
                 Select Customer
               </label>
               <AsyncSelect
-                cacheOptions
-                defaultOptions
-                loadOptions={debouncedLoadOptions}
-                value={values?.customerId || []}
-                onChange={(newValue) => setFieldValue('customerId', newValue)}
-                placeholder="Search..."
-                isLoading={loading}
-                isClearable
-                isMulti
-              />
+  cacheOptions
+  defaultOptions
+  loadOptions={debouncedLoadOptions}
+  value={values.customerId}
+  onChange={(newValue) => {
+    setFieldValue("customerId", newValue || []);
+  }}
+  placeholder="Search..."
+  isLoading={loading}
+  isClearable
+  isMulti
+/>
             </div>
             <div>
               <ATMDatePicker

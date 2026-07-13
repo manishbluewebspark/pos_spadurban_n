@@ -46,7 +46,7 @@ const ViewOutletGiftCardReportPage = () => {
   const { searchQuery, limit, page, dateFilter, orderBy, orderValue, appliedFilters } =
     useFilterPagination(['outletIds', 'customerId', 'reportDuration', 'searchQuery']);
   const [searchParams, setSearchParams] = useSearchParams();
-  console.log('------searchQuery', searchQuery)
+  // console.log('------searchQuery', searchQuery)
   const { outlets } = useSelector((state: RootState) => state.auth);
   const { data, isLoading, error } = useGetGiftCardReportByOutletQuery({
     // outletId: appliedFilters?.[0]?.value,
@@ -75,7 +75,7 @@ const ViewOutletGiftCardReportPage = () => {
     //     reportDuration: appliedFilters?.[2]?.value
   })
 
-  console.log('-----tableData', tableData?.data)
+  // console.log('-----tableData', tableData?.data)
 
   const giftCardTableData = tableData?.data;
   const customerInsights = data?.data?.customerInsights || [];

@@ -217,19 +217,19 @@ useEffect(() => {
 
 
 items.forEach((item) => {
-  console.log(
-    "Item bookingTreatmentsId:",
-    item.bookingTreatmentsId,
-    "Matched:",
-    treatments.includes(item.bookingTreatmentsId)
-  );
+  // console.log(
+  //   "Item bookingTreatmentsId:",
+  //   item.bookingTreatmentsId,
+  //   "Matched:",
+  //   treatments.includes(item.bookingTreatmentsId)
+  // );
 });
   // ✅ Match current page items
   const matched = items.filter((item) =>
     treatments.includes(String(item.bookingTreatmentsId))
   );
 
-  console.log("Matched This Page:", matched);
+  // console.log("Matched This Page:", matched);
 
   // ✅ Add matched to collected ref (avoid duplicates)
   matched.forEach((m) => {
@@ -251,7 +251,7 @@ items.forEach((item) => {
     sellingPrice: item.sellingPrice ?? 0,
   }));
 
-  console.log("Final Selected Items:", formatted);
+  // console.log("Final Selected Items:", formatted);
 
   setSelectedItems(formatted);
 

@@ -38,7 +38,7 @@ const OpenRegisterFormWrapper = ({ onClose }: Props) => {
     dataType: 'VIEW',
   });
 
-  console.log('------openRegisterData', openRegisterData)
+  // console.log('------openRegisterData', openRegisterData)
 
   useEffect(() => {
     refetch()

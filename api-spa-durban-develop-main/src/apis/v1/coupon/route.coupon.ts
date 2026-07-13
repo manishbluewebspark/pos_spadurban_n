@@ -6,6 +6,8 @@ import {
   updateCoupon,
   deleteCoupon,
   toggleCouponStatus,
+  getCouponsByCustomer,
+  getLoyaltyHistory,
 } from "./controller.coupon"
 import validate from "../../../middleware/validate"
 import {
@@ -184,6 +186,14 @@ router.get(
   getCoupon
 )
 
+router.get(
+  "/customer/:customerId",
+  // authenticate([UserEnum.Admin, UserEnum.Employee], TokenEnum.Access),
+  // validate(getById),
+  getCouponsByCustomer
+)
+
+router.get("/loyalty-history/:customerId",getLoyaltyHistory)
 /**
  * @swagger
  * /coupon/{couponId}:

@@ -87,6 +87,7 @@ import ViewBookingDataPage from './modules/Outlet/screens/view-bookings/ViewBook
 import ViewPaymentReportsPage from './modules/Outlet/screens/view-payment-reports/ViewPaymentReportsPage';
 import ViewSalesLedgerPage from './modules/Outlet/screens/view-sales-ledger/ViewSalesLedgerPage';
 import ViewCashMovementReportPage from './modules/Outlet/screens/sales-report/CashMovmentReport';
+import LoyaltyPage from './utils/LoyaltyPagePublic';
 
 type Props = {};
 
@@ -99,6 +100,10 @@ const PageRoutes = (props: Props) => {
     {
       path: '/rewards/claim',
       element: <ClaimPage />,
+    },
+     {
+      path: '/rewards/LoyaltyPage',
+      element: <LoyaltyPage />,
     },
     {
       path: '/invoice/receipt/:id',

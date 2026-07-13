@@ -143,7 +143,7 @@ export const getPromotionalCouponDiscount = async (
   const coupon = await PromotionCoupon.findOne({
     couponCode,
     isActive: true,
-    startDate: { $lte: today },
+    // startDate: { $lte: today },
     endDate: { $gte: today },
     customerId: { $in: [customerId] }
     // $or: [
@@ -151,6 +151,8 @@ export const getPromotionalCouponDiscount = async (
     //   { groupTarget: 'new-user' },   // optionally check if user is eligible
     // ],
   });
+
+  console.log('------coupon',coupon)
 
   if (!coupon) {
     throw new ApiError(404, 'Invalid or expired promotional coupon.');
@@ -461,13 +463,22 @@ const getDiscounts = async (
 
   // console.log('-----promotionCoupanCodeDiscount', promotionCoupanCodeDiscount)
 
+  // let totalDiscount =
+  //   couponDiscount +
+  //   giftCardDiscount +
+  //   promotionCoupanCodeDiscount +
+  //   referralDiscount +
+  //   loyaltyPointsDiscount +
+  //   usedCashBackAmountData;
+
   let totalDiscount =
-    couponDiscount +
-    giftCardDiscount +
-    promotionCoupanCodeDiscount +
-    referralDiscount +
-    loyaltyPointsDiscount +
-    usedCashBackAmountData;
+  couponDiscount +
+  giftCardDiscount +
+  promotionCoupanCodeDiscount +
+  rewardCoupanCodeDiscount +
+  referralDiscount +
+  loyaltyPointsDiscount +
+  usedCashBackAmountData;
 
   return {
     couponDiscount,

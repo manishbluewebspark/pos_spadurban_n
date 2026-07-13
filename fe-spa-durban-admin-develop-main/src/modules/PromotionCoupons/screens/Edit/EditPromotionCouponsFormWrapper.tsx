@@ -46,23 +46,30 @@ const EditPromotionCouponsFormWrapper = (props: Props) => {
   ) => {
 
 
-    let formattedValues = {
-      discountByPercentage: values?.discountByPercentage,
-      serviceId: Array.isArray(values?.serviceId)
-        ? values?.serviceId.map((serviceId: any) =>
-          typeof serviceId === 'object' ? serviceId._id : serviceId,
-        )
-        : [],
-      customerId: Array.isArray(values?.customerId)
-        ? values?.customerId.map((customerId: any) =>
-          typeof customerId === 'object' ? customerId.value : customerId?.value,
-        )
-        : [],
-      startDate: values?.startDate,
-      endDate: values?.endDate,
-      groupTarget: (values?.groupTarget as any[]).map((group) => group._id)
-      // customerId: values?.customerId?.map((customerId: any) => customerId?._id),
-    };
+  let formattedValues = {
+  discountByPercentage: values.discountByPercentage,
+
+  serviceId: Array.isArray(values.serviceId)
+    ? values.serviceId.map((item: any) =>
+        typeof item === "object" ? item._id : item
+      )
+    : [],
+
+  customerId: Array.isArray(values.customerId)
+    ? values.customerId.map((item: any) =>
+        typeof item === "object" ? item.value : item
+      )
+    : [],
+
+  groupTarget: Array.isArray(values.groupTarget)
+    ? values.groupTarget.map((item: any) =>
+        typeof item === "object" ? item._id : item
+      )
+    : [],
+
+  startDate: values.startDate,
+  endDate: values.endDate,
+};
     updatePromotionCoupons({
       body: formattedValues,
       promotionCouponId: id,

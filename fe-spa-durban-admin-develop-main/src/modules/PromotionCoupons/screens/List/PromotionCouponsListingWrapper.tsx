@@ -57,6 +57,15 @@ const PromotionCouponsListingWrapper = (props: Props) => {
   };
   const tableHeaders: TableHeader<PromotionCoupons>[] = [
     {
+      fieldName: 'couponCode',
+      headerName: 'Coupan Code',
+      // sortKey: 'serialNumber',
+      flex: 'flex-[1_0_0%]',
+      renderCell(item) {
+        return <div>{item?.couponCode}</div>;
+      },
+    },
+    {
       fieldName: 'discountByPercentage',
       headerName: 'Discount By Percentage',
       // sortKey: 'serialNumber',

@@ -3,6 +3,11 @@ import Coupon, { CouponDocument } from "./schema.coupon"; // Adjust CouponDocume
 import ApiError from "../../../../utilities/apiError";
 import mongoose, { Document, Model } from "mongoose";
 import { DateFilter, RangeFilter } from "../../../utils/interface";
+import RewardsCoupon from "../rewardscoupon/schema.rewardscoupon";
+import PromotionCoupon from "../promotioncoupon/schema.promotioncoupon";
+import { customerService } from "../service.index";
+import GiftCard from "../giftCard/schema.giftCard";
+import Invoice from "../invoice/schema.invoice";
 
 /**
  * Create a coupon
@@ -216,6 +221,263 @@ const getCouponById = async (
   return null;
 };
 
+const getCouponByCustomerId = async (
+  customerId?: string,
+  items: string[] = []
+): Promise<any[]> => {
+  const today = new Date();
+
+  let customerData = null;
+
+  if (customerId) {
+    customerData = await customerService.getCustomerById(customerId);
+  }
+
+  // ===========================
+  // 🎯 Promotional Coupons
+  // ===========================
+  const promotionalQuery: any = {
+    isDeleted: false,
+    isActive: true,
+    // startDate: { $lte: today },
+    endDate: { $gte: today },
+  };
+
+  if (customerId) {
+    promotionalQuery.customerId = { $in: [customerId] };
+    promotionalQuery.usedBy = { $nin: [customerId] };
+  }
+
+  const promotionalCouponsDocs = await PromotionCoupon.find(promotionalQuery)
+    .populate("serviceId", "name") // ya "serviceName"
+    .lean();
+
+  const promotionalCoupons = promotionalCouponsDocs.map((doc: any) => ({
+    id: doc._id.toString(),
+    type: "promotion",
+    title: "Promotion Coupon",
+    code: doc.couponCode,
+    description: `${doc.discountByPercentage}% off on selected services`,
+    expiryDate: doc.endDate,
+    discount: `${doc.discountByPercentage}% OFF`,
+    pointsRequired: 0,
+
+    services: doc.serviceId.map((service: any) => service.name), // ya service.serviceName
+  }));
+
+  // ===========================
+  // 🎂 Birthday Coupons
+  // ===========================
+  let birthdayCoupons: any[] = [];
+
+  if (customerId) {
+    const birthdayCouponDocs = await Coupon.find({
+      valid: { $gte: today },
+      user: new mongoose.Types.ObjectId(customerId),
+      type: "COUPON_CODE",
+      referralCode: { $regex: /^BDAY-/i },
+      isDeleted: false,
+      isActive: true,
+      usedBy: {
+        $nin: [new mongoose.Types.ObjectId(customerId)],
+      },
+    }).lean();
+
+    birthdayCoupons = birthdayCouponDocs.map((doc) => ({
+      id: doc._id.toString(),
+      type: "birthday",
+      title: "Birthday Special",
+      code: doc.referralCode,
+      description: `${doc.discountAmount}% off Birthday Coupon`,
+      expiryDate: doc.valid,
+      discount: `${doc.discountAmount}% OFF`,
+      pointsRequired: 0,
+    }));
+  }
+
+  // ===========================
+  // 🏆 Rewards Coupons
+  // ===========================
+  let rewardCoupons: any[] = [];
+
+  if (customerId && customerData) {
+    const rewardsDocs = await RewardsCoupon.find({
+      isDeleted: false,
+      isActive: true,
+      rewardsPoint: { $lte: customerData.cashBackAmount || 0 },
+      ...(items.length && { serviceId: { $in: items } }),
+      usedBy: { $nin: [customerId] },
+    })
+      .populate("serviceId", "serviceName name")
+      .lean();
+
+    rewardCoupons = rewardsDocs
+      .filter((doc) => {
+        const expiry = new Date(doc.createdAt);
+        expiry.setFullYear(expiry.getFullYear() + 1);
+        return expiry >= today;
+      })
+      .map((doc) => {
+        const expiry = new Date(doc.createdAt);
+        expiry.setFullYear(expiry.getFullYear() + 1);
+
+        return {
+          id: doc._id.toString(),
+          type: "rewards",
+          title: "Rewards Coupon",
+          code: doc.couponCode,
+          description: `Redeem ${doc.rewardsPoint} points`,
+          expiryDate: expiry,
+          discount: `${doc.rewardsPoint} Points`,
+          pointsRequired: doc.rewardsPoint,
+
+          services: doc.serviceId.map((s: any) => s.name), // or s.serviceName
+        };
+      });
+  }
+
+  // ===========================
+  // 🎁 Gift Cards
+  // ===========================
+  const giftCardQuery: any = {
+    giftCardExpiryDate: { $gte: today },
+    isDeleted: false,
+    isActive: true,
+  };
+
+  if (customerId) {
+    const customerObjectId = new mongoose.Types.ObjectId(customerId);
+    giftCardQuery.$or = [
+      // Public Gift Cards
+      {
+        type: "WHOEVER_BOUGHT",
+        customerId: null,
+        usedBy: { $nin: [customerId] },
+      },
+
+      // Specific Customer Gift Cards
+      {
+        type: "SPECIFIC_CUSTOMER",
+        customerId: customerObjectId,
+        usedBy: { $nin: [customerId] },
+      },
+    ];
+  } else {
+    // Customer login nahi hai to sirf public cards
+    giftCardQuery.type = "WHOEVER_BOUGHT";
+    giftCardQuery.customerId = null;
+  }
+
+  const giftCardDocs = await GiftCard.find(giftCardQuery).lean();
+
+
+
+
+  const giftCards = giftCardDocs.map((doc) => ({
+    id: doc._id.toString(),
+    type: "giftcard",
+    title: "Gift Card",
+    code: doc.giftCardName,
+    description: `Gift Card worth ₹${doc.giftCardAmount}`,
+    expiryDate: doc.giftCardExpiryDate,
+    discount: `₹${doc.giftCardAmount}`,
+    pointsRequired: 0,
+  }));
+
+  // ===========================
+  // Final Response
+  // ===========================
+  return [
+    ...birthdayCoupons,
+    ...promotionalCoupons,
+    ...rewardCoupons,
+    ...giftCards,
+  ].sort(
+    (a, b) =>
+      new Date(a.expiryDate).getTime() -
+      new Date(b.expiryDate).getTime()
+  );
+};
+
+
+
+const getLoyaltyHistory = async (
+  customerId?: string
+): Promise<any[]> => {
+  if (!customerId) return [];
+
+  const customerObjectId = new mongoose.Types.ObjectId(customerId);
+
+  // ===========================
+  // Invoice History
+  // ===========================
+  const invoices = await Invoice.find({
+    customerId: customerObjectId,
+    isDeleted: false,
+    isActive: true,
+  }).lean();
+
+  const invoiceHistory: any[] = [];
+
+  for (const invoice of invoices) {
+    const serviceDescription =
+      invoice.items
+        ?.map(
+          (item: any) =>
+            `${item.itemName}${item.quantity > 1 ? ` x${item.quantity}` : ""}`
+        )
+        .join(", ") || "Service";
+
+    // Points Earned
+    if (Number(invoice.loyaltyPoints || 0) > 0) {
+      invoiceHistory.push({
+        id: `${invoice._id}-earned`,
+        date: invoice.invoiceDate,
+        description: `Loyalty Points Earned by ${serviceDescription}`,
+        points: Number(invoice.loyaltyPoints),
+        amountPaid: invoice.amountPaid,
+        type: "earned",
+      });
+    }
+
+    // Points Used
+    if (
+      invoice.useLoyaltyPoints &&
+      (invoice.loyaltyPointsDiscount || 0) > 0
+    ) {
+      invoiceHistory.push({
+        id: `${invoice._id}-used`,
+        date: invoice.invoiceDate,
+        description: `Loyalty Points Used on ${serviceDescription}`,
+        points: -invoice.loyaltyPointsDiscount,
+        amountPaid: invoice.amountPaid,
+        type: "used",
+      });
+    }
+  }
+
+  // ===========================
+  // Reward Coupon History
+  // ===========================
+  const rewardCoupons = await RewardsCoupon.find({
+    isDeleted: false,
+    usedBy: customerObjectId,
+  }).lean();
+
+  const rewardHistory = rewardCoupons.map((coupon: any) => ({
+    id: coupon._id.toString(),
+    date: coupon.updatedAt || coupon.createdAt,
+    description: `Redeemed Reward Coupon (${coupon.couponCode})`,
+    points: -coupon.rewardsPoint,
+    type: "redeemed",
+  }));
+
+  return [...invoiceHistory, ...rewardHistory].sort(
+    (a, b) =>
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+};
+
 // coupon.service.ts
 export const getCouponByFilter = async (filter: any): Promise<CouponDocument | null> => {
   return await Coupon.findOne({
@@ -263,5 +525,7 @@ export {
   getCouponsByIds,
   getCouponByMultipleFields,
   toggleCouponStatusById,
-  markCouponAsUsed
+  markCouponAsUsed,
+  getCouponByCustomerId,
+  getLoyaltyHistory
 };

@@ -75,8 +75,9 @@ const calculateLoyaltyPoints = (
   spendThreshold: number,
   earnPoints: number
 ): number => {
-  const validAmount = Math.floor(spentAmount / spendThreshold) * spendThreshold;
-  return (validAmount / spendThreshold) * earnPoints;
+  // const validAmount = Math.floor(spentAmount / spendThreshold) * spendThreshold;
+  // return (validAmount / spendThreshold) * earnPoints;
+  return spentAmount;
 };
 
 export const getTodaysLoyaltyPoint = async (

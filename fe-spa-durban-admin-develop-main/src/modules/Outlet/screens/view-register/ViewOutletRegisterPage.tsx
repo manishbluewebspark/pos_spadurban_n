@@ -106,7 +106,7 @@ const ViewOutletRegisterPage = () => {
     reportDuration: appliedFilters?.[2]?.value
   });
 
-  console.log('-----data', data)
+  // console.log('-----data', data)
 
 
   const dailySummary = chartData?.data?.dailySummary || [];

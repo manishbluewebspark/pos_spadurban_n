@@ -56,7 +56,7 @@ const PaymentFormWrapper = ({
     };
 
 
-    console.log('-----formattedValues',formattedValues)
+    // console.log('-----formattedValues',formattedValues)
 
     previewInvoice(formattedValues).then((res: any) => {
       if (res?.error) {

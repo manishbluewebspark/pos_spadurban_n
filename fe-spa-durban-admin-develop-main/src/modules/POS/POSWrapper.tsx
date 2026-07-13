@@ -207,7 +207,7 @@ const [treatments, setTreatments] = useState<any[]>([]);
       amountReceived,
     } = data;
 
-    console.log('-----data', data)
+    // console.log('-----data', data)
     // 1️⃣ Gift Card validation
     if (giftCardCode && giftCardCode.trim() !== "") {
       const hasGiftCardPayment = amountReceived?.some(
@@ -316,9 +316,9 @@ const [treatments, setTreatments] = useState<any[]>([]);
         navigate(`/invoice/receipt/${createdInvoiceId}`);
         //--------
         // Then after rendering
-        // setTimeout(() => {
-        //   handleSendEmail(createdInvoiceId);
-        // }, 1000); // Wait to ensure DOM is ready
+        setTimeout(() => {
+          handleSendEmail(createdInvoiceId);
+        }, 1000);
         //--------
       } else {
         showToast('error', res?.data?.message);
@@ -332,7 +332,7 @@ const [treatments, setTreatments] = useState<any[]>([]);
   };
 
  const handleTreatmentSave = (data: any) => {
-  console.log("Parent received:", data);
+  // console.log("Parent received:", data);
 
   setTreatments((prev: any) => [...prev, data]);
 };
