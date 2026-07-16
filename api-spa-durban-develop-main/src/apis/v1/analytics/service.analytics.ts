@@ -1013,7 +1013,7 @@ const getWeeklyOutletReport = async () => {
 const getMonthlyOutletReport = async () => {
   const startYearMonth = new Date(new Date().getFullYear(), 0, 1);
   const endYearMonth = endOfMonth(new Date());
-  console.log('------ssssssss', startYearMonth, endYearMonth)
+  // console.log('------ssssssss', startYearMonth, endYearMonth)
   // Generate year-month strings for the aggregation pipeline
   const allMonths = generateYearMonths(startYearMonth, endYearMonth);
 
@@ -1279,7 +1279,7 @@ export const getOutletReportData = async (
 ) => {
   try {
 
-    console.log('--------ddddddd')
+    // console.log('--------ddddddd')
     // Build date query
     const query = buildDateQuery(
       reportDuration,

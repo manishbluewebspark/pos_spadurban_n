@@ -159,7 +159,7 @@ const LoyaltyPage = () => {
 
     const getPointsNeeded = (pointsRequired: number = 0) => {
         const needed = pointsRequired - customerData.totalPoints;
-        return needed > 0 ? needed : 0;
+        return needed > 0 ? needed?.toFixed(2) : 0;
     };
 
     const isCouponAvailable = (pointsRequired?: number) => {
@@ -185,7 +185,7 @@ const LoyaltyPage = () => {
                     <div className="stat-item">
                         <span className="stat-icon"><IconStar size={24} /></span>
                         <div>
-                            <div className="stat-value">{customerData?.totalPoints}</div>
+                            <div className="stat-value">{customerData?.totalPoints?.toFixed(2)}</div>
                             <div className="stat-label">Your Points</div>
                         </div>
                     </div>
@@ -206,7 +206,7 @@ const LoyaltyPage = () => {
                     <div className="stat-item">
                         <span className="stat-icon" style={{ fontWeight: 'bold' }}>R</span>
                         <div>
-                            <div className="stat-value">{customerData.cashback}</div>
+                            <div className="stat-value">{customerData?.cashback?.toFixed(2)}</div>
                             <div className="stat-label">Cashback</div>
                         </div>
                     </div>
@@ -229,7 +229,7 @@ const LoyaltyPage = () => {
                                     <div key={coupon.id} className="progress-card">
                                         <div className="progress-header">
                                             <span>{coupon.title}</span>
-                                            <span>{customerData.totalPoints}/{coupon.pointsRequired} pts</span>
+                                            <span>{customerData?.totalPoints?.toFixed(2)}/{coupon?.pointsRequired?.toFixed(2)} pts</span>
                                         </div>
                                         <div className="progress-bar">
                                             <div className="progress-fill" style={{ width: `${progress}%`, background: color }} />
@@ -269,7 +269,7 @@ const LoyaltyPage = () => {
                     <div className="section-header">
                         <h3>All Coupons & Offers</h3>
                         <p className="section-subtitle">
-                            <IconStar size={14} /> You have <strong>{customerData.totalPoints}</strong> points •
+                            <IconStar size={14} /> You have <strong>{customerData?.totalPoints?.toFixed(2)}</strong> points •
                             <span className="available-text"> {allCoupons.filter(c => isCouponAvailable(c.pointsRequired)).length} available</span>
                             <span className="locked-text"> • {allCoupons.filter(c => !isCouponAvailable(c.pointsRequired)).length} locked</span>
                         </p>
@@ -405,7 +405,7 @@ const LoyaltyPage = () => {
                         </div>
                         <div className="history-stat">
                             <span>Balance</span>
-                            <span className="positive">{customerData.totalPoints}</span>
+                            <span className="positive">{customerData?.totalPoints?.toFixed(2)}</span>
                         </div>
                     </div>
 

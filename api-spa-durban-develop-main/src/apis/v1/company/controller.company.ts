@@ -590,7 +590,7 @@ const getCompanySalesChartData = catchAsync(async (req: AuthenticatedRequest, re
 
 
 
-  console.log('----outletIds', outletIds)
+  // console.log('----outletIds', outletIds)
   if (!outletIds.length) {
     return res.status(httpStatus.OK).send({
       message: "No outlets found",

@@ -13,7 +13,7 @@ import {
   useGetInvoiceQuery,
   useSendPdfViaEmailMutation,
 } from '../../service/InvoicesServices';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useGetCompanyByIdQuery } from 'src/modules/AdminRole copy/service/CompanyServices';
 import { formatZonedDate } from 'src/utils/formatZonedDate';
 
@@ -22,6 +22,8 @@ const Receipt = () => {
   const printRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  console.log('------location',location)
   const [uploadPdf, { isLoading: pdfLoading }] = useSendPdfViaEmailMutation();
   const { data, isLoading } = useFetchData(useGetInvoiceQuery, {
     body: invoiceId,
@@ -45,6 +47,27 @@ const Receipt = () => {
     },
   });
 
+
+
+  const invoiceData = (data as any)?.data;
+
+  const emailSentRef = useRef(false);
+
+  useEffect(() => {
+  if (!location.state?.autoSendEmail) return;
+  if (!invoiceData?._id) return;
+  if (emailSentRef.current) return;
+
+  emailSentRef.current = true;
+
+  const timer = setTimeout(() => {
+    handleSendEmail();
+  }, 700);
+
+  return () => clearTimeout(timer);
+}, [invoiceData?._id, location.state?.autoSendEmail]);
+
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-lvh">
@@ -53,14 +76,12 @@ const Receipt = () => {
     );
   }
 
-  const invoiceData = (data as any)?.data;
-
   if (!invoiceData) {
     return <div>No data available</div>;
   }
 
   const itemData = invoiceData?.items || [];
-   const extraService = invoiceData?.extraServices || [];
+  const extraService = invoiceData?.extraServices || [];
   const phoneNumber = invoiceData?.customerPhone;
   const email = invoiceData?.customerEmail;
   const name = invoiceData?.customerName;
@@ -95,6 +116,10 @@ const Receipt = () => {
   const grandTotal = invoiceData?.totalAmount || 0;
   const youPay = invoiceData?.amountPaid || 0;
   const balanceDue = invoiceData?.balanceDue || 0;
+
+
+
+
   const handleSendEmail = async () => {
     const receiptElement = document.querySelector('.receipt-print');
 
@@ -141,6 +166,7 @@ const Receipt = () => {
             }
           }
         });
+        navigate(location.pathname, { replace: true });
       } catch (error) {
         // console.error('Error generating PDF:', error);
         showToast('error', 'Failed to generate or send PDF.');
@@ -158,6 +184,11 @@ const Receipt = () => {
       window.location.reload(); // To reapply any event listeners that might be lost after reassigning innerHTML
     }
   };
+
+
+
+
+
 
   const toTitleCase = (str: any) =>
     str
@@ -177,12 +208,12 @@ const Receipt = () => {
         <div className="px-2 text-[11px] font-medium text-center text-slate-600 ">
           {toTitleCase(invoiceData?.outletName)}
         </div>
-        <div className="px-2 text-[11px] font-medium text-center text-slate-600 ">
+        {/* <div className="px-2 text-[11px] font-medium text-center text-slate-600 ">
           Served by : {invoiceData?.employeeName}
-        </div>
-        <div className="px-2 text-xs font-medium text-center text-slate-600 ">
+        </div> */}
+        {/* <div className="px-2 text-xs font-medium text-center text-slate-600 ">
           ∗ ∗ Reprint ∗ ∗
-        </div>
+        </div> */}
         <div className="mt-2 mb-1 border-t border-dashed"></div>
         <div className=" text-[11px] font-medium text-slate-600   text-center ">
           <div>
@@ -215,7 +246,7 @@ const Receipt = () => {
               </div>
             </div>
           ))}
-           {extraService?.map((item: any, index: number) => (
+          {extraService?.map((item: any, index: number) => (
             <div key={index} className="grid grid-cols-5 gap-2 px-2 py-1">
               <div className="col-span-3 max-w-[150px] break-words">
                 {item.treatmentName}

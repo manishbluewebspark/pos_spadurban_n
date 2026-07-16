@@ -13,9 +13,9 @@ interface Product {
 }
 
 interface SelectedService {
-  _id: string;
-  itemName: string;
-  sellingPrice: number;
+    _id: string;
+    itemName: string;
+    sellingPrice: number;
 }
 
 interface ProductCardProps {
@@ -27,15 +27,26 @@ interface ProductCardProps {
     handleAction: (product: Product) => void;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, categoryImageUrl, onItemClick, handleAction,setEditServiceModal,handleEditService }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, categoryImageUrl, onItemClick, handleAction, setEditServiceModal, handleEditService }) => {
 
     // console.log('------product', product)
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  
+
     const handleMenuClick = (event: MouseEvent<HTMLDivElement>) => {
-        event.stopPropagation(); // prevent card click
+        event.stopPropagation();
         setAnchorEl(event.currentTarget);
     };
+
+    const [imageError, setImageError] = useState(false);
+
+    const imageSrc =
+        !imageError
+            ? product?.itemUrl
+                ? `${process.env.REACT_APP_BASE_URL}/${product.itemUrl}`
+                : categoryImageUrl
+                    ? `${process.env.REACT_APP_BASE_URL}/${categoryImageUrl}`
+                    : ""
+            : "";
 
     const handleClose = () => setAnchorEl(null);
 
@@ -47,7 +58,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, categoryImageUrl, on
 
     const handleEditServiceModalOpen = () => {
         // event.stopPropagation();
-         handleClose();
+        handleClose();
         setEditServiceModal(true);
         handleEditService(product)
     }
@@ -80,38 +91,41 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, categoryImageUrl, on
                     alt={product.itemName}
                     className="w-full h-full object-cover"
                 /> */}
-                <img
-    src={
-        product?.itemUrl
-            ? `${process.env.REACT_APP_BASE_URL}/${product.itemUrl}`
-            : categoryImageUrl
-                ? `${process.env.REACT_APP_BASE_URL}/${categoryImageUrl}`
-                : undefined
-    }
-    alt={product?.itemName || "No Image"}
-    className="w-full h-full object-cover"
-    style={
-        !product?.itemUrl && !categoryImageUrl
-            ? {
-                  backgroundColor: product?.colorCode || "#e5e7eb",
-              }
-            : {}
-    }
-/>
+                <div
+                    className="w-full h-[110px] bg-gray-100 relative flex items-center justify-center"
+                    style={{
+                        backgroundColor: product?.colorCode || "#e5e7eb",
+                    }}
+                >
+                    {imageSrc ? (
+                        <img
+                            src={imageSrc}
+                            alt={product?.itemName || ""}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                                setImageError(true);
+                            }}
+                        />
+                    ) : null}
+
+                    {/* 3-dot Menu */}
+                    {/* <div
+    className="absolute top-1 right-1 p-[6px] z-10"
+    onClick={handleMenuClick}
+  >
+    <IconDotsVertical size={16} color="#006972" />
+  </div> */}
+                </div>
 
                 {/* 3-dot Menu */}
-                <div
-                    className="absolute top-1 right-1 p-[6px] z-10"
-                    onClick={handleMenuClick}
-                >
-                    <IconDotsVertical size={16} color="#006972" />
-                </div>
+              
 
                 {/* Dropdown Menu */}
                 <Menu
                     anchorEl={anchorEl}
                     open={Boolean(anchorEl)}
                     onClose={handleClose}
+                    onClick={(e) => e.stopPropagation()}
                     anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                 >
@@ -138,7 +152,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, categoryImageUrl, on
                             </>
                         )}
                     </MenuItem>
-                    {isAuthorized("EDIT_SERVICE_ON_POS") && ( <MenuItem onClick={handleEditServiceModalOpen} sx={{
+                    {isAuthorized("EDIT_SERVICE_ON_POS") && (<MenuItem onClick={handleEditServiceModalOpen} sx={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: 1, // spacing between icon and text
@@ -149,7 +163,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, categoryImageUrl, on
                             <IconPencil size={16} />
                             <span style={{ fontSize: '0.875rem' }}>Edit</span>
                         </></MenuItem>)}
-                   
+
                 </Menu>
             </div>
 
@@ -173,6 +187,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, categoryImageUrl, on
             <div className="absolute bottom-0 left-0 w-full px-2 pb-1 text-sm font-semibold text-primary">
                 R {product.sellingPrice}
             </div>
+
+              <div
+                    className="absolute bottom-1 right-0 p-[6px] z-10"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleMenuClick(e);
+                    }}
+                >
+                    <IconDotsVertical size={21} color="#006972" />
+                </div>
         </div>
     );
 };

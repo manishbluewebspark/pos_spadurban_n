@@ -442,7 +442,7 @@ const searchInProductAndService = catchAsync(
       }
     }
 
-    console.log("Match Query:", JSON.stringify(serviceMatchQuery, null, 2));
+    // console.log("Match Query:", JSON.stringify(serviceMatchQuery, null, 2));
 
     const dataToSend: Array<{
       _id: mongoose.Schema.Types.ObjectId | null;
@@ -788,8 +788,8 @@ const searchInProductAndService = catchAsync(
     ]);
 
 
-    console.log('-----productResult', productResult)
-    console.log('-----serviceResult', serviceResult)
+    // console.log('-----productResult', productResult)
+    // console.log('-----serviceResult', serviceResult)
     if (productResult.length) {
       for (let each in productResult) {
         let {

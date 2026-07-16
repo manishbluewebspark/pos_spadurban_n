@@ -304,7 +304,7 @@ const getCouponByCustomerId = async (
     const rewardsDocs = await RewardsCoupon.find({
       isDeleted: false,
       isActive: true,
-      rewardsPoint: { $lte: customerData.cashBackAmount || 0 },
+      // rewardsPoint: { $lte: customerData.loyaltyPoints || 0 },
       ...(items.length && { serviceId: { $in: items } }),
       usedBy: { $nin: [customerId] },
     })
@@ -380,7 +380,7 @@ const getCouponByCustomerId = async (
     code: doc.giftCardName,
     description: `Gift Card worth ₹${doc.giftCardAmount}`,
     expiryDate: doc.giftCardExpiryDate,
-    discount: `₹${doc.giftCardAmount}`,
+    discount: `R${doc.giftCardAmount}`,
     pointsRequired: 0,
   }));
 

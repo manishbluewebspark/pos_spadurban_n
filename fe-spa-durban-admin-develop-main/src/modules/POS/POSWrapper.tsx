@@ -146,9 +146,9 @@ const [treatments, setTreatments] = useState<any[]>([]);
   const [sendPdfViaEmail, { isLoading }] = useSendPdfViaEmailMutation();
 
   const handleSendEmail = async (invoiceId: any) => {
-    // console.log('---- handle send email')
+    console.log('---- handle send email')
     const receiptElement = document.querySelector('.receipt-print');
-
+    console.log('---- handle send emailssss')
     if (!receiptElement) return;
 
     try {
@@ -240,6 +240,29 @@ const [treatments, setTreatments] = useState<any[]>([]);
   //------------------- end new code
 
 
+  const waitForElement = (
+  selector: string,
+  callback: () => void,
+  timeout = 10000
+) => {
+  const start = Date.now();
+
+  const interval = setInterval(() => {
+    const element = document.querySelector(selector);
+
+    if (element) {
+      clearInterval(interval);
+      callback();
+    }
+
+    if (Date.now() - start > timeout) {
+      clearInterval(interval);
+      console.error("Element not found within timeout");
+    }
+  }, 100);
+};
+
+
   const handleSubmit = async (
     values: any,
     { resetForm, setSubmitting }: FormikHelpers<any>,
@@ -313,12 +336,17 @@ const [treatments, setTreatments] = useState<any[]>([]);
         showToast('success', 'Invoice Create Successfuly');
         resetForm();
         dispatch(setIsOpenAddDialog(false));
-        navigate(`/invoice/receipt/${createdInvoiceId}`);
+        // navigate(`/invoice/receipt/${createdInvoiceId}`);
+     navigate(`/invoice/receipt/${createdInvoiceId}`, {
+  state: {
+    autoSendEmail: true,
+  },
+});
         //--------
         // Then after rendering
-        setTimeout(() => {
-          handleSendEmail(createdInvoiceId);
-        }, 1000);
+        // setTimeout(() => {
+        //   handleSendEmail(createdInvoiceId);
+        // }, 1000);
         //--------
       } else {
         showToast('error', res?.data?.message);

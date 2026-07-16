@@ -152,7 +152,7 @@ export const getPromotionalCouponDiscount = async (
     // ],
   });
 
-  console.log('------coupon',coupon)
+  // console.log('------coupon',coupon)
 
   if (!coupon) {
     throw new ApiError(404, 'Invalid or expired promotional coupon.');
