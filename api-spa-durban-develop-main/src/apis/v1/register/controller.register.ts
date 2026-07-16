@@ -1120,7 +1120,7 @@ const getRegisterCurentDate = catchAsync(
       .sort({ closedAt: -1 }) // ✅ latest closed date ke hisaab se sort
       .lean();
 
-      console.log('------dddd',lastClosedRegister)
+      // console.log('------dddd',lastClosedRegister)
 
     const dddd = lastClosedRegister?.closedAt ? lastClosedRegister?.closedAt : lastClosedRegister?.openedAt
 
@@ -1295,7 +1295,7 @@ const pipeline: PipelineStage[] = [
   // ... your existing code above ...
 
 const result = await Invoice.aggregate(pipeline);
-console.log('-------result',JSON.stringify(result, null, 2))
+// console.log('-------result',JSON.stringify(result, null, 2))
 // latestRegister already fetched below; keep it as-is
 const latestRegister = await SalesRegister.findOne({
   outletId,

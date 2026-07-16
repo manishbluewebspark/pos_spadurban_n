@@ -629,12 +629,12 @@ const getInvoice = catchAsync(
           foreignField: "_id",
           as: "customerDetails",
           pipeline: [
-            {
-              $match: {
-                isDeleted: false,
-                isActive: true,
-              },
-            },
+            // {
+            //   $match: {
+            //     isDeleted: false,
+            //     isActive: true,
+            //   },
+            // },
             {
               $project: {
                 phone: 1,

@@ -157,7 +157,11 @@ const sendInvoice = catchAsync(async (req: AuthenticatedRequest, res: Response) 
 
   // ✅ Prepare email data
   const buffer = fs.readFileSync(file.path);
+  const customerId = (invoice.customer as any)._id;
 
+  const url = `${process.env.FRONTEND_URL}/rewards/LoyaltyPage?customerId=${encodeURIComponent(
+    customerId.toString()
+  )}`;
   const emailData = {
     emailSubject: 'Your SPA Payment is Confirmed – Invoice Attached',
     emailBody: `
@@ -189,18 +193,28 @@ const sendInvoice = catchAsync(async (req: AuthenticatedRequest, res: Response) 
 
       <hr style="border:none;border-top:1px solid #e5e5e5;margin:25px 0;" />
 
-<p style="margin-top:20px;font-size:15px;color:#555;line-height:1.6;">
+<p style="margin-top:20px;font-size:15px;color:#555;line-height:1;">
   <strong>Loyalty Rewards:</strong><br />
-  Check your available loyalty points, reward coupons, gift cards, and exclusive offers by visiting the link below.
-  <br /><br />
- <a
-  href="${process.env.FRONTEND_URL}/rewards/LoyaltyPage?customerId=${invoice.customer._id}"
-  style="color:#0d6efd;text-decoration:underline;font-weight:600;"
->
-  Click here
-</a>
-  to view your Loyalty Rewards.
+  Check your available loyalty points, reward coupons, gift cards, and exclusive offers by clicking the button below.
 </p>
+
+<div style="">
+<a
+  href="${url}"
+  style="
+    background-color:#006972;
+    color:#ffffff;
+    text-decoration:none;
+    padding:10px 20px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+    font-family:Arial, Helvetica, sans-serif;
+  "
+>
+  Redeem Upto 25% Off
+</a>
+</div>
 
       <p>We look forward to serving you again.</p>
 
@@ -231,7 +245,7 @@ const sendInvoice = catchAsync(async (req: AuthenticatedRequest, res: Response) 
 
   const sendEmailResult = await sendEmail(emailData, invoice?.outlet);
 
-  console.log('--------sendEmailResult', sendEmailResult)
+  // console.log('--------sendEmailResult', sendEmailResult)
   return res.status(httpStatus.CREATED).send({
     message: "Invoice sent!",
     data: sendEmailResult,

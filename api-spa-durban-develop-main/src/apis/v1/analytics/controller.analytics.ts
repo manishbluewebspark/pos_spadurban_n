@@ -5385,7 +5385,7 @@ const getSalesLedgerReports = catchAsync(
     const agg = await (Invoice as any).aggregate(pipeline);
 
     const rows = agg?.[0]?.rows || [];
-    console.log('-----rows', rows)
+    // console.log('-----rows', rows)
     const totalCount = agg?.[0]?.meta?.[0]?.total || 0;
     const totalsDoc = agg?.[0]?.totals?.[0] || { totalAmount: 0 };
 

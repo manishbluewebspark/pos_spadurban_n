@@ -202,71 +202,38 @@ const getPromotionCouponById = async (
 const aggregateAllCoupons = async (customerId: string, items: string[]) => {
   const today = new Date();
 
-  const customerData = await customerService.getCustomerById(customerId)
-  // 🎯 1. Promotional Coupons
+  const customerData = await customerService.getCustomerById(customerId);
+
+  // ===========================
+  // Promotional Coupons
+  // ===========================
   const promotionalCouponsDocs = await PromotionCoupon.find({
+    isDeleted: false,
     isActive: true,
-    startDate: { $lte: today },
     endDate: { $gte: today },
     customerId: { $in: [customerId] },
-    usedBy: { $nin: [customerId] }
+    usedBy: { $nin: [customerId] },
   }).lean();
 
   const promotionalCoupons = promotionalCouponsDocs.map((doc) => ({
     _id: doc._id,
     code: doc.couponCode,
-    discountPercent: doc.discountByPercentage,
+    discount: doc.discountByPercentage,
     validTill: doc.endDate,
-    type: 'Promotional',
+    type: "Promotional",
   }));
 
-  // // 🎯 2. Gift Cards
-  // const giftCardDocs = await GiftCard.find({
-  //   giftCardExpiryDate: { $gte: today },
-  //   customerId: customerId,
-  //   isDeleted: false,
-  //   // usedBy: { $nin: [customerId] }
-  // }).lean();
-
-  // const giftCards = giftCardDocs.map((doc) => ({
-  //   _id: doc._id,
-  //   code: doc.giftCardName,
-  //   discount: doc.giftCardAmount,
-  //   validTill: doc.giftCardExpiryDate,
-  //   type: 'GiftCard',
-  // }));
-
-//   const giftCardDocs = await GiftCard.find({
-//   giftCardExpiryDate: { $gte: today },
-//   isDeleted: false,
-//   isActive: true,
-//   $or: [
-//     { customerId: customerId },              // personalized
-//     { customerId: null, type: 'WHOEVER_BOUGHT' } // public gift cards
-//   ],
-//   usedBy: { $nin: [customerId] }
-// }).lean();
-
-// console.log('------giftCardDocs',giftCardDocs)
-
-// const giftCards = giftCardDocs.map((doc) => ({
-//   _id: doc._id,
-//   code: doc.giftCardName,
-//   discount: doc.giftCardAmount,
-//   validTill: doc.giftCardExpiryDate,
-//   type: 'GiftCard',
-// }));
-
-
-  // 🎯 3. Birthday Coupons
+  // ===========================
+  // Birthday Coupons
+  // ===========================
   const birthdayCouponDocs = await Coupon.find({
     valid: { $gte: today },
     user: customerId,
-    type: 'COUPON_CODE',
-    referralCode: { $regex: /^BDAY-/i }, // matches codes starting with 'BDAY-'
+    type: "COUPON_CODE",
+    referralCode: { $regex: /^BDAY-/i },
     isDeleted: false,
     isActive: true,
-    usedBy: { $nin: [customerId] }
+    usedBy: { $nin: [customerId] },
   }).lean();
 
   const birthdayCoupons = birthdayCouponDocs.map((doc) => ({
@@ -274,38 +241,191 @@ const aggregateAllCoupons = async (customerId: string, items: string[]) => {
     code: doc.referralCode,
     discount: doc.discountAmount,
     validTill: doc.valid,
-    type: 'Birthday',
+    type: "Birthday",
   }));
 
-  const rewardsCoupons = await RewardsCoupon.find({
+  // ===========================
+  // Reward Coupons
+  // ===========================
+  const rewardsDocs = await RewardsCoupon.find({
     isDeleted: false,
     isActive: true,
-    rewardsPoint: { $lte: customerData?.cashBackAmount },
-    serviceId: { $in: items },
-    usedBy: { $nin: [customerId] }
+    rewardsPoint: { $lte: customerData?.loyaltyPoints || 0 },
+    ...(items?.length > 0 && { serviceId: { $in: items } }),
+    usedBy: { $nin: [customerId] },
   }).lean();
 
-  const rewardCouponDocs = rewardsCoupons.map((doc) => {
-    const fallbackDate = new Date(doc.createdAt || Date.now());
-    fallbackDate.setFullYear(fallbackDate.getFullYear() + 1); // valid for 1 year
+  const rewardCoupons = rewardsDocs
+    .filter((doc) => {
+      const expiry = new Date(doc.createdAt);
+      expiry.setFullYear(expiry.getFullYear() + 1);
+      return expiry >= today;
+    })
+    .map((doc) => {
+      const expiry = new Date(doc.createdAt);
+      expiry.setFullYear(expiry.getFullYear() + 1);
 
-    return {
-      _id: doc._id,
-      code: doc.couponCode,
-      discount: doc.rewardsPoint, // assuming this is the actual discount
-      validTill: fallbackDate,
-      type: 'Reward',
-    };
-  });
+      return {
+        _id: doc._id,
+        code: doc.couponCode,
+        discount: doc.rewardsPoint,
+        validTill: expiry,
+        type: "Reward",
+      };
+    });
 
+  // ===========================
+  // Gift Cards
+  // ===========================
+  const customerObjectId = new mongoose.Types.ObjectId(customerId);
 
-  // 🔄 Combine and Sort All Coupons
-  const allCoupons = [...promotionalCoupons,...birthdayCoupons, ...rewardCouponDocs];
+  const giftCardDocs = await GiftCard.find({
+    giftCardExpiryDate: { $gte: today },
+    isDeleted: false,
+    isActive: true,
+    $or: [
+      {
+        type: "WHOEVER_BOUGHT",
+        customerId: null,
+        usedBy: { $nin: [customerId] },
+      },
+      {
+        type: "SPECIFIC_CUSTOMER",
+        customerId: customerObjectId,
+        usedBy: { $nin: [customerId] },
+      },
+    ],
+  }).lean();
 
-  return allCoupons.sort(
-    (a, b) => new Date(a.validTill).getTime() - new Date(b.validTill).getTime()
+  const giftCards = giftCardDocs.map((doc) => ({
+    _id: doc._id,
+    code: doc.giftCardName,
+    discount: doc.giftCardAmount,
+    validTill: doc.giftCardExpiryDate,
+    type: "GiftCard",
+  }));
+
+  // ===========================
+  // Final
+  // ===========================
+  return [
+    ...birthdayCoupons,
+    ...promotionalCoupons,
+    ...rewardCoupons,
+    ...giftCards,
+  ].sort(
+    (a, b) =>
+      new Date(a.validTill).getTime() - new Date(b.validTill).getTime()
   );
 };
+
+// const aggregateAllCoupons = async (customerId: string, items: string[]) => {
+//   const today = new Date();
+
+//   const customerData = await customerService.getCustomerById(customerId)
+//   // 🎯 1. Promotional Coupons
+//   const promotionalCouponsDocs = await PromotionCoupon.find({
+//     isActive: true,
+//     startDate: { $lte: today },
+//     endDate: { $gte: today },
+//     customerId: { $in: [customerId] },
+//     usedBy: { $nin: [customerId] }
+//   }).lean();
+
+//   const promotionalCoupons = promotionalCouponsDocs.map((doc) => ({
+//     _id: doc._id,
+//     code: doc.couponCode,
+//     discountPercent: doc.discountByPercentage,
+//     validTill: doc.endDate,
+//     type: 'Promotional',
+//   }));
+
+//   // // 🎯 2. Gift Cards
+//   // const giftCardDocs = await GiftCard.find({
+//   //   giftCardExpiryDate: { $gte: today },
+//   //   customerId: customerId,
+//   //   isDeleted: false,
+//   //   // usedBy: { $nin: [customerId] }
+//   // }).lean();
+
+//   // const giftCards = giftCardDocs.map((doc) => ({
+//   //   _id: doc._id,
+//   //   code: doc.giftCardName,
+//   //   discount: doc.giftCardAmount,
+//   //   validTill: doc.giftCardExpiryDate,
+//   //   type: 'GiftCard',
+//   // }));
+
+// //   const giftCardDocs = await GiftCard.find({
+// //   giftCardExpiryDate: { $gte: today },
+// //   isDeleted: false,
+// //   isActive: true,
+// //   $or: [
+// //     { customerId: customerId },              // personalized
+// //     { customerId: null, type: 'WHOEVER_BOUGHT' } // public gift cards
+// //   ],
+// //   usedBy: { $nin: [customerId] }
+// // }).lean();
+
+// // console.log('------giftCardDocs',giftCardDocs)
+
+// // const giftCards = giftCardDocs.map((doc) => ({
+// //   _id: doc._id,
+// //   code: doc.giftCardName,
+// //   discount: doc.giftCardAmount,
+// //   validTill: doc.giftCardExpiryDate,
+// //   type: 'GiftCard',
+// // }));
+
+
+//   // 🎯 3. Birthday Coupons
+//   const birthdayCouponDocs = await Coupon.find({
+//     valid: { $gte: today },
+//     user: customerId,
+//     type: 'COUPON_CODE',
+//     referralCode: { $regex: /^BDAY-/i }, // matches codes starting with 'BDAY-'
+//     isDeleted: false,
+//     isActive: true,
+//     usedBy: { $nin: [customerId] }
+//   }).lean();
+
+//   const birthdayCoupons = birthdayCouponDocs.map((doc) => ({
+//     _id: doc._id,
+//     code: doc.referralCode,
+//     discount: doc.discountAmount,
+//     validTill: doc.valid,
+//     type: 'Birthday',
+//   }));
+
+//   const rewardsCoupons = await RewardsCoupon.find({
+//     isDeleted: false,
+//     isActive: true,
+//     rewardsPoint: { $lte: customerData?.cashBackAmount },
+//     serviceId: { $in: items },
+//     usedBy: { $nin: [customerId] }
+//   }).lean();
+
+//   const rewardCouponDocs = rewardsCoupons.map((doc) => {
+//     const fallbackDate = new Date(doc.createdAt || Date.now());
+//     fallbackDate.setFullYear(fallbackDate.getFullYear() + 1); // valid for 1 year
+
+//     return {
+//       _id: doc._id,
+//       code: doc.couponCode,
+//       discount: doc.rewardsPoint, // assuming this is the actual discount
+//       validTill: fallbackDate,
+//       type: 'Reward',
+//     };
+//   });
+
+
+//   // 🔄 Combine and Sort All Coupons
+//   const allCoupons = [...promotionalCoupons,...birthdayCoupons, ...rewardCouponDocs];
+
+//   return allCoupons.sort(
+//     (a, b) => new Date(a.validTill).getTime() - new Date(b.validTill).getTime()
+//   );
+// };
 
 export {
   createPromotionCoupon,

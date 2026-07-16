@@ -43,7 +43,7 @@ export const emailSend = async (
       })
     })
 
-    // console.log('---------result',result)
+    console.log('---------result',result)
 
     if (result.sendStatus) {
       return result.response
