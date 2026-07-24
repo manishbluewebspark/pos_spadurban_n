@@ -378,7 +378,7 @@ const getCouponByCustomerId = async (
     type: "giftcard",
     title: "Gift Card",
     code: doc.giftCardName,
-    description: `Gift Card worth ₹${doc.giftCardAmount}`,
+    description: `Gift Card worth R${doc.giftCardAmount}`,
     expiryDate: doc.giftCardExpiryDate,
     discount: `R${doc.giftCardAmount}`,
     pointsRequired: 0,

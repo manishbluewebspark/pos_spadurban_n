@@ -1,14 +1,13 @@
-// src/pages/LoyaltyPage.tsx - Updated Coupons Section
+// src/pages/LoyaltyPage.tsx - Updated with Logout Button
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
     IconGift,
     IconFlame,
     IconStar,
     IconTicket,
     IconTag,
-    IconReceiptTax,
     IconLock,
     IconCrown,
     IconCalendar,
@@ -19,14 +18,18 @@ import {
     IconEyeOff,
     IconCards,
     IconHistory,
-    IconCurrencyRupee,
-    IconLockOpen,
-    IconCurrency,
+    IconMail,
+    IconX,
+    IconCheck,
+    IconLoader2,
+    IconArrowRight,
+    IconLogout,
 } from '@tabler/icons-react';
 import './LoyaltyPage.css';
 import { useFetchData } from 'src/hooks/useFetchData';
 import { useGetCustomerQuery } from 'src/modules/Customer/service/CustomerServices';
 import { useGetCouponsByCustomerQuery, useGetLoyaltyHistoryQuery } from 'src/modules/Coupon/service/CouponServices';
+import { useCheckEmailExistsMutation } from 'src/services/AuthServices';
 
 interface Coupon {
     id: string;
@@ -61,11 +64,150 @@ interface CustomerData {
     rewards?: any[];
 }
 
+// ============= EMAIL VERIFICATION COMPONENT =============
+const EmailVerification = ({ 
+    onVerified 
+}: { 
+    onVerified: (customerData: CustomerData) => void;
+}) => {
+    const [email, setEmail] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    const [checkEmailExists] = useCheckEmailExistsMutation();
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (!email) {
+            setError('Please enter your email address');
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            setError('Please enter a valid email address');
+            return;
+        }
+
+        setIsLoading(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const response = await checkEmailExists({ email }).unwrap();
+            
+            if (response.success && response.data) {
+                const customer = response.data;
+                
+                setSuccess('Email verified successfully!');
+                
+                setTimeout(() => {
+                    onVerified({
+                        id: customer?._id || '',
+                        name: customer?.customerName || customer?.name || 'Valued Customer',
+                        email: customer?.email || email,
+                        totalPoints: customer?.loyaltyPoints || customer?.totalPoints || 0,
+                        cashback: customer?.cashBackAmount || 0,
+                        usedCashback: customer?.usedCashback || 0,
+                        joinDate: customer?.joinDate || new Date().toISOString(),
+                        tier: customer?.customerGroup || 'Silver Member',
+                        rewards: customer?.rewards || [],
+                    });
+                }, 500);
+            } else {
+                setError('Email not found in our system. Please register first.');
+            }
+        } catch (err: any) {
+            setError(err?.data?.message || 'Something went wrong. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="verification-container">
+            <div className="verification-card">
+                <div className="verification-header">
+                    <IconMail size={48} className="email-icon" />
+                    <h2>Verify Your Email</h2>
+                    <p className="verification-subtitle">
+                        Enter your registered email to access your loyalty rewards
+                    </p>
+                </div>
+
+                {error && (
+                    <div className="alert alert-error">
+                        <IconX size={16} />
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                {success && (
+                    <div className="alert alert-success">
+                        <IconCheck size={16} />
+                        <span>{success}</span>
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="verification-form">
+                    <div className="form-group">
+                        <label>Email Address</label>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Enter your registered email"
+                            disabled={isLoading}
+                            className="email-input"
+                            autoFocus
+                        />
+                        <p className="field-hint">
+                            We'll check if you're registered in our system
+                        </p>
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        className="btn btn-primary"
+                        disabled={isLoading || !email}
+                    >
+                        {isLoading ? (
+                            <>
+                                <IconLoader2 size={20} className="spinning" />
+                                Verifying...
+                            </>
+                        ) : (
+                            <>
+                                <IconMail size={20} />
+                                Verify & Continue
+                                <IconArrowRight size={18} />
+                            </>
+                        )}
+                    </button>
+                </form>
+
+                <div className="verification-footer">
+                    <p className="footer-text">
+                        By continuing, you agree to our 
+                        <a href="/terms">Terms of Service</a> and 
+                        <a href="/privacy">Privacy Policy</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ============= MAIN LOYALTY PAGE =============
 const LoyaltyPage = () => {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const customerId = searchParams.get('customerId');
     const [hoveredCoupon, setHoveredCoupon] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'coupons' | 'history'>('coupons');
+    const [isVerified, setIsVerified] = useState(false);
     const [customerData, setCustomerData] = useState<CustomerData>({
         id: '',
         name: '',
@@ -77,12 +219,40 @@ const LoyaltyPage = () => {
         tier: 'Silver',
     });
 
+    // ===== ALL HOOKS AT TOP LEVEL =====
 
+    // Check session on load
+    useEffect(() => {
+        if (!customerId) {
+            const saved = sessionStorage.getItem('loyaltyCustomer');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    setCustomerData(data);
+                    setIsVerified(true);
+                } catch (e) {
+                    console.error('Failed to parse saved data');
+                }
+            }
+        }
+    }, [customerId]);
+
+    // If customerId is in URL, use it directly
+    useEffect(() => {
+        if (customerId) {
+            setIsVerified(true);
+        }
+    }, [customerId]);
+
+    // Get the ID to fetch
+    const fetchId = customerId || customerData.id;
+
+    // ===== API HOOKS - Always called with proper params =====
     const {
         data: customerResponse,
         isLoading: customerLoading
     } = useFetchData(useGetCustomerQuery, {
-        body: customerId,
+        body: fetchId,
         dataType: 'VIEW',
     });
 
@@ -90,7 +260,7 @@ const LoyaltyPage = () => {
         data: rewardsResponse,
         isLoading: rewardsLoading,
     } = useFetchData(useGetCouponsByCustomerQuery, {
-        body: customerId,
+        body: fetchId,
         dataType: 'VIEW',
     });
 
@@ -98,19 +268,20 @@ const LoyaltyPage = () => {
         data: loyaltyHistoryResponse,
         isLoading: loyaltyHistoryLoading,
     } = useFetchData(useGetLoyaltyHistoryQuery, {
-        body: customerId,
+        body: fetchId,
         dataType: "VIEW",
     });
 
     const loyaltyHistory: LoyaltyTransaction[] =
         (loyaltyHistoryResponse as any)?.data ?? [];
 
+    // Update customer data from API response
     useEffect(() => {
-        if (customerResponse) {
+        if (customerResponse && (isVerified || customerId)) {
             const customer = (customerResponse as any)?.data;
             if (customer) {
                 setCustomerData({
-                    id: customer.id || customerId || 'CUST001',
+                    id: customer._id || customerId || '',
                     name: customer.customerName || customer.name || 'Valued Customer',
                     email: customer.email || 'customer@example.com',
                     totalPoints: customer.loyaltyPoints || customer.totalPoints || 0,
@@ -122,19 +293,52 @@ const LoyaltyPage = () => {
                 });
             }
         }
-    }, [customerResponse, customerId]);
-    // Dummy Coupons Data
+    }, [customerResponse, customerId, isVerified]);
+
+    // All useMemo hooks at top level
     const allCoupons = useMemo<Coupon[]>(() => {
         return (rewardsResponse as any)?.data ?? [];
     }, [rewardsResponse]);
 
-    // Sort coupons by points required (lowest to highest)
-    const sortedCoupons = [...allCoupons].sort((a, b) =>
-        (a.pointsRequired || 0) - (b.pointsRequired || 0)
-    );
+    const sortedCoupons = useMemo(() => {
+        return [...allCoupons].sort((a, b) =>
+            (a.pointsRequired || 0) - (b.pointsRequired || 0)
+        );
+    }, [allCoupons]);
 
+    // ===== LOGOUT FUNCTION =====
+    const handleLogout = () => {
+        // Clear session storage
+        sessionStorage.removeItem('loyaltyCustomer');
+        
+        // Reset state
+        setCustomerData({
+            id: '',
+            name: '',
+            email: '',
+            totalPoints: 0,
+            cashback: 0,
+            usedCashback: 0,
+            joinDate: '',
+            tier: 'Silver',
+        });
+        setIsVerified(false);
+        setActiveTab('coupons');
+        
+        // Navigate to home or login page (optional)
+        // navigate('/');
+        // Or reload the page to show verification again
+        window.location.reload();
+    };
 
+    // Handle verification
+    const handleVerification = (data: CustomerData) => {
+        setCustomerData(data);
+        setIsVerified(true);
+        sessionStorage.setItem('loyaltyCustomer', JSON.stringify(data));
+    };
 
+    // Helper functions
     const getCouponIcon = (type: string) => {
         switch (type) {
             case 'birthday': return <IconGift size={20} />;
@@ -166,6 +370,25 @@ const LoyaltyPage = () => {
         return (pointsRequired || 0) <= customerData.totalPoints;
     };
 
+    // ===== CONDITIONAL RENDER (AFTER ALL HOOKS) =====
+    if (!isVerified && !customerId) {
+        return <EmailVerification onVerified={handleVerification} />;
+    }
+
+    // If loading and no data yet
+    if ((customerLoading || rewardsLoading || loyaltyHistoryLoading) && !customerData.id) {
+        return (
+            <div className="verification-container">
+                <div className="verification-card" style={{ textAlign: 'center' }}>
+                    <IconLoader2 size={48} className="spinning" style={{ color: '#006972' }} />
+                    <h2 style={{ marginTop: '16px', color: '#2d3436' }}>Loading...</h2>
+                    <p style={{ color: '#636e72' }}>Please wait while we fetch your rewards</p>
+                </div>
+            </div>
+        );
+    }
+
+    // ===== MAIN RENDER =====
     return (
         <div className="loyalty-container">
             {/* Header */}
@@ -175,9 +398,20 @@ const LoyaltyPage = () => {
                         <h1>Loyalty Rewards</h1>
                         <p className="welcome-text">Welcome back, <strong>{customerData?.name?.toUpperCase()}</strong></p>
                     </div>
-                    <div className="tier-badge">
-                        <IconCrown size={20} />
-                        {customerData?.tier?.toUpperCase()}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div className="tier-badge">
+                            <IconCrown size={20} />
+                            {customerData?.tier?.toUpperCase()}
+                        </div>
+                        {/* Logout Button */}
+                        <button 
+                            className="logout-btn"
+                            onClick={handleLogout}
+                            title="Logout"
+                        >
+                            <IconLogout size={18} />
+                            <span>Logout</span>
+                        </button>
                     </div>
                 </div>
 
@@ -203,13 +437,13 @@ const LoyaltyPage = () => {
                             <div className="stat-label">Locked</div>
                         </div>
                     </div>
-                    <div className="stat-item">
+                    {/* <div className="stat-item">
                         <span className="stat-icon" style={{ fontWeight: 'bold' }}>R</span>
                         <div>
                             <div className="stat-value">{customerData?.cashback?.toFixed(2)}</div>
                             <div className="stat-label">Cashback</div>
                         </div>
-                    </div>
+                    </div> */}
                 </div>
             </div>
 
@@ -263,7 +497,7 @@ const LoyaltyPage = () => {
                 </button>
             </div>
 
-            {/* Coupons - All in one grid with grayed out locked ones */}
+            {/* Coupons */}
             {activeTab === 'coupons' && (
                 <div className="coupons-section">
                     <div className="section-header">
@@ -320,7 +554,6 @@ const LoyaltyPage = () => {
                                             <h4 className="coupon-title">{coupon.title}</h4>
                                             <p className="coupon-desc">{coupon.description}</p>
 
-                                            {/* Show lock overlay if not available */}
                                             {!isAvailable && (
                                                 <div className="lock-overlay">
                                                     <IconLock size={32} />
@@ -393,15 +626,15 @@ const LoyaltyPage = () => {
                     <div className="history-stats">
                         <div className="history-stat">
                             <span>Total Earned</span>
-                            <span className="positive">+{loyaltyHistory.filter(t => t.type === 'earned').reduce((sum, t) => sum + t.points, 0)}</span>
+                            <span className="positive">+{loyaltyHistory.filter(t => t.type === 'earned').reduce((sum, t) => sum + t.points, 0)?.toFixed(2)}</span>
                         </div>
                         <div className="history-stat">
                             <span>Total Redeemed</span>
-                            <span className="negative">{loyaltyHistory.filter(t => t.type === 'redeemed').reduce((sum, t) => sum + t.points, 0)}</span>
+                            <span className="negative">{loyaltyHistory.filter(t => t.type === 'redeemed').reduce((sum, t) => sum + t.points, 0)?.toFixed(2)}</span>
                         </div>
                         <div className="history-stat">
                             <span>Total Used</span>
-                            <span className="negative">{loyaltyHistory.filter(t => t.type === 'used').reduce((sum, t) => sum + t.points, 0)}</span>
+                            <span className="negative">{loyaltyHistory.filter(t => t.type === 'used').reduce((sum, t) => sum + t.points, 0)?.toFixed(2)}</span>
                         </div>
                         <div className="history-stat">
                             <span>Balance</span>
@@ -445,8 +678,6 @@ const LoyaltyPage = () => {
                     </div>
                 </div>
             )}
-
-
         </div>
     );
 };

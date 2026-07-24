@@ -230,6 +230,7 @@ export const updateWalletAndUpdateLog = async (
   logsData: any,
   points: number
 ) => {
+  console.log('-------points',points)
   const { transactionType, customerId } = logsData;
 
   let loyaltyWallet = await loyaltyWalletService.createLoyaltyWallet({

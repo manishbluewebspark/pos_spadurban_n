@@ -107,7 +107,7 @@ const createInvoice = catchAsync(
     //get pre invoicing phase
     // console.log('-----calll------1', customerId)
     const previewResult = await getPreview(req);
-    // console.log('-----calll-----2', previewResult)
+
     if (!previewResult) {
       throw new ApiError(
         httpStatus.INTERNAL_SERVER_ERROR,
@@ -131,11 +131,18 @@ const createInvoice = catchAsync(
       walletDebitLog,
       walletCreditLog,
       inventoryData,
+       rewardCouponPoints = 0,
     } = dataToUpdate;
     let { outlet } = otherData;
 
-    // console.log('-----pointsToAdd', pointsToAdd)
+    const totalDebitPoints =
+  Number(pointsToDebit || 0) +
+  Number(rewardCouponPoints || 0);
 
+    console.log('-----totalDebitPoints', totalDebitPoints)
+      console.log('-----rewardCouponPoints', rewardCouponPoints)
+    console.log('-----pointsToAdd', pointsToAdd)
+      console.log('-----pointsToDebit', pointsToDebit)
 
     const now = new Date();
     const itemIds = invoiceData?.items.map((item: any) => item.itemId);
@@ -303,10 +310,10 @@ const createInvoice = catchAsync(
     }
 
     //debit  to loyalty wallet
-    if (walletDebitLog && pointsToDebit) {
+    if (walletDebitLog && totalDebitPoints > 0) {
       let debitedPoints = await updateWalletAndUpdateLog(
         walletDebitLog,
-        pointsToDebit
+        Number(rewardCouponPoints || 0)
       );
       // console.log("9999999999999")
       if (!debitedPoints) {
@@ -315,7 +322,7 @@ const createInvoice = catchAsync(
     }
 
     //credit to loyalty wallet
-    if (walletCreditLog && pointsToAdd) {
+if (walletCreditLog && pointsToAdd > 0) {
       let creditedPoints = await updateWalletAndUpdateLog(
         walletCreditLog,
         pointsToAdd

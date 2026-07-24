@@ -56,7 +56,7 @@ const markPromotionCouponAsUsed = async (
   const coupon = await PromotionCoupon.findOne({
     couponCode: referralCode
   });
-    // console.log('-----coupon',coupon)
+  // console.log('-----coupon',coupon)
 
   if (!coupon) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Promotion coupon not found');
@@ -244,35 +244,75 @@ const aggregateAllCoupons = async (customerId: string, items: string[]) => {
     type: "Birthday",
   }));
 
+const startOfToday = new Date();
+startOfToday.setHours(0, 0, 0, 0);
+
+const endOfToday = new Date();
+endOfToday.setHours(23, 59, 59, 999);
+
   // ===========================
   // Reward Coupons
   // ===========================
   const rewardsDocs = await RewardsCoupon.find({
     isDeleted: false,
     isActive: true,
-    rewardsPoint: { $lte: customerData?.loyaltyPoints || 0 },
-    ...(items?.length > 0 && { serviceId: { $in: items } }),
-    usedBy: { $nin: [customerId] },
+
+    // Customer ke paas itne points hone chahiye
+    rewardsPoint: {
+      $lte: customerData?.loyaltyPoints || 0,
+    },
+
+  //  validFrom: {
+  //   $lte: endOfToday,
+  // },
+
+  validTill: {
+    $gte: startOfToday,
+  },
+
+    // One customer ek hi baar use kare
+    usedBy: {
+      $nin: [customerId],
+    },
+
+    // Agar service specific coupon rakhna hai to ye rakho,
+    // warna is block ko hata do
+    ...(items?.length
+      ? {
+        $or: [
+          {
+            serviceId: { $size: 0 }, // All Services
+          },
+          {
+            serviceId: { $in: items }, // Selected Services
+          },
+        ],
+      }
+      : {}),
+
   }).lean();
 
-  const rewardCoupons = rewardsDocs
-    .filter((doc) => {
-      const expiry = new Date(doc.createdAt);
-      expiry.setFullYear(expiry.getFullYear() + 1);
-      return expiry >= today;
-    })
-    .map((doc) => {
-      const expiry = new Date(doc.createdAt);
-      expiry.setFullYear(expiry.getFullYear() + 1);
+  const rewardCoupons = rewardsDocs.map((doc) => ({
+    _id: doc._id,
 
-      return {
-        _id: doc._id,
-        code: doc.couponCode,
-        discount: doc.rewardsPoint,
-        validTill: expiry,
-        type: "Reward",
-      };
-    });
+    code: doc.couponCode,
+
+    rewardName: doc.rewardName,
+
+    rewardPoints: doc.rewardsPoint,
+
+    rewardType: doc.rewardType,
+
+    discount: doc.rewardValue,
+
+    minimumSpend: doc.minimumSpend,
+
+    maximumDiscount: doc.maximumDiscount,
+
+    validTill: doc.validTill,
+
+    type: "Reward",
+  }));
 
   // ===========================
   // Gift Cards

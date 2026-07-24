@@ -25,6 +25,26 @@ import RewardsCoupon from "../rewardscoupon/schema.rewardscoupon";
 import Customer from "../customer/schema.customer";
 
 //
+// const getLoyaltyPointsDiscount = async (
+//   totalWithoutDiscount: number,
+//   useLoyaltyPoints: boolean,
+//   loyaltyPoints: number,
+//   isWalkinCustomer: boolean
+// ) => {
+//   if (!useLoyaltyPoints || isWalkinCustomer) {
+//     return 0;
+//   }
+//   let pointsToDeduct =
+//     totalWithoutDiscount > loyaltyPoints ||
+//       totalWithoutDiscount === loyaltyPoints
+//       ? loyaltyPoints
+//       : loyaltyPoints - totalWithoutDiscount;
+
+//   return pointsToDeduct;
+
+//   //get customer's loyalty points
+// };
+
 const getLoyaltyPointsDiscount = async (
   totalWithoutDiscount: number,
   useLoyaltyPoints: boolean,
@@ -34,15 +54,9 @@ const getLoyaltyPointsDiscount = async (
   if (!useLoyaltyPoints || isWalkinCustomer) {
     return 0;
   }
-  let pointsToDeduct =
-    totalWithoutDiscount > loyaltyPoints ||
-      totalWithoutDiscount === loyaltyPoints
-      ? loyaltyPoints
-      : loyaltyPoints - totalWithoutDiscount;
 
-  return pointsToDeduct;
-
-  //get customer's loyalty points
+  // Discount cannot exceed bill amount or available points
+  return Math.min(totalWithoutDiscount, loyaltyPoints);
 };
 const getCashBackDiscount = async (
   totalWithoutDiscount: number,
@@ -180,69 +194,238 @@ export const getPromotionalCouponDiscount = async (
   return totalDiscount;
 };
 
-export const getRewardCouponDiscount = async (
+ const getRewardCouponDiscount = async (
+  totalWithoutDiscount: number,
   items: { itemId: string; quantity: number; itemType: string }[],
   couponCode: string,
-  customerId: string
-): Promise<number> => {
-  const today = new Date();
+  customerId: string,
+): Promise<{
+  discount: number;
+  points: number;
+}> => {
 
-  // Try reward coupon first
+ 
+  const now = new Date();
+
   const rewardCoupon = await RewardsCoupon.findOne({
     couponCode,
     isDeleted: false,
     isActive: true,
   });
+  
 
-  if (rewardCoupon) {
-    const customer = await Customer.findById(customerId);
-    if (!customer) throw new ApiError(404, 'Customer not found');
+  if (!rewardCoupon) {
+    throw new ApiError(404, "Reward coupon not found.");
+  }
 
-    const customerCashback = customer.cashBackAmount || 0;
+  const customer = await Customer.findById(customerId);
 
-    if (customerCashback < rewardCoupon.rewardsPoint) {
-      throw new ApiError(400, 'Insufficient cashback balance to use this reward coupon.');
+  if (!customer) {
+    throw new ApiError(404, "Customer not found.");
+  }
+
+  // Required Points
+  if (customer.loyaltyPoints < rewardCoupon.rewardsPoint) {
+    throw new ApiError(
+      400,
+      `You need ${rewardCoupon.rewardsPoint} loyalty points to use this coupon.`
+    );
+  }
+
+  console.log('-----totalWithoutDiscount',totalWithoutDiscount,rewardCoupon.minimumSpend)
+
+  // Minimum Spend
+  if (Number(totalWithoutDiscount) < Number(rewardCoupon.minimumSpend)) {
+    throw new ApiError(
+      400,
+      `Minimum spend should be R${rewardCoupon.minimumSpend}.`
+    );
+  }
+
+  // Date
+  // if (
+  //   rewardCoupon.validFrom &&
+  //   new Date(rewardCoupon.validFrom) > now
+  // ) {
+  //   throw new ApiError(400, "Coupon is not active yet.");
+  // }
+
+  if (
+    rewardCoupon.validTill &&
+    new Date(rewardCoupon.validTill) < now
+  ) {
+    throw new ApiError(400, "Coupon has expired.");
+  }
+
+  // Day
+  if (
+    rewardCoupon.validDays?.length
+  ) {
+    const today = now.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    if (!rewardCoupon.validDays.includes(today)) {
+      throw new ApiError(
+        400,
+        `Coupon is valid only on ${rewardCoupon.validDays.join(", ")}`
+      );
     }
-
-    // Optional cashback deduction logic
-    // customer.cashBackAmount -= rewardCoupon.rewardsPoint;
-    // await customer.save();
-
-    return rewardCoupon.rewardsPoint;
   }
 
-  // Try promotional coupon
-  const promoCoupon = await PromotionCoupon.findOne({
-    couponCode,
-    isActive: true,
-    isDeleted: false,
-    startDate: { $lte: today },
-    endDate: { $gte: today },
-    customerId: { $in: [customerId] },
-  });
+  // Time
+  if (rewardCoupon.startTime && rewardCoupon.endTime) {
+    const currentTime = now.toTimeString().slice(0, 5);
 
-  if (!promoCoupon) {
-    throw new ApiError(404, 'Invalid or expired coupon.');
-  }
-
-  const eligibleServiceIds = promoCoupon.serviceId.map((id) => id.toString());
-  let totalDiscount = 0;
-
-  for (const item of items) {
     if (
-      item.itemType === 'SERVICE' &&
-      eligibleServiceIds.includes(item.itemId.toString())
+      currentTime < rewardCoupon.startTime ||
+      currentTime > rewardCoupon.endTime
     ) {
-      const service = await Service.findById(item.itemId);
-      const itemPrice = service?.sellingPrice || 0;
-
-      const discountPerUnit = (itemPrice * promoCoupon.discountByPercentage) / 100;
-      totalDiscount += discountPerUnit * item.quantity;
+      throw new ApiError(
+        400,
+        `Coupon valid only between ${rewardCoupon.startTime} - ${rewardCoupon.endTime}`
+      );
     }
   }
 
-  return Math.round(totalDiscount);
+  // Already Used
+  if (
+    rewardCoupon.usedBy?.some(
+      (id: any) => id.toString() === customerId
+    )
+  ) {
+    throw new ApiError(
+      400,
+      "You have already used this reward coupon."
+    );
+  }
+
+  // Branch
+  // if (
+  //   branchId &&
+  //   rewardCoupon.branchId?.length &&
+  //   !rewardCoupon.branchId.some(
+  //     (id: any) => id.toString() === branchId
+  //   )
+  // ) {
+  //   throw new ApiError(
+  //     400,
+  //     "Coupon is not valid for this branch."
+  //   );
+  // }
+
+  // Service
+  if (rewardCoupon.serviceId?.length) {
+    const invoiceServices = items
+      .filter((x) => x.itemType === "SERVICE")
+      .map((x) => x.itemId.toString());
+
+    const matched = rewardCoupon.serviceId.some((id: any) =>
+      invoiceServices.includes(id.toString())
+    );
+
+    if (!matched) {
+      throw new ApiError(
+        400,
+        "Coupon is not applicable for selected services."
+      );
+    }
+  }
+
+  // Discount
+  let discount = 0;
+
+
+
+if (rewardCoupon.rewardType === "AMOUNT") {
+  discount = Number(rewardCoupon.rewardValue);
+} 
+else if (rewardCoupon.rewardType === "PERCENTAGE") {
+
+  discount =
+    (Number(totalWithoutDiscount) *
+      Number(rewardCoupon.rewardValue)) /
+    100;
+
+  if (
+    rewardCoupon.maximumDiscount &&
+    discount > Number(rewardCoupon.maximumDiscount)
+  ) {
+    discount = Number(rewardCoupon.maximumDiscount);
+  }
+}
+
+console.log('------dis',discount)
+
+return {
+  discount: Number(discount),
+  points: Number(rewardCoupon.rewardsPoint),
 };
+};
+
+// export const getRewardCouponDiscount = async (
+//   items: { itemId: string; quantity: number; itemType: string }[],
+//   couponCode: string,
+//   customerId: string
+// ): Promise<number> => {
+//   const today = new Date();
+
+//   // Try reward coupon first
+//   const rewardCoupon = await RewardsCoupon.findOne({
+//     couponCode,
+//     isDeleted: false,
+//     isActive: true,
+//   });
+
+//   if (rewardCoupon) {
+//     const customer = await Customer.findById(customerId);
+//     if (!customer) throw new ApiError(404, 'Customer not found');
+
+//     const customerCashback = customer.cashBackAmount || 0;
+
+//     if (customerCashback < rewardCoupon.rewardsPoint) {
+//       throw new ApiError(400, 'Insufficient cashback balance to use this reward coupon.');
+//     }
+
+//     // Optional cashback deduction logic
+//     // customer.cashBackAmount -= rewardCoupon.rewardsPoint;
+//     // await customer.save();
+
+//     return rewardCoupon.rewardsPoint;
+//   }
+
+//   // Try promotional coupon
+//   const promoCoupon = await PromotionCoupon.findOne({
+//     couponCode,
+//     isActive: true,
+//     isDeleted: false,
+//     startDate: { $lte: today },
+//     endDate: { $gte: today },
+//     customerId: { $in: [customerId] },
+//   });
+
+//   if (!promoCoupon) {
+//     throw new ApiError(404, 'Invalid or expired coupon.');
+//   }
+
+//   const eligibleServiceIds = promoCoupon.serviceId.map((id) => id.toString());
+//   let totalDiscount = 0;
+
+//   for (const item of items) {
+//     if (
+//       item.itemType === 'SERVICE' &&
+//       eligibleServiceIds.includes(item.itemId.toString())
+//     ) {
+//       const service = await Service.findById(item.itemId);
+//       const itemPrice = service?.sellingPrice || 0;
+
+//       const discountPerUnit = (itemPrice * promoCoupon.discountByPercentage) / 100;
+//       totalDiscount += discountPerUnit * item.quantity;
+//     }
+//   }
+
+//   return Math.round(totalDiscount);
+// };
 
 //
 const getReferralDiscount = async (
@@ -409,83 +592,105 @@ const getDiscounts = async (
   referralCode: string,
   loyaltyPointsDiscount: number,
   customerId: string,
-  usedCashBackAmountData: number,
   items: any
 ) => {
+  console.log('----totalWithoutDiscount',totalWithoutDiscount)
   let amountToCalculate =
-    totalWithoutDiscount - loyaltyPointsDiscount - usedCashBackAmountData;
-  //couponDiscount
+    totalWithoutDiscount - loyaltyPointsDiscount;
 
+  // Coupon
   let couponDiscount = 0;
   if (couponCode) {
-    couponDiscount = await getCouponDiscount(amountToCalculate, couponCode);
+    couponDiscount = await getCouponDiscount(
+      amountToCalculate,
+      couponCode
+    );
+    amountToCalculate -= couponDiscount;
   }
-  amountToCalculate = amountToCalculate - couponDiscount;
 
-  //referralDiscount
+  // Referral
   let referralDiscount = 0;
   if (referralCode) {
     referralDiscount = await getReferralDiscount(
       amountToCalculate,
       referralCode
     );
+    amountToCalculate -= referralDiscount;
   }
 
-  amountToCalculate = amountToCalculate - referralDiscount;
-  //giftCardDiscount
+  // Gift Card
   let giftCardDiscount = 0;
-  let promotionCoupanCodeDiscount = 0;
-  let rewardCoupanCodeDiscount = 0
   if (giftCardCode) {
     giftCardDiscount = await getGiftCardDiscount(
       amountToCalculate,
       giftCardCode,
       customerId
     );
+    amountToCalculate -= giftCardDiscount;
   }
 
+  // Promotion Coupon
+  let promotionCoupanCodeDiscount = 0;
   if (promotionCoupanCode) {
-    promotionCoupanCodeDiscount = await getPromotionalCouponDiscount(
-      items,
-      promotionCoupanCode,
-      customerId
+    promotionCoupanCodeDiscount =
+      await getPromotionalCouponDiscount(
+        items,
+        promotionCoupanCode,
+        customerId
+      );
+
+    // Remaining amount se jyada discount na ho
+    promotionCoupanCodeDiscount = Math.min(
+      promotionCoupanCodeDiscount,
+      amountToCalculate
     );
+
+    amountToCalculate -= promotionCoupanCodeDiscount;
   }
 
-  if (rewardCoupan) {
-    rewardCoupanCodeDiscount = await getRewardCouponDiscount(
-      items,
-      rewardCoupan,
-      customerId
-    );
-  }
+  // Reward Coupon
+let rewardCoupanCodeDiscount = 0;
+let rewardCouponPoints = 0;
 
+if (rewardCoupan) {
+  const rewardData = await getRewardCouponDiscount(
+    totalWithoutDiscount,
+    items,
+    rewardCoupan,
+    customerId
+  );
 
-  // console.log('-----promotionCoupanCodeDiscount', promotionCoupanCodeDiscount)
+  rewardCoupanCodeDiscount = rewardData.discount;
+  rewardCouponPoints = rewardData.points;
 
-  // let totalDiscount =
-  //   couponDiscount +
-  //   giftCardDiscount +
-  //   promotionCoupanCodeDiscount +
-  //   referralDiscount +
-  //   loyaltyPointsDiscount +
-  //   usedCashBackAmountData;
+  console.log("Discount:", rewardCoupanCodeDiscount);
+  console.log("Points Used:", rewardCouponPoints);
 
-  let totalDiscount =
-  couponDiscount +
-  giftCardDiscount +
-  promotionCoupanCodeDiscount +
-  rewardCoupanCodeDiscount +
-  referralDiscount +
-  loyaltyPointsDiscount +
-  usedCashBackAmountData;
+  const ddd = Math.min(
+    rewardCoupanCodeDiscount,
+    amountToCalculate
+  );
+
+  amountToCalculate -= ddd;
+}
+
+  const totalDiscount =
+    couponDiscount +
+    referralDiscount +
+    giftCardDiscount +
+    promotionCoupanCodeDiscount +
+    rewardCoupanCodeDiscount;
+
+    console.log('------totalDiscount',totalDiscount,rewardCoupanCodeDiscount)
 
   return {
     couponDiscount,
     giftCardDiscount,
     promotionCoupanCodeDiscount,
     rewardCoupanCodeDiscount,
+    rewardCouponPoints,
     referralDiscount,
+    loyaltyPointsDiscount,
     totalDiscount,
   };
 };
