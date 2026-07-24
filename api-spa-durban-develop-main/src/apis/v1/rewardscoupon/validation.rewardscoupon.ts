@@ -16,6 +16,9 @@ const Joi = JoiBase.extend(JoiDate);
 export const create: { body: ObjectSchema } = {
   body: Joi.object().keys({
     // Basic Info
+    couponType: Joi.string()
+  .valid("REWARD", "PROMOTION", "GIFTCARD", "NORMAL")
+  .required(),
     rewardName: Joi.string().trim().required().min(3).max(100),
     rewardsPoint: Joi.number().required().min(0).integer(),
     rewardType: Joi.string().valid('AMOUNT', 'PERCENTAGE').required(),
@@ -67,7 +70,19 @@ export const create: { body: ObjectSchema } = {
         }
         return value;
       }),
-    validFrom: Joi.date().required().min('now'),
+  validFrom: Joi.date().custom((value:any, helpers:any) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const selected = new Date(value);
+  selected.setHours(0, 0, 0, 0);
+
+  if (selected < today) {
+    return helpers.error("date.min");
+  }
+
+  return value;
+}),
     validTill: Joi.date().required()
       .custom((value:any, helpers:any) => {
         const { validFrom } = helpers.state.ancestors[0];
@@ -88,6 +103,9 @@ export const create: { body: ObjectSchema } = {
 
 export const update: { body: ObjectSchema } = {
   body: Joi.object().keys({
+    couponType: Joi.string()
+  .valid("REWARD", "PROMOTION", "GIFTCARD", "NORMAL")
+  .required(),
     rewardName: Joi.string().trim().min(3).max(100),
     rewardsPoint: Joi.number().min(0).integer(),
     rewardType: Joi.string().valid('AMOUNT', 'PERCENTAGE'),

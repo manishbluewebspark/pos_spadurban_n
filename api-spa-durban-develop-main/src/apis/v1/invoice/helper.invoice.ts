@@ -85,27 +85,177 @@ const getCashBackDiscount = async (
 };
 
 //
-const getCouponDiscount = async (
-  amountToCalculate: number,
-  couponCode: string
-) => {
-  const coupon = await couponService.getCouponByMultipleFields({
-    referralCode: couponCode,
-    type: CouponTypeEnum.couponCode,
+// const getCouponDiscount = async (
+//   amountToCalculate: number,
+//   couponCode: string
+// ) => {
+//   const coupon = await couponService.getCouponByMultipleFields({
+//     referralCode: couponCode,
+//     type: CouponTypeEnum.couponCode,
+//   });
+
+//   if (!coupon) {
+//     throw new ApiError(httpStatus.NOT_FOUND, "Invalid coupon.");
+//   }
+
+//   let { discountAmount, valid } = coupon;
+//   if (dateHasPassed(valid)) {
+//     throw new ApiError(httpStatus.NOT_FOUND, "Coupon expired.");
+//   }
+
+//   let couponDiscount = calculatePercentage(amountToCalculate, discountAmount);
+
+//   return couponDiscount;
+// };
+
+export const getCouponDiscount = async (
+  totalAmount: number,
+  items: { itemId: string; quantity: number; itemType: string }[],
+  couponCode: string,
+  customerId: string,
+): Promise<{
+  discount: number;
+  points: number;
+}> => {
+  const now = new Date();
+
+  const coupon = await RewardsCoupon.findOne({
+    couponCode,
+    isDeleted: false,
+    isActive: true,
   });
 
   if (!coupon) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Invalid coupon.");
+    throw new ApiError(404, "Invalid coupon.");
   }
 
-  let { discountAmount, valid } = coupon;
-  if (dateHasPassed(valid)) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Coupon expired.");
+  const customer = await Customer.findById(customerId);
+
+  if (!customer) {
+    throw new ApiError(404, "Customer not found.");
   }
 
-  let couponDiscount = calculatePercentage(amountToCalculate, discountAmount);
+  // Expiry
+  if (coupon.validTill && new Date(coupon.validTill) < now) {
+    throw new ApiError(400, "Coupon has expired.");
+  }
 
-  return couponDiscount;
+  // Valid From
+  if (coupon.validFrom && new Date(coupon.validFrom) > now) {
+    throw new ApiError(400, "Coupon is not active yet.");
+  }
+
+  // Valid Days
+  if (coupon.validDays?.length) {
+    const today = now.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
+
+    if (!coupon.validDays.includes(today)) {
+      throw new ApiError(
+        400,
+        `Coupon is valid only on ${coupon.validDays.join(", ")}`
+      );
+    }
+  }
+
+  // Valid Time
+  // if (coupon.startTime && coupon.endTime) {
+  //   const currentTime = now.toTimeString().substring(0, 5);
+
+  //   if (
+  //     currentTime < coupon.startTime ||
+  //     currentTime > coupon.endTime
+  //   ) {
+  //     throw new ApiError(
+  //       400,
+  //       `Coupon valid only between ${coupon.startTime} - ${coupon.endTime}`
+  //     );
+  //   }
+  // }
+
+  // Already Used
+  if (
+    coupon.usedBy?.some(
+      (id: any) => id.toString() === customerId
+    )
+  ) {
+    throw new ApiError(
+      400,
+      "You have already used this coupon."
+    );
+  }
+
+  // Reward coupon validations only
+  if (coupon.couponType === "REWARD") {
+
+    if (customer.loyaltyPoints < Number(coupon.rewardsPoint || 0)) {
+      throw new ApiError(
+        400,
+        `You need ${coupon.rewardsPoint} loyalty points to use this coupon.`
+      );
+    }
+
+    if (
+      coupon.minimumSpend &&
+      totalAmount < Number(coupon.minimumSpend)
+    ) {
+      throw new ApiError(
+        400,
+        `Minimum spend should be R${coupon.minimumSpend}.`
+      );
+    }
+
+    if (coupon.serviceId?.length) {
+      const invoiceServices = items
+        .filter((x) => x.itemType === "SERVICE")
+        .map((x) => x.itemId.toString());
+
+      const matched = coupon.serviceId.some((id: any) =>
+        invoiceServices.includes(id.toString())
+      );
+
+      if (!matched) {
+        throw new ApiError(
+          400,
+          "Coupon is not applicable for selected services."
+        );
+      }
+    }
+  }
+
+  //-------------------------------------------------------
+  // Calculate Discount
+  //-------------------------------------------------------
+
+  let discount = 0;
+
+  if (coupon.rewardType === "AMOUNT") {
+    discount = Number(coupon.rewardValue);
+  }
+
+  if (coupon.rewardType === "PERCENTAGE") {
+    discount =
+      (totalAmount * Number(coupon.rewardValue)) / 100;
+
+    if (
+      coupon.maximumDiscount &&
+      discount > Number(coupon.maximumDiscount)
+    ) {
+      discount = Number(coupon.maximumDiscount);
+    }
+  }
+
+  // Never exceed bill amount
+  discount = Math.min(discount, totalAmount);
+
+  return {
+    discount,
+    points:
+      coupon.couponType === "REWARD"
+        ? Number(coupon.rewardsPoint || 0)
+        : 0,
+  };
 };
 
 //
@@ -123,7 +273,7 @@ const getGiftCardDiscount = async (
   }
 
   if (!giftCard.isActive) {
-  throw new ApiError(httpStatus.BAD_REQUEST, "Gift card already redeemed.");
+    throw new ApiError(httpStatus.BAD_REQUEST, "Gift card already redeemed.");
   }
 
   if (
@@ -194,7 +344,7 @@ export const getPromotionalCouponDiscount = async (
   return totalDiscount;
 };
 
- const getRewardCouponDiscount = async (
+const getRewardCouponDiscount = async (
   totalWithoutDiscount: number,
   items: { itemId: string; quantity: number; itemType: string }[],
   couponCode: string,
@@ -204,7 +354,7 @@ export const getPromotionalCouponDiscount = async (
   points: number;
 }> => {
 
- 
+
   const now = new Date();
 
   const rewardCoupon = await RewardsCoupon.findOne({
@@ -212,7 +362,7 @@ export const getPromotionalCouponDiscount = async (
     isDeleted: false,
     isActive: true,
   });
-  
+
 
   if (!rewardCoupon) {
     throw new ApiError(404, "Reward coupon not found.");
@@ -232,7 +382,7 @@ export const getPromotionalCouponDiscount = async (
     );
   }
 
-  console.log('-----totalWithoutDiscount',totalWithoutDiscount,rewardCoupon.minimumSpend)
+  console.log('-----totalWithoutDiscount', totalWithoutDiscount, rewardCoupon.minimumSpend)
 
   // Minimum Spend
   if (Number(totalWithoutDiscount) < Number(rewardCoupon.minimumSpend)) {
@@ -337,30 +487,30 @@ export const getPromotionalCouponDiscount = async (
 
 
 
-if (rewardCoupon.rewardType === "AMOUNT") {
-  discount = Number(rewardCoupon.rewardValue);
-} 
-else if (rewardCoupon.rewardType === "PERCENTAGE") {
-
-  discount =
-    (Number(totalWithoutDiscount) *
-      Number(rewardCoupon.rewardValue)) /
-    100;
-
-  if (
-    rewardCoupon.maximumDiscount &&
-    discount > Number(rewardCoupon.maximumDiscount)
-  ) {
-    discount = Number(rewardCoupon.maximumDiscount);
+  if (rewardCoupon.rewardType === "AMOUNT") {
+    discount = Number(rewardCoupon.rewardValue);
   }
-}
+  else if (rewardCoupon.rewardType === "PERCENTAGE") {
 
-console.log('------dis',discount)
+    discount =
+      (Number(totalWithoutDiscount) *
+        Number(rewardCoupon.rewardValue)) /
+      100;
 
-return {
-  discount: Number(discount),
-  points: Number(rewardCoupon.rewardsPoint),
-};
+    if (
+      rewardCoupon.maximumDiscount &&
+      discount > Number(rewardCoupon.maximumDiscount)
+    ) {
+      discount = Number(rewardCoupon.maximumDiscount);
+    }
+  }
+
+  console.log('------dis', discount)
+
+  return {
+    discount: Number(discount),
+    points: Number(rewardCoupon.rewardsPoint),
+  };
 };
 
 // export const getRewardCouponDiscount = async (
@@ -583,112 +733,188 @@ const getTotalCashBack = (items: any[]) => {
   }, 0);
 };
 //
+// const getDiscounts = async (
+//   totalWithoutDiscount: number,
+//   couponCode: string,
+//   // giftCardCode: string,
+//   // promotionCoupanCode: string,
+//   // rewardCoupan: string,
+//   referralCode: string,
+//   loyaltyPointsDiscount: number,
+//   customerId: string,
+//   items: any
+// ) => {
+//   console.log('----totalWithoutDiscount', totalWithoutDiscount)
+//   let amountToCalculate =
+//     totalWithoutDiscount - loyaltyPointsDiscount;
+
+//   // Coupon
+//   let couponDiscount = 0;
+//   let usedPoints = 0;
+
+//   if (couponCode) {
+//     const result = await getCouponDiscount(
+//       totalWithoutDiscount,
+//       items,
+//       couponCode,
+//       customerId,
+//     );
+
+//     couponDiscount = result.discount;
+//     usedPoints = result.points;
+
+//     amountToCalculate -= couponDiscount;
+//   }
+
+//   // Referral
+//   let referralDiscount = 0;
+//   if (referralCode) {
+//     referralDiscount = await getReferralDiscount(
+//       amountToCalculate,
+//       referralCode
+//     );
+//     amountToCalculate -= referralDiscount;
+//   }
+
+//   // Gift Card
+//   // let giftCardDiscount = 0;
+//   // if (giftCardCode) {
+//   //   giftCardDiscount = await getGiftCardDiscount(
+//   //     amountToCalculate,
+//   //     giftCardCode,
+//   //     customerId
+//   //   );
+//   //   amountToCalculate -= giftCardDiscount;
+//   // }
+
+//   // Promotion Coupon
+//   // let promotionCoupanCodeDiscount = 0;
+//   // if (promotionCoupanCode) {
+//   //   promotionCoupanCodeDiscount =
+//   //     await getPromotionalCouponDiscount(
+//   //       items,
+//   //       promotionCoupanCode,
+//   //       customerId
+//   //     );
+
+//   //   // Remaining amount se jyada discount na ho
+//   //   promotionCoupanCodeDiscount = Math.min(
+//   //     promotionCoupanCodeDiscount,
+//   //     amountToCalculate
+//   //   );
+
+//   //   amountToCalculate -= promotionCoupanCodeDiscount;
+//   // }
+
+//   // Reward Coupon
+//   // let rewardCoupanCodeDiscount = 0;
+//   // let rewardCouponPoints = 0;
+
+//   // if (rewardCoupan) {
+//   //   const rewardData = await getRewardCouponDiscount(
+//   //     totalWithoutDiscount,
+//   //     items,
+//   //     rewardCoupan,
+//   //     customerId
+//   //   );
+
+//   //   rewardCoupanCodeDiscount = rewardData.discount;
+//   //   rewardCouponPoints = rewardData.points;
+
+//   //   console.log("Discount:", rewardCoupanCodeDiscount);
+//   //   console.log("Points Used:", rewardCouponPoints);
+
+//   //   const ddd = Math.min(
+//   //     rewardCoupanCodeDiscount,
+//   //     amountToCalculate
+//   //   );
+
+//   //   amountToCalculate -= ddd;
+//   // }
+
+//   const totalDiscount =
+//     couponDiscount +
+//     referralDiscount
+//   // +
+//   // giftCardDiscount +
+//   // promotionCoupanCodeDiscount +
+//   // rewardCoupanCodeDiscount;
+
+//   // console.log('------totalDiscount',totalDiscount,rewardCoupanCodeDiscount)
+
+//   return {
+//     couponDiscount,
+//     // giftCardDiscount,
+//     // promotionCoupanCodeDiscount,
+//     // rewardCoupanCodeDiscount,
+//     // rewardCouponPoints,
+//     referralDiscount,
+//     loyaltyPointsDiscount,
+//     totalDiscount,
+//   };
+// };
+
 const getDiscounts = async (
   totalWithoutDiscount: number,
   couponCode: string,
-  giftCardCode: string,
-  promotionCoupanCode: string,
-  rewardCoupan: string,
   referralCode: string,
   loyaltyPointsDiscount: number,
   customerId: string,
   items: any
 ) => {
-  console.log('----totalWithoutDiscount',totalWithoutDiscount)
   let amountToCalculate =
     totalWithoutDiscount - loyaltyPointsDiscount;
 
-  // Coupon
+  // ===========================
+  // Coupon (All Types)
+  // ===========================
   let couponDiscount = 0;
+  let usedPoints = 0;
+
   if (couponCode) {
-    couponDiscount = await getCouponDiscount(
+    const result = await getCouponDiscount(
       amountToCalculate,
-      couponCode
+      items,
+      couponCode,
+      customerId
     );
+
+    couponDiscount = Math.min(result.discount, amountToCalculate);
+    usedPoints = result.points;
+
     amountToCalculate -= couponDiscount;
   }
 
+  // ===========================
   // Referral
+  // ===========================
   let referralDiscount = 0;
+
   if (referralCode) {
     referralDiscount = await getReferralDiscount(
       amountToCalculate,
       referralCode
     );
-    amountToCalculate -= referralDiscount;
-  }
 
-  // Gift Card
-  let giftCardDiscount = 0;
-  if (giftCardCode) {
-    giftCardDiscount = await getGiftCardDiscount(
-      amountToCalculate,
-      giftCardCode,
-      customerId
-    );
-    amountToCalculate -= giftCardDiscount;
-  }
-
-  // Promotion Coupon
-  let promotionCoupanCodeDiscount = 0;
-  if (promotionCoupanCode) {
-    promotionCoupanCodeDiscount =
-      await getPromotionalCouponDiscount(
-        items,
-        promotionCoupanCode,
-        customerId
-      );
-
-    // Remaining amount se jyada discount na ho
-    promotionCoupanCodeDiscount = Math.min(
-      promotionCoupanCodeDiscount,
+    referralDiscount = Math.min(
+      referralDiscount,
       amountToCalculate
     );
 
-    amountToCalculate -= promotionCoupanCodeDiscount;
+    amountToCalculate -= referralDiscount;
   }
 
-  // Reward Coupon
-let rewardCoupanCodeDiscount = 0;
-let rewardCouponPoints = 0;
-
-if (rewardCoupan) {
-  const rewardData = await getRewardCouponDiscount(
-    totalWithoutDiscount,
-    items,
-    rewardCoupan,
-    customerId
-  );
-
-  rewardCoupanCodeDiscount = rewardData.discount;
-  rewardCouponPoints = rewardData.points;
-
-  console.log("Discount:", rewardCoupanCodeDiscount);
-  console.log("Points Used:", rewardCouponPoints);
-
-  const ddd = Math.min(
-    rewardCoupanCodeDiscount,
-    amountToCalculate
-  );
-
-  amountToCalculate -= ddd;
-}
-
+  // ===========================
+  // Total Discount
+  // ===========================
   const totalDiscount =
+    loyaltyPointsDiscount +
     couponDiscount +
-    referralDiscount +
-    giftCardDiscount +
-    promotionCoupanCodeDiscount +
-    rewardCoupanCodeDiscount;
-
-    console.log('------totalDiscount',totalDiscount,rewardCoupanCodeDiscount)
+    referralDiscount;
 
   return {
     couponDiscount,
-    giftCardDiscount,
-    promotionCoupanCodeDiscount,
-    rewardCoupanCodeDiscount,
-    rewardCouponPoints,
+    usedPoints,
     referralDiscount,
     loyaltyPointsDiscount,
     totalDiscount,

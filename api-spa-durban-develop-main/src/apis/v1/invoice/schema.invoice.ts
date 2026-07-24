@@ -50,7 +50,7 @@ export interface InvoiceDocument extends Document {
   notes: string;
   shippingCharges: number;
   amountReceived: amountReceived[];
-  giftCardCode: string;
+  // giftCardCode: string;
   useLoyaltyPoints: boolean;
   loyaltyPointsEarned: number;
   loyaltyPoints:Number;
@@ -61,9 +61,9 @@ export interface InvoiceDocument extends Document {
   totalDiscount: number;
   amountPaid: number;
   couponDiscount: number;
-  giftCardDiscount: number;
-  promotionCoupanCode:string;
-  promotionCoupanCodeDiscount:number;
+  // giftCardDiscount: number;
+  // promotionCoupanCode:string;
+  // promotionCoupanCodeDiscount:number;
   loyaltyPointsDiscount: number;
   referralDiscount: number;
   isDeleted: boolean;
@@ -278,26 +278,26 @@ extraServices: {
       required: true,
       trim: true,
     },
-    giftCardDiscount: {
-      type: Number,
-      required: true,
-      trim: true,
-    },
-    giftCardCode: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-    promotionCoupanCodeDiscount: {
-      type: Number,
-      required: true,
-      trim: true,
-    },
-    promotionCoupanCode: {
-      type: String,
-      default: "",
-      trim: true,
-    },
+    // giftCardDiscount: {
+    //   type: Number,
+    //   required: true,
+    //   trim: true,
+    // },
+    // giftCardCode: {
+    //   type: String,
+    //   default: "",
+    //   trim: true,
+    // },
+    // promotionCoupanCodeDiscount: {
+    //   type: Number,
+    //   required: true,
+    //   trim: true,
+    // },
+    // promotionCoupanCode: {
+    //   type: String,
+    //   default: "",
+    //   trim: true,
+    // },
     useLoyaltyPoints: {
       type: Boolean,
       default: false,

@@ -23,6 +23,7 @@ const AddCustomerFormWrapper = () => {
     dateOfBirth: null,
     gender: '',
     customerGroup: '',
+    loyaltyPoints:"",
     outlets: []
   };
 

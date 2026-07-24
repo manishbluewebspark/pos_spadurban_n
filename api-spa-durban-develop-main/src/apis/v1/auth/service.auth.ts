@@ -12,6 +12,7 @@ import { Request } from "express";
 import { sendEmail } from "../../../helper/sendEmail";
 import { UserEnum } from "../../../utils/enumUtils";
 import mongoose from "mongoose";
+import logger from "../../../../config/logger"
 
 /**
  * Login with userName and password
@@ -331,14 +332,223 @@ const forgotPassword = async (email: string) => {
     attachments: [],
   };
 
-  const outletData ={};
-  const sendEmailResult = await sendEmail(emailData,outletData);
+  const outletData = {};
+  const sendEmailResult = await sendEmail(emailData, outletData);
 
   //create otp and store in respective database
   //send email
   //send sms
 
   return user;
+};
+
+
+export const generateOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+export const verifyOTP = (
+  storedOtp: string | undefined,
+  storedExpiry: number | undefined,
+  inputOtp: string
+): boolean => {
+  console.log('----storedOtp', storedOtp, storedExpiry, inputOtp)
+  // Check if OTP exists
+  if (!storedOtp || !storedExpiry) {
+    return false;
+  }
+
+  // Check if OTP matches
+  if (storedOtp !== inputOtp) {
+    return false;
+  }
+
+  // Check if OTP is expired
+  if (Date.now() > storedExpiry) {
+    return false;
+  }
+
+  return true;
+};
+
+
+export const getOtpRemainingTime = (otpExpiry: number): number => {
+  const remaining = Math.max(0, otpExpiry - Date.now());
+  return Math.ceil(remaining / 60000); // Return in minutes
+};
+
+
+export const sendOTPEmail = async (
+  email: string,
+  otp: string,
+  name: string = 'Customer',
+  outlet: any = null
+): Promise<boolean> => {
+  try {
+    // Simple HTML email template
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>OTP Verification</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+          }
+          .container {
+            max-width: 500px;
+            margin: 40px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+          }
+          .header {
+            background: #006972;
+            padding: 30px;
+            text-align: center;
+          }
+          .header h1 {
+            color: #ffffff;
+            margin: 0;
+            font-size: 24px;
+          }
+          .content {
+            padding: 30px;
+          }
+          .greeting {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 20px;
+          }
+          .greeting strong {
+            color: #006972;
+          }
+          .message {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 25px;
+          }
+          .otp-box {
+            background: #f8f9fa;
+            border: 2px dashed #006972;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+          }
+          .otp-code {
+            font-size: 36px;
+            font-weight: bold;
+            color: #006972;
+            letter-spacing: 8px;
+            font-family: 'Courier New', monospace;
+          }
+          .otp-label {
+            color: #999;
+            font-size: 14px;
+            margin-top: 5px;
+          }
+          .expiry {
+            color: #856404;
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 14px;
+            margin: 20px 0;
+          }
+          .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+            border-top: 1px solid #eee;
+          }
+          .footer a {
+            color: #006972;
+            text-decoration: none;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+         
+          <div class="content">
+            <div class="greeting">
+              Hello <strong>${name}</strong>!
+            </div>
+            <p class="message">
+              You have requested to verify your email address. 
+              Please use the OTP below to complete your verification.
+            </p>
+            <div class="otp-box">
+              <div class="otp-code">${otp}</div>
+              <div class="otp-label">Your One-Time Password</div>
+            </div>
+            <div class="expiry">
+              This OTP is valid for 10 minutes
+            </div>
+            <p style="color: #999; font-size: 14px; text-align: center;">
+              If you didn't request this, please ignore this email.
+            </p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()}. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Plain text version
+    const textContent = `
+      Verify Your Email - OTP Verification
+      
+      Hello ${name}!
+      
+      You have requested to verify your email address.
+      Your OTP is: ${otp}
+      
+      This OTP is valid for 10 minutes.
+      
+      If you didn't request this, please ignore this email.
+      
+      © ${new Date().getFullYear()}. All rights reserved.
+    `;
+
+    // Email data
+    const emailData = {
+      sendTo: email,
+      emailSubject: 'Your OTP for Email Verification',
+      text: textContent,
+      emailBody: htmlContent,
+    };
+
+    // Send email using existing sendEmail function
+    const isEmailSent = await sendEmail(emailData, outlet);
+
+    if (isEmailSent) {
+      logger.info(`OTP sent successfully to ${email}`);
+      return true;
+    } else {
+      logger.error(`Failed to send OTP to ${email}`);
+      return false;
+    }
+
+  } catch (error) {
+    logger.error('Error in sendOTPEmail:', error);
+    throw new ApiError(
+      httpStatus.INTERNAL_SERVER_ERROR,
+      'Failed to send OTP email. Please try again.'
+    );
+  }
 };
 
 export {

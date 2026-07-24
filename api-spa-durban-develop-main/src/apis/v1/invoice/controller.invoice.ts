@@ -93,15 +93,15 @@ const createInvoice = catchAsync(
       couponCode,
       shippingCharges,
       amountReceived,
-      giftCardCode,
+      // giftCardCode,
       useLoyaltyPoints,
       referralCode,
       outletId,
       useCashBackAmount,
       usedCashBackAmount,
       bookingId,
-      rewardCoupan,
-      promotionCoupanCode
+      // rewardCoupan,
+      // promotionCoupanCode
     } = req.body;
     // console.log(req.body, 12313);
     //get pre invoicing phase
@@ -131,16 +131,16 @@ const createInvoice = catchAsync(
       walletDebitLog,
       walletCreditLog,
       inventoryData,
-       rewardCouponPoints = 0,
+      usedPoints
     } = dataToUpdate;
     let { outlet } = otherData;
 
     const totalDebitPoints =
   Number(pointsToDebit || 0) +
-  Number(rewardCouponPoints || 0);
+  Number(usedPoints || 0);
 
     console.log('-----totalDebitPoints', totalDebitPoints)
-      console.log('-----rewardCouponPoints', rewardCouponPoints)
+      console.log('-----rewardCouponPoints', usedPoints)
     console.log('-----pointsToAdd', pointsToAdd)
       console.log('-----pointsToDebit', pointsToDebit)
 
@@ -296,14 +296,14 @@ const createInvoice = catchAsync(
     if (!updatedOutlet) {
       throw new ApiError(httpStatus.NOT_FOUND, "Something went wrong.");
     }
-    // console.log("777777777777777")
+    console.log("777777777777777")
     //update logs
     let addedInvoiceLogs = await invoiceLogService.createOrUpdateInvoiceLog(
       invoice,
       true
     );
 
-    // console.log("888888888888")
+    console.log("888888888888")
 
     if (!addedInvoiceLogs) {
       throw new ApiError(httpStatus.NOT_FOUND, "Something went wrong.");
@@ -313,9 +313,9 @@ const createInvoice = catchAsync(
     if (walletDebitLog && totalDebitPoints > 0) {
       let debitedPoints = await updateWalletAndUpdateLog(
         walletDebitLog,
-        Number(rewardCouponPoints || 0)
+        Number(usedPoints || 0)
       );
-      // console.log("9999999999999")
+      console.log("9999999999999")
       if (!debitedPoints) {
         throw new ApiError(httpStatus.NOT_FOUND, "Something went wrong.");
       }
@@ -327,7 +327,7 @@ if (walletCreditLog && pointsToAdd > 0) {
         walletCreditLog,
         pointsToAdd
       );
-      // console.log("100000000000")
+      console.log("100000000000")
       if (!creditedPoints) {
         throw new ApiError(httpStatus.NOT_FOUND, "Something went wrong.");
       }
@@ -350,19 +350,19 @@ if (walletCreditLog && pointsToAdd > 0) {
       );
     }
 
+    // if (couponCode) {
+    //   await couponService.markCouponAsUsed(couponCode, invoiceData?.customerId)
+    // }
     if (couponCode) {
-      await couponService.markCouponAsUsed(couponCode, invoiceData?.customerId)
-    }
-    if (rewardCoupan) {
-      await rewardsCouponService.markRewardCouponAsUsed(rewardCoupan, invoiceData?.customerId)
+      await rewardsCouponService.markRewardCouponAsUsed(couponCode, invoiceData?.customerId)
     }
 
-    if (promotionCoupanCode) {
-      await promotionCouponService.markPromotionCouponAsUsed(promotionCoupanCode, invoiceData?.customerId)
-    }
-    if (giftCardCode) {
-      await giftCardService.markGiftCardCouponAsUsed(giftCardCode, invoiceData?.customerId)
-    }
+    // if (promotionCoupanCode) {
+    //   await promotionCouponService.markPromotionCouponAsUsed(promotionCoupanCode, invoiceData?.customerId)
+    // }
+    // if (giftCardCode) {
+    //   await giftCardService.markGiftCardCouponAsUsed(giftCardCode, invoiceData?.customerId)
+    // }
 
 
     if (validRules.length) {

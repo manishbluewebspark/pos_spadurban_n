@@ -1,6 +1,7 @@
 // RewardsCoupon.model.ts
 
 export type RewardsCoupon = {
+   couponType:string;
   rewardsPoint: string;
   status: string;
   couponCode: string;
@@ -23,6 +24,7 @@ export type RewardsCoupon = {
 };
 
 export type RewardsCouponFormValues = {
+  couponType:string;
   // Basic Info
   rewardName: string;
   rewardsPoint: string;

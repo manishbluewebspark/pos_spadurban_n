@@ -28,7 +28,9 @@ export interface CustomerDocument extends Document {
   bookingCustomerId: string;
   cashBackAmount: number;
   customerGroup:string;
-  outlets:Object
+  outlets:Object,
+  otp?:string,
+  otpExpiry?:number
 }
 
 export interface CustomerModel extends mongoose.Model<CustomerDocument> {
@@ -133,7 +135,7 @@ const CustomerSchema = new mongoose.Schema<CustomerDocument>(
     },
     customerGroup:{
       type:String,
-      required:true
+      // required:true
     },
     customerType: {
       type: String,
@@ -162,6 +164,16 @@ const CustomerSchema = new mongoose.Schema<CustomerDocument>(
     cashBackAmount: {
       type: Number,
       default: 0,
+    },
+     otp: {
+      type: String,
+      required: false,
+      select: false, // Don't return in queries by default
+    },
+    otpExpiry: {
+      type: Number,
+      required: false,
+      select: false,
     },
   },
 

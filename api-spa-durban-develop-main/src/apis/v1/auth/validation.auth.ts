@@ -6,11 +6,25 @@ const login = {
     password: Joi.string().required(),
   }),
 };
-const checkEmailExists = {
+const sendOtpValidation = {
   body: Joi.object().keys({
     email: Joi.string().required()
   }),
 };
+
+const checkEmailExists = {
+  body: Joi.object().keys({
+    email: Joi.string().required(),
+  }),
+};
+
+const verifyOtpValidation = {
+  body: Joi.object().keys({
+    email: Joi.string().required(),
+        otp:Joi.string().required()
+  }),
+};
+
 const loginAuto = {
   body: Joi.object().keys({
     bookingUserId: Joi.string().required(),
@@ -60,5 +74,7 @@ export {
   forgotPassword,
   resetPassword,
   loginAuto,
-  checkEmailExists
+  checkEmailExists,
+  sendOtpValidation,
+  verifyOtpValidation
 };

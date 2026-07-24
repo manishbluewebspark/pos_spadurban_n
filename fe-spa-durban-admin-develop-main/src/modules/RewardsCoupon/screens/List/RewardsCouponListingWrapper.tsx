@@ -102,6 +102,15 @@ const RewardsCouponListingWrapper = (props: Props) => {
 
   // Table Headers
   const tableHeaders: TableHeader<RewardsCoupon>[] = [
+     {
+      fieldName: 'couponType',
+      headerName: 'Reward Name',
+      sortKey: 'couponType',
+      flex: 'flex-[1.5_0_0%]',
+      render: (row: any) => {
+        return <span className="font-medium">{row?.couponType || '-'}</span>;
+      },
+    },
     {
       fieldName: 'rewardName',
       headerName: 'Reward Name',

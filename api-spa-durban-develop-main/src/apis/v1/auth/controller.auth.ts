@@ -7,6 +7,8 @@ import config from "../../../../config/config";
 import { authService, tokenService, userService } from "../service.index";
 import { compare } from "bcrypt";
 import Customer from "../customer/schema.customer";
+import { generateOTP, sendOTPEmail, verifyOTP } from "./service.auth";
+
 
 //------------------------------------------------------------
 
@@ -184,6 +186,117 @@ const verifyEmail = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+// ============= SEND OTP =============
+const sendOtp = catchAsync(async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Email is required');
+  }
+
+  const existingCustomer = await Customer.findOne({
+    email: { $regex: new RegExp(`^${email}$`, 'i') }
+  })
+
+  if (!existingCustomer) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Email not found in our system');
+  }
+
+  const otp = generateOTP();
+  const otpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+  existingCustomer.otp = otp;
+  existingCustomer.otpExpiry = otpExpiry;
+  await existingCustomer.save();
+
+  await sendOTPEmail(
+    email,
+    otp,
+    existingCustomer.customerName || 'Customer',
+  );
+
+  res.status(httpStatus.OK).json({
+    success: true,
+    message: 'OTP sent successfully to your email',
+    otpExpiry: 600
+  });
+});
+
+// ============= RESEND OTP =============
+const resendOtp = catchAsync(async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  if (!email) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Email is required');
+  }
+
+  const existingCustomer = await Customer.findOne({
+    email: { $regex: new RegExp(`^${email}$`, 'i') }
+  });
+
+  if (!existingCustomer) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Email not found in our system');
+  }
+
+  const otp = generateOTP();
+  const otpExpiry = Date.now() + 10 * 60 * 1000;
+
+  existingCustomer.otp = otp;
+  existingCustomer.otpExpiry = otpExpiry;
+  await existingCustomer.save();
+
+ await sendOTPEmail(
+    email,
+    otp,
+    existingCustomer.customerName || 'Customer',
+  );
+
+  res.status(httpStatus.OK).json({
+    success: true,
+    message: 'New OTP sent successfully',
+    otpExpiry: 600
+  });
+});
+
+// ============= VERIFY OTP =============
+const verifyOtp = catchAsync(async (req: Request, res: Response) => {
+  const { email, otp } = req.body;
+
+  if (!email) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Email is required');
+  }
+
+  if (!otp) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'OTP is required');
+  }
+
+  const customer = await Customer.findOne({
+    email: { $regex: new RegExp(`^${email}$`, 'i') }
+  }).select('+otp +otpExpiry');
+
+
+  if (!customer) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Email not found in our system');
+  }
+
+  const isValid = await verifyOTP(customer.otp, customer.otpExpiry, otp);
+
+  if (!isValid) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid or expired OTP');
+  }
+
+  // Clear OTP after verification
+  customer.otp = undefined;
+  customer.otpExpiry = undefined;
+  await customer.save();
+
+  res.status(httpStatus.OK).json({
+    success: true,
+    message: 'OTP verified successfully',
+    data: customer
+  });
+});
+
 //------------------------------------------------------------
 
 export default {
@@ -197,4 +310,7 @@ export default {
   verifyEmail,
   changePassword,
   loginAuto,
+  sendOtp,
+  resendOtp,
+  verifyOtp
 };

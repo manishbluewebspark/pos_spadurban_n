@@ -9,6 +9,9 @@ import {
 } from "../../../utils/interface";
 
 export interface RewardsCouponDocument extends Document {
+  // Coupon Type
+  couponType: "REWARD" | "PROMOTION" | "NORMAL" | "GIFTCARD";
+
   // Basic Info
   rewardName: string;
   rewardsPoint: number;
@@ -16,27 +19,34 @@ export interface RewardsCouponDocument extends Document {
   rewardValue: number;
   minimumSpend: number;
   maximumDiscount: number;
-  
+
+  // Gift Card Only
+  giftCardAmount: number;
+  balanceAmount: number;
+
+  // Promotion Only
+  promotionCategory: string;
+
   // Coupon Details
   couponCode: string;
-  
+
   // Relations
   branchId: ObjectId[];
   serviceId: ObjectId[];
-  
+
   // Validity
   validDays: string[];
   startTime: string;
   endTime: string;
   validFrom: Date;
   validTill: Date;
-  
+
   // Additional Info
   description: string;
   isActive: boolean;
   isDeleted: boolean;
   status: string;
-  
+
   // Tracking
   usedBy: Types.ObjectId[];
   createdAt: Date;
@@ -63,6 +73,12 @@ export interface RewardsCouponModel
 
 const RewardsCouponSchema = new mongoose.Schema<RewardsCouponDocument>(
   {
+    couponType: {
+      type: String,
+      enum: ["REWARD", "PROMOTION", "NORMAL", "GIFTCARD"],
+      required: true,
+      default: "REWARD",
+    },
     // Basic Info
     rewardName: {
       type: String,
@@ -96,6 +112,24 @@ const RewardsCouponSchema = new mongoose.Schema<RewardsCouponDocument>(
       required: true,
       default: 0,
       min: 0,
+    },
+    // Gift Card
+    giftCardAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    balanceAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    // Promotion
+    promotionCategory: {
+      type: String,
+      default: "",
     },
 
     // Coupon Details
@@ -189,7 +223,12 @@ paginate(RewardsCouponSchema);
 timestamp(RewardsCouponSchema);
 
 export const allowedDateFilterKeys = ["createdAt", "updatedAt", "validFrom", "validTill"];
-export const searchKeys = ["rewardName", "couponCode", "description"];
+export const searchKeys = [
+  "rewardName",
+  "couponCode",
+  "description",
+  "promotionCategory",
+];
 
 const RewardsCoupon = mongoose.model<RewardsCouponDocument, RewardsCouponModel>(
   "RewardsCoupon",

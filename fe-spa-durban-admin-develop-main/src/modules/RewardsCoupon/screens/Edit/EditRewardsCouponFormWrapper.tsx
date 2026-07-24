@@ -41,6 +41,7 @@ const EditRewardsCouponFormWrapper = (props: Props) => {
   const couponData = (rewardsCouponData as any)?.data || {};
 
   const initialValues: RewardsCouponFormValues = {
+    couponType:couponData?.couponType || 'NORMAL',
     rewardName: couponData?.rewardName || '',
     rewardsPoint: couponData?.rewardsPoint || '',
     rewardType: couponData?.rewardType || 'AMOUNT',
@@ -165,6 +166,7 @@ const EditRewardsCouponFormWrapper = (props: Props) => {
     { resetForm, setSubmitting }: FormikHelpers<RewardsCouponFormValues>,
   ) => {
     const formattedValues = {
+      couponType:values?.couponType,
       rewardName: values.rewardName,
       rewardsPoint: values.rewardsPoint,
       rewardType: values.rewardType,

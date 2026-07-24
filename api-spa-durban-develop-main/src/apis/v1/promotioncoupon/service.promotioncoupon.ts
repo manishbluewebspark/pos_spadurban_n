@@ -199,164 +199,128 @@ const getPromotionCouponById = async (
     });
 };
 
-const aggregateAllCoupons = async (customerId: string, items: string[]) => {
+const aggregateAllCoupons = async (
+  customerId: string,
+  items: string[]
+) => {
   const today = new Date();
 
   const customerData = await customerService.getCustomerById(customerId);
 
-  // ===========================
-  // Promotional Coupons
-  // ===========================
-  const promotionalCouponsDocs = await PromotionCoupon.find({
+  const dayNames = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
+  const currentDay = dayNames[today.getDay()];
+
+  const currentTime = today.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const coupons = await RewardsCoupon.find({
     isDeleted: false,
     isActive: true,
-    endDate: { $gte: today },
-    customerId: { $in: [customerId] },
+
+    // validFrom: { $lte: today },
+    validTill: { $gte: today },
+
     usedBy: { $nin: [customerId] },
-  }).lean();
 
-  const promotionalCoupons = promotionalCouponsDocs.map((doc) => ({
-    _id: doc._id,
-    code: doc.couponCode,
-    discount: doc.discountByPercentage,
-    validTill: doc.endDate,
-    type: "Promotional",
-  }));
-
-  // ===========================
-  // Birthday Coupons
-  // ===========================
-  const birthdayCouponDocs = await Coupon.find({
-    valid: { $gte: today },
-    user: customerId,
-    type: "COUPON_CODE",
-    referralCode: { $regex: /^BDAY-/i },
-    isDeleted: false,
-    isActive: true,
-    usedBy: { $nin: [customerId] },
-  }).lean();
-
-  const birthdayCoupons = birthdayCouponDocs.map((doc) => ({
-    _id: doc._id,
-    code: doc.referralCode,
-    discount: doc.discountAmount,
-    validTill: doc.valid,
-    type: "Birthday",
-  }));
-
-const startOfToday = new Date();
-startOfToday.setHours(0, 0, 0, 0);
-
-const endOfToday = new Date();
-endOfToday.setHours(23, 59, 59, 999);
-
-  // ===========================
-  // Reward Coupons
-  // ===========================
-  const rewardsDocs = await RewardsCoupon.find({
-    isDeleted: false,
-    isActive: true,
-
-    // Customer ke paas itne points hone chahiye
-    rewardsPoint: {
-      $lte: customerData?.loyaltyPoints || 0,
-    },
-
-  //  validFrom: {
-  //   $lte: endOfToday,
-  // },
-
-  validTill: {
-    $gte: startOfToday,
-  },
-
-    // One customer ek hi baar use kare
-    usedBy: {
-      $nin: [customerId],
-    },
-
-    // Agar service specific coupon rakhna hai to ye rakho,
-    // warna is block ko hata do
     ...(items?.length
       ? {
-        $or: [
-          {
-            serviceId: { $size: 0 }, // All Services
-          },
-          {
-            serviceId: { $in: items }, // Selected Services
-          },
-        ],
-      }
+          $or: [
+            { serviceId: { $size: 0 } },
+            { serviceId: { $in: items } },
+          ],
+        }
       : {}),
-
   }).lean();
 
-  const rewardCoupons = rewardsDocs.map((doc) => ({
-    _id: doc._id,
+  const filteredCoupons = coupons.filter((coupon) => {
+    // Reward coupon => enough points required
+    if (
+      coupon.couponType === "REWARD" &&
+      (customerData?.loyaltyPoints || 0) < (coupon.rewardsPoint || 0)
+    ) {
+      return false;
+    }
 
-    code: doc.couponCode,
+    // Day validation
+    if (
+      coupon.validDays?.length &&
+      !coupon.validDays.includes(currentDay)
+    ) {
+      return false;
+    }
 
-    rewardName: doc.rewardName,
+    // Time validation
+    // if (
+    //   coupon.startTime &&
+    //   coupon.endTime &&
+    //   (currentTime < coupon.startTime ||
+    //     currentTime > coupon.endTime)
+    // ) {
+    //   return false;
+    // }
 
-    rewardPoints: doc.rewardsPoint,
+    return true;
+  });
 
-    rewardType: doc.rewardType,
+  return filteredCoupons
+    .map((doc) => ({
+      _id: doc._id,
 
-    discount: doc.rewardValue,
+      couponType: doc.couponType,
 
-    minimumSpend: doc.minimumSpend,
+      code: doc.couponCode,
 
-    maximumDiscount: doc.maximumDiscount,
+      rewardName: doc.rewardName,
 
-    validTill: doc.validTill,
+      rewardType: doc.rewardType,
 
-    type: "Reward",
-  }));
+      rewardValue: doc.rewardValue,
 
-  // ===========================
-  // Gift Cards
-  // ===========================
-  const customerObjectId = new mongoose.Types.ObjectId(customerId);
+      rewardPoints: doc.rewardsPoint,
 
-  const giftCardDocs = await GiftCard.find({
-    giftCardExpiryDate: { $gte: today },
-    isDeleted: false,
-    isActive: true,
-    $or: [
-      {
-        type: "WHOEVER_BOUGHT",
-        customerId: null,
-        usedBy: { $nin: [customerId] },
-      },
-      {
-        type: "SPECIFIC_CUSTOMER",
-        customerId: customerObjectId,
-        usedBy: { $nin: [customerId] },
-      },
-    ],
-  }).lean();
+      minimumSpend: doc.minimumSpend,
 
-  const giftCards = giftCardDocs.map((doc) => ({
-    _id: doc._id,
-    code: doc.giftCardName,
-    discount: doc.giftCardAmount,
-    validTill: doc.giftCardExpiryDate,
-    type: "GiftCard",
-  }));
+      maximumDiscount: doc.maximumDiscount,
 
-  // ===========================
-  // Final
-  // ===========================
-  return [
-    ...birthdayCoupons,
-    ...promotionalCoupons,
-    ...rewardCoupons,
-    ...giftCards,
-  ].sort(
-    (a, b) =>
-      new Date(a.validTill).getTime() - new Date(b.validTill).getTime()
-  );
+      giftCardAmount: doc.giftCardAmount,
+
+      balanceAmount: doc.balanceAmount,
+
+      promotionCategory: doc.promotionCategory,
+
+      validFrom: doc.validFrom,
+
+      validTill: doc.validTill,
+
+      validDays: doc.validDays,
+
+      startTime: doc.startTime,
+
+      endTime: doc.endTime,
+
+      description: doc.description,
+
+      branchId: doc.branchId,
+
+      serviceId: doc.serviceId,
+    }))
+    .sort(
+      (a, b) =>
+        new Date(a.validTill).getTime() -
+        new Date(b.validTill).getTime()
+    );
 };
 
 // const aggregateAllCoupons = async (customerId: string, items: string[]) => {

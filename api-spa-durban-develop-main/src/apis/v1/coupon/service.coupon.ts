@@ -233,165 +233,58 @@ const getCouponByCustomerId = async (
     customerData = await customerService.getCustomerById(customerId);
   }
 
-  // ===========================
-  // 🎯 Promotional Coupons
-  // ===========================
-  const promotionalQuery: any = {
-    isDeleted: false,
-    isActive: true,
-    // startDate: { $lte: today },
-    endDate: { $gte: today },
-  };
-
-  if (customerId) {
-    promotionalQuery.customerId = { $in: [customerId] };
-    promotionalQuery.usedBy = { $nin: [customerId] };
-  }
-
-  const promotionalCouponsDocs = await PromotionCoupon.find(promotionalQuery)
-    .populate("serviceId", "name") // ya "serviceName"
-    .lean();
-
-  const promotionalCoupons = promotionalCouponsDocs.map((doc: any) => ({
-    id: doc._id.toString(),
-    type: "promotion",
-    title: "Promotion Coupon",
-    code: doc.couponCode,
-    description: `${doc.discountByPercentage}% off on selected services`,
-    expiryDate: doc.endDate,
-    discount: `${doc.discountByPercentage}% OFF`,
-    pointsRequired: 0,
-
-    services: doc.serviceId.map((service: any) => service.name), // ya service.serviceName
-  }));
-
-  // ===========================
-  // 🎂 Birthday Coupons
-  // ===========================
-  let birthdayCoupons: any[] = [];
-
-  if (customerId) {
-    const birthdayCouponDocs = await Coupon.find({
-      valid: { $gte: today },
-      user: new mongoose.Types.ObjectId(customerId),
-      type: "COUPON_CODE",
-      referralCode: { $regex: /^BDAY-/i },
-      isDeleted: false,
-      isActive: true,
-      usedBy: {
-        $nin: [new mongoose.Types.ObjectId(customerId)],
-      },
-    }).lean();
-
-    birthdayCoupons = birthdayCouponDocs.map((doc) => ({
-      id: doc._id.toString(),
-      type: "birthday",
-      title: "Birthday Special",
-      code: doc.referralCode,
-      description: `${doc.discountAmount}% off Birthday Coupon`,
-      expiryDate: doc.valid,
-      discount: `${doc.discountAmount}% OFF`,
-      pointsRequired: 0,
-    }));
-  }
-
-  // ===========================
-  // 🏆 Rewards Coupons
-  // ===========================
   let rewardCoupons: any[] = [];
 
   if (customerId && customerData) {
     const rewardsDocs = await RewardsCoupon.find({
       isDeleted: false,
       isActive: true,
-      // rewardsPoint: { $lte: customerData.loyaltyPoints || 0 },
-      ...(items.length && { serviceId: { $in: items } }),
+      // validFrom: { $lte: today },
+      validTill: { $gte: today },
+      ...(items.length && {
+        $or: [
+          { serviceId: { $size: 0 } },
+          { serviceId: { $in: items } },
+        ],
+      }),
       usedBy: { $nin: [customerId] },
     })
       .populate("serviceId", "serviceName name")
       .lean();
 
-    rewardCoupons = rewardsDocs
-      .filter((doc) => {
-        const expiry = new Date(doc.createdAt);
-        expiry.setFullYear(expiry.getFullYear() + 1);
-        return expiry >= today;
-      })
-      .map((doc) => {
-        const expiry = new Date(doc.createdAt);
-        expiry.setFullYear(expiry.getFullYear() + 1);
+    rewardCoupons = rewardsDocs.map((doc: any) => ({
+      id: doc._id.toString(),
 
-        return {
-          id: doc._id.toString(),
-          type: "rewards",
-          title: "Rewards Coupon",
-          code: doc.couponCode,
-          description: `Redeem ${doc.rewardsPoint} points`,
-          expiryDate: expiry,
-          discount: `${doc.rewardsPoint} Points`,
-          pointsRequired: doc.rewardsPoint,
+      // DB se
+      couponType: doc.couponType,
+      type: doc.couponType?.toLowerCase(),
 
-          services: doc.serviceId.map((s: any) => s.name), // or s.serviceName
-        };
-      });
+      title: doc.rewardName,
+      code: doc.couponCode,
+      description: doc.description || "",
+
+      expiryDate: doc.validTill,
+
+      rewardType: doc.rewardType,
+      rewardValue: doc.rewardValue,
+      rewardPoints: doc.rewardPoints,
+
+      minimumSpend: doc.minimumSpend,
+      maximumDiscount: doc.maximumDiscount,
+
+      validFrom: doc.validFrom,
+      validTill: doc.validTill,
+      validDays: doc.validDays,
+      startTime: doc.startTime,
+      endTime: doc.endTime,
+
+      services:
+        doc.serviceId?.map((s: any) => s.name || s.serviceName) || [],
+    }));
   }
 
-  // ===========================
-  // 🎁 Gift Cards
-  // ===========================
-  const giftCardQuery: any = {
-    giftCardExpiryDate: { $gte: today },
-    isDeleted: false,
-    isActive: true,
-  };
-
-  if (customerId) {
-    const customerObjectId = new mongoose.Types.ObjectId(customerId);
-    giftCardQuery.$or = [
-      // Public Gift Cards
-      {
-        type: "WHOEVER_BOUGHT",
-        customerId: null,
-        usedBy: { $nin: [customerId] },
-      },
-
-      // Specific Customer Gift Cards
-      {
-        type: "SPECIFIC_CUSTOMER",
-        customerId: customerObjectId,
-        usedBy: { $nin: [customerId] },
-      },
-    ];
-  } else {
-    // Customer login nahi hai to sirf public cards
-    giftCardQuery.type = "WHOEVER_BOUGHT";
-    giftCardQuery.customerId = null;
-  }
-
-  const giftCardDocs = await GiftCard.find(giftCardQuery).lean();
-
-
-
-
-  const giftCards = giftCardDocs.map((doc) => ({
-    id: doc._id.toString(),
-    type: "giftcard",
-    title: "Gift Card",
-    code: doc.giftCardName,
-    description: `Gift Card worth R${doc.giftCardAmount}`,
-    expiryDate: doc.giftCardExpiryDate,
-    discount: `R${doc.giftCardAmount}`,
-    pointsRequired: 0,
-  }));
-
-  // ===========================
-  // Final Response
-  // ===========================
   return [
-    ...birthdayCoupons,
-    ...promotionalCoupons,
-    ...rewardCoupons,
-    ...giftCards,
+    ...rewardCoupons
   ].sort(
     (a, b) =>
       new Date(a.expiryDate).getTime() -

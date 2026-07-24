@@ -74,7 +74,34 @@ export const authApi = apiSlice.injectEndpoints({
           },
           body,
         };
-      }})
+      }}),
+      sendOtp: builder.mutation({
+      query: (body: { email: string }) => {
+        return {
+          url: '/auth/send-otp',
+          method: 'POST',
+          body,
+        };
+      },
+    }),
+    verifyOtp: builder.mutation({
+      query: (body: { email: string; otp: string }) => {
+        return {
+          url: '/auth/verify-otp',
+          method: 'POST',
+          body,
+        };
+      }}),
+      resendOtp: builder.mutation({
+      query: (body: { email: string }) => {
+        return {
+          url: '/auth/resend-otp',
+          method: 'POST',
+          body,
+        };
+      },
+    }),
+
   }),
 });
 
@@ -84,4 +111,6 @@ export const {
   useChangePasswordMutation,
   useLoginAutoMutation,
   useCheckEmailExistsMutation,
+  useVerifyOtpMutation,
+  useSendOtpMutation
 } = authApi;

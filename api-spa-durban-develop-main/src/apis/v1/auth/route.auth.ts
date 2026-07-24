@@ -9,6 +9,8 @@ import {
   resetPassword,
   loginAuto,
   checkEmailExists,
+  sendOtpValidation,
+  verifyOtpValidation,
 } from "./validation.auth";
 
 import { authenticate } from "../../../middleware/authentication";
@@ -33,6 +35,27 @@ const router = Router();
  */
 router.post("/login/auto", validate(loginAuto), authController.loginAuto);
 router.post("/check-email", validate(checkEmailExists), authController.verifyEmail);
+
+
+router.post(
+  '/send-otp',
+  validate(sendOtpValidation),
+  authController.sendOtp
+);
+
+// ✅ Resend OTP
+router.post(
+  '/resend-otp',
+  validate(sendOtpValidation),
+  authController.resendOtp
+);
+
+// ✅ Verify OTP
+router.post(
+  '/verify-otp',
+  validate(verifyOtpValidation),
+  authController.verifyOtp
+);
 /**
  * @swagger
  * /auth/login:

@@ -23,7 +23,7 @@ const Receipt = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  console.log('------location',location)
+  console.log('------location', location)
   const [uploadPdf, { isLoading: pdfLoading }] = useSendPdfViaEmailMutation();
   const { data, isLoading } = useFetchData(useGetInvoiceQuery, {
     body: invoiceId,
@@ -54,18 +54,18 @@ const Receipt = () => {
   const emailSentRef = useRef(false);
 
   useEffect(() => {
-  if (!location.state?.autoSendEmail) return;
-  if (!invoiceData?._id) return;
-  if (emailSentRef.current) return;
+    if (!location.state?.autoSendEmail) return;
+    if (!invoiceData?._id) return;
+    if (emailSentRef.current) return;
 
-  emailSentRef.current = true;
+    emailSentRef.current = true;
 
-  const timer = setTimeout(() => {
-    handleSendEmail();
-  }, 700);
+    const timer = setTimeout(() => {
+      handleSendEmail();
+    }, 700);
 
-  return () => clearTimeout(timer);
-}, [invoiceData?._id, location.state?.autoSendEmail]);
+    return () => clearTimeout(timer);
+  }, [invoiceData?._id, location.state?.autoSendEmail]);
 
 
   if (isLoading) {
@@ -318,12 +318,12 @@ const Receipt = () => {
                 <div>- {loyaltyPointsUsed.toFixed(2)}</div>
               </div>
             ) : null} */}
-             {totalDiscount ? (
+            {/* {totalDiscount ? (
               <div className="flex justify-between px-2">
                 <div>Discount Amount</div>
                 <div>- {totalDiscount.toFixed(2)}</div>
               </div>
-            ) : null}
+            ) : null} */}
             {cashBackDiscount ? (
               <div className="flex justify-between px-2">
                 <div>Cash Back Discount</div>

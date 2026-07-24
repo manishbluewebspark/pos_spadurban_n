@@ -212,7 +212,7 @@ const customerGroupOptions = [
     value: 'golden member',
     label: 'Golden Member'
   },
-    {
+  {
     value: 'new user',
     label: 'New Member'
   }
@@ -444,6 +444,20 @@ const CustomerFormLayout = ({
                 onBlur={handleBlur}
               />
             </div>
+
+            <div className="">
+              <ATMTextField
+                name="loyaltyPoints"
+                value={values.loyaltyPoints || ""}
+                onChange={(e) => setFieldValue('loyaltyPoints', e.target.value)}
+                label="Loyalty Point"
+                placeholder="Enter loyalty points"
+                onBlur={handleBlur}
+                isTouched={touched?.loyaltyPoints}
+                errorMessage={errors?.loyaltyPoints}
+                isValid={!errors?.loyaltyPoints}
+              />
+            </div>
             <div className="">
               <ATMMultiSelect
                 name="outlets"
@@ -459,6 +473,7 @@ const CustomerFormLayout = ({
                 isLoading={isOutletsLoading}
               />
             </div>
+
           </div>
         </div>
       )}

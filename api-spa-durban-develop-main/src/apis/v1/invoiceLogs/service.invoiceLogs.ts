@@ -12,23 +12,28 @@ export const createOrUpdateInvoiceLog = async (
   isPaymentChanged: boolean
 ) => {
   try {
-    const invoiceId = invoice._id
+    const invoiceId = invoice._id;
 
-    // Create or update InvoiceLog using spread operator
     const invoiceLogData = {
-      ...JSON.parse(JSON.stringify(invoice)), // Spread all fields from Invoice
-      invoiceId: invoiceId, // Ensure invoiceId is explicitly set
-      _id: new mongoose.Types.ObjectId(), // Assign new ObjectId for _id
+      ...JSON.parse(JSON.stringify(invoice)),
+      invoiceId,
+      _id: new mongoose.Types.ObjectId(),
       isPaymentChanged,
-    }
+    };
 
-    // Upsert the InvoiceLog document
-    await InvoiceLog.create(invoiceLogData)
-    return true
-  } catch (err) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Error occured")
+    await InvoiceLog.create(invoiceLogData);
+
+    return true;
+  } catch (err: any) {
+    console.error("========== Invoice Log Error ==========");
+    console.error(err);
+    console.error(err.message);
+    console.error(err.errors);
+    console.error("=======================================");
+
+    throw err; // <-- ApiError mat throw karo
   }
-}
+};
 
 export const getInvoicePaymentLogByInvoiceId = async (id: string | number) => {
   if (typeof id === "string" || typeof id === "number") {

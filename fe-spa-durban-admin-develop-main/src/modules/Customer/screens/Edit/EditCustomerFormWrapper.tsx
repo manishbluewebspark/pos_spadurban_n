@@ -31,6 +31,7 @@ const EditCustomerFormWrapper = () => {
     dateOfBirth: (data as any)?.data?.dateOfBirth || null,
     gender: { value: (data as any)?.data?.gender },
     customerGroup: (data as any)?.data?.customerGroup || '',
+    loyaltyPoints:(data as any)?.data?.loyaltyPoints || '',
     outlets: (data as any)?.data?.outlets,
   };
 

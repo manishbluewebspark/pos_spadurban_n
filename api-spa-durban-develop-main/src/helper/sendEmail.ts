@@ -153,6 +153,8 @@ export const createMailOptions = async (emailData: {
   }
 }
 
+
+
 export const sendEmail = async (emailData: any, outlet: any): Promise<boolean> => {
   try {
 

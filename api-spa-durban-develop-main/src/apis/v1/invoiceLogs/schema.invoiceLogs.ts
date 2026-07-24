@@ -215,7 +215,7 @@ const InvoiceLogSchema = new mongoose.Schema<InvoiceLogDocument>(
     },
     giftCardDiscount: {
       type: Number,
-      required: true,
+      required: false,
       trim: true,
     },
     giftCardCode: {

@@ -1,4 +1,4 @@
-import { IconEdit, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconCheck, IconEdit, IconPlus, IconTrash, IconX } from '@tabler/icons-react';
 import { FieldArray, FormikProps } from 'formik';
 import { useCallback, useEffect, useState } from 'react';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
@@ -146,7 +146,7 @@ const PaymentFormLayout = ({
         onDraft={() => onDraft(values)}
       >
         <div className="flex gap-4">
-          <div className="border rounded-lg  w-[300px] h-[400px] flex flex-col justify-between overflow-x-auto">
+          <div className="border rounded-lg  w-[500px] h-[500px] flex flex-col justify-between overflow-x-auto">
             <div className="flex flex-col gap-2">
               {/* payAbleAmount */}
               <div className="flex items-center justify-between p-2 text-sm font-medium tracking-wide border-b">
@@ -237,211 +237,214 @@ const PaymentFormLayout = ({
                   )}
                 </div>
 
-                {/* GiftCard Discount */}
-                <div className="">
-                  {isPreviewed ? (
-                    previewData?.invoiceData?.giftCardDiscount ? (
-                      <div className="flex justify-between p-1 text-xs font-regular">
-                        <div className="flex flex-col gap-1 text-neutral-40">
-                          GiftCard Amount{' '}
-                          <div className="px-2 py-[2px] text-green-800 bg-green-100 rounded-md w-fit text-[10px]">
-                            {values?.giftCardCode}
-                          </div>
-                        </div>
-                        <span className="font-medium text-green-600">
-                          - {CURRENCY}{' '}
-                          {previewData?.invoiceData?.giftCardDiscount?.toFixed(
-                            2,
-                          )}
-                        </span>
-                      </div>
-                    ) : null
-                  ) : (
-                    <ATMTextField
-                      name="giftCardCode"
-                      value={values?.giftCardCode}
-                      onChange={(e) =>
-                        setFieldValue('giftCardCode', e.target.value)
-                      }
-                      placeholder="Enter Gift Card Code"
-                      label="Gift Card Code"
-                    />
-                  )}
-                </div>
+               
 
-                <div className="">
-                  {isPreviewed ? (
-                    previewData?.invoiceData?.promotionCoupanCodeDiscount ? (
-                      <div className="flex justify-between p-1 text-xs font-regular">
-                        <div className="flex flex-col gap-1 text-neutral-40">
-                          Promotion Coupon Code Amount{' '}
-                          <div className="px-2 py-[2px] text-green-800 bg-green-100 rounded-md w-fit text-[10px]">
-                            {values?.promotionCoupanCode}
-                          </div>
-                        </div>
-                        <span className="font-medium text-green-600">
-                          - {CURRENCY}{' '}
-                          {previewData?.invoiceData?.promotionCoupanCodeDiscount.toFixed(
-                            2,
-                          )}
-                        </span>
-                      </div>
-                    ) : null
-                  ) : (
-                    <ATMTextField
-                      name="promotionCoupanCode"
-                      value={values?.promotionCoupanCode}
-                      onChange={(e) =>
-                        setFieldValue('promotionCoupanCode', e.target.value)
-                      }
-                      placeholder="Enter Promotion Coupon Code"
-                      label="Promotion Coupon Code"
-                    />
-                  )}
-                </div>
-
-                {/* Loyalty Point */}
-                <div className="">
-                  {isPreviewed ? (
-                    previewData?.invoiceData?.loyaltyPointsDiscount ? (
-                      <div className="flex items-center justify-between p-1 text-xs font-regular">
-                        {/* <div className=" text-neutral-40"> Loyalty Points</div>{' '}
-                        <span className="font-medium text-green-600">
-                          - {CURRENCY}{' '}
-                          {previewData?.invoiceData?.loyaltyPointsDiscount.toFixed(
-                            2,
-                          )}
-                        </span> */}
-                      </div>
-                    ) : null
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      {/* <ATMCheckbox
-                        checked={values?.useLoyaltyPoints}
-                        onChange={() =>
-                          setFieldValue(
-                            'useLoyaltyPoints',
-                            !values?.useLoyaltyPoints,
-                          )
-                        }
-                        size="small"
-                        label="Use Loyalty Points"
-                        disabled={isPreviewed}
-                      />
-                      <div className="text-[12px] font-medium text-blue-800">
-                        {loyaltyPoints ? loyaltyPoints.toFixed(2) : null}
-                      </div> */}
+                {!isPreviewed && allCoupans?.data?.length > 0 && (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-500">🎫 Available Coupons</span>
+                      <span className="text-[10px] text-gray-400">{allCoupans.data.length} coupon(s)</span>
                     </div>
-                  )}
-                </div>
 
-                {!isPreviewed && (<div className="mt-1">
-                  <div className="flex flex-row-reverse overflow-x-auto max-w-full space-x-2 space-x-reverse pb-2">
-                    {allCoupans?.data?.map((coupon: any, index: any) => (
-                      <label
-                        key={index}
-                        className={`min-w-[200px] rounded-xl border p-4 shadow-sm cursor-pointer transition-all duration-200
-    ${selectedCode === coupon.code
-                            ? "border-[#006972] bg-[#eef9f8] shadow-md"
-                            : "border-gray-200 bg-white hover:border-[#006972] hover:shadow-md"
-                          }`}
-                      >
-                        <div className="flex gap-3">
-                          <input
-                            type="radio"
-                            name="coupon"
-                            value={coupon.code}
-                            checked={selectedCode === coupon.code}
-                            onChange={() => {
-                              if (coupon.type === "Promotional") {
-                                setFieldValue("promotionCoupanCode", coupon.code);
-                                setFieldValue("couponCode", "");
-                                setFieldValue("giftCardCode", "");
-                                setFieldValue("rewardCoupan", "");
-                              } else if (coupon.type === "GiftCard") {
-                                setFieldValue("giftCardCode", coupon.code);
-                                setFieldValue("couponCode", "");
-                                setFieldValue("promotionCoupanCode", "");
-                                setFieldValue("rewardCoupan", "");
-                              } else if (coupon.type === "Reward") {
-                                setFieldValue("rewardCoupan", coupon.code);
-                                setFieldValue("useLoyaltyPoints", true);
-                                setFieldValue("couponCode", "");
-                                setFieldValue("promotionCoupanCode", "");
-                                setFieldValue("giftCardCode", "");
-                              } else {
-                                setFieldValue("couponCode", coupon.code);
-                                setFieldValue("giftCardCode", "");
-                                setFieldValue("promotionCoupanCode", "");
-                                setFieldValue("rewardCoupan", "");
-                              }
+                    <div className="flex flex-nowrap gap-3 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                      {allCoupans.data.map((coupon: any, index: number) => {
+                        const isSelected = selectedCode === coupon.code;
+                        const couponType = coupon.couponType || coupon.type || 'COUPON';
 
-                              setSelectedCode(coupon.code);
+                        // Get coupon type details
+                        const getTypeDetails = () => {
+                          const type = couponType.toUpperCase();
+                          if (type === 'REWARD') {
+                            return {
+                              icon: '🏅',
+                              label: 'Reward',
+                              color: '#6c5ce7',
+                              bgColor: '#f3f0ff'
+                            };
+                          } else if (type === 'GIFTCARD') {
+                            return {
+                              icon: '🎁',
+                              label: 'Gift Card',
+                              color: '#006972',
+                              bgColor: '#eef9f8'
+                            };
+                          } else if (type === 'PROMOTION') {
+                            return {
+                              icon: '💥',
+                              label: 'Promotion',
+                              color: '#e17055',
+                              bgColor: '#fef0ed'
+                            };
+                          } else {
+                            return {
+                              icon: '🏷️',
+                              label: 'Coupon',
+                              color: '#636e72',
+                              bgColor: '#f5f5f5'
+                            };
+                          }
+                        };
+
+                        const typeDetails = getTypeDetails();
+                        const isReward = couponType.toUpperCase() === 'REWARD';
+                        const isGiftCard = couponType.toUpperCase() === 'GIFTCARD';
+                        const isPromotion = couponType.toUpperCase() === 'PROMOTION';
+
+                        return (
+                          <label
+                            key={index}
+                            className={`min-w-[220px] max-w-[280px] rounded-xl border-2 p-3 cursor-pointer transition-all duration-200 flex-shrink-0 ${isSelected
+                                ? 'border-[#006972] shadow-lg scale-[1.02]'
+                                : 'border-gray-200 bg-white hover:border-[#006972] hover:shadow-md hover:scale-[1.01]'
+                              }`}
+                            style={{
+                              borderColor: isSelected ? typeDetails.color : undefined,
+                              background: isSelected ? typeDetails.bgColor : '#ffffff'
                             }}
-                            className="mt-1 accent-[#006972]"
-                          />
+                          >
+                            <div className="flex gap-2">
+                              {/* Radio Button */}
+                              <div className="flex-shrink-0 pt-0.5">
+                                <input
+                                  type="radio"
+                                  name="coupon"
+                                  value={coupon.code}
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    // Reset all coupon fields
+                                    setFieldValue('couponCode', '');
+                                    setFieldValue('giftCardCode', '');
+                                    setFieldValue('promotionCoupanCode', '');
+                                    setFieldValue('rewardCoupan', '');
+                                    setFieldValue('useLoyaltyPoints', false);
 
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-sm">
-                                {coupon.type === "GiftCard" && "🎁 Gift Card"}
-                                {coupon.type === "Promotional" && "💥 Promo"}
-                                {coupon.type === "Birthday" && "🎂 Birthday"}
-                                {coupon.type === "Reward" && "🏅 Reward"}
-                              </span>
-
-                              {selectedCode === coupon.code && (
-                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#006972] text-white">
-                                  Selected
-                                </span>
-                              )}
-                            </div>
-
-                            {coupon.rewardName && (
-                              <div className="text-[11px] text-gray-500 truncate">
-                                {coupon.rewardName}
+                                    // Set the selected coupon based on type
+                                    const type = couponType.toUpperCase();
+                                   setFieldValue("couponCode", coupon.code);
+                                    setSelectedCode(coupon.code);
+                                  }}
+                                  className="accent-[#006972] w-4 h-4 cursor-pointer"
+                                />
                               </div>
-                            )}
 
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {coupon.type === "Reward" ? (
-                                <>
-                                  <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                                    R {coupon.discount} OFF
-                                  </span>
+                              {/* Coupon Content */}
+                              <div className="flex-1 min-w-0">
+                                {/* Header */}
+                                <div className="flex items-center justify-between gap-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-sm">{typeDetails.icon}</span>
+                                    <span
+                                      className="text-xs font-semibold"
+                                      style={{ color: typeDetails.color }}
+                                    >
+                                      {typeDetails.label}
+                                    </span>
+                                  </div>
+                                  {isSelected && (
+                                    <span className="text-[8px] px-2 py-0.5 rounded-full bg-[#006972] text-white whitespace-nowrap">
+                                      ✓ Selected
+                                    </span>
+                                  )}
+                                </div>
 
-                                  <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                                    {coupon.rewardPoints} Pts
-                                  </span>
+                                {/* Reward Name */}
+                                <div className="text-xs font-medium text-gray-700 truncate mt-0.5">
+                                  {coupon.rewardName || coupon.title || 'Coupon'}
+                                </div>
 
-                                  <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded">
-                                    Min R{coupon.minimumSpend}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="text-[10px] bg-[#006972] text-white px-2 py-0.5 rounded">
-                                  {coupon.discountPercent
-                                    ? `${coupon.discountPercent}% OFF`
-                                    : `R ${coupon.discount} OFF`}
-                                </span>
-                              )}
+                                {/* Coupon Code */}
+                                <div className="text-[10px] font-mono text-gray-400 bg-gray-50 px-2 py-0.5 rounded mt-1 truncate">
+                                  {coupon.code}
+                                </div>
+
+                                {/* Tags */}
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {/* Discount Tag */}
+                                  {coupon.rewardType === 'PERCENTAGE' ? (
+                                    <span
+                                      className="text-[9px] text-white px-2 py-0.5 rounded font-medium"
+                                      style={{ background: typeDetails.color }}
+                                    >
+                                      {coupon.rewardValue || coupon.discountPercent || coupon.discount}% OFF
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="text-[9px] text-white px-2 py-0.5 rounded font-medium"
+                                      style={{ background: typeDetails.color }}
+                                    >
+                                      R {coupon.rewardValue || coupon.discount || 0} OFF
+                                    </span>
+                                  )}
+
+                                  {/* Reward Points - Only for REWARD type */}
+                                  {isReward && coupon.rewardsPoint > 0 && (
+                                    <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">
+                                      {coupon.rewardsPoint} Pts
+                                    </span>
+                                  )}
+
+                                  {/* Minimum Spend */}
+                                  {coupon.minimumSpend > 0 && (
+                                    <span className="text-[9px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-medium">
+                                      Min R{coupon.minimumSpend}
+                                    </span>
+                                  )}
+
+                                  {/* Maximum Discount */}
+                                  {coupon.maximumDiscount > 0 && (
+                                    <span className="text-[9px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-medium">
+                                      Max R{coupon.maximumDiscount}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Footer */}
+                                <div className="mt-2 flex items-center justify-between text-[9px] text-gray-400">
+                                  <span>📅 {coupon.validTill ? new Date(coupon.validTill).toLocaleDateString() : 'N/A'}</span>
+                                  {coupon.validDays && coupon.validDays.length > 0 && coupon.validDays.length < 7 && (
+                                    <span className="bg-gray-100 px-1.5 py-0.5 rounded">
+                                      {coupon.validDays.map((d: string) => d.slice(0, 3)).join(', ')}
+                                    </span>
+                                  )}
+                                  {coupon.validDays && coupon.validDays.length === 7 && (
+                                    <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[8px]">
+                                      All Days
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
+                          </label>
+                        );
+                      })}
+                    </div>
 
-                            <div className="mt-2 flex justify-between items-center text-[10px] text-gray-500">
-                              <span>
-                                📅 {new Date(coupon.validTill).toLocaleDateString()}
-                              </span>
-
-                              <span className="bg-gray-100 px-2 py-0.5 rounded font-medium text-gray-700">
-                                {coupon.code}
-                              </span>
-                            </div>
-                          </div>
+                    {/* Selected coupon info */}
+                    {selectedCode && (
+                      <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <IconCheck size={16} className="text-green-600" />
+                          <span className="text-xs text-green-700">
+                            Coupon <strong>{selectedCode}</strong> applied successfully!
+                          </span>
                         </div>
-                      </label>
-                    ))}
+                        <button
+                          onClick={() => {
+                            setSelectedCode('');
+                            setFieldValue('couponCode', '');
+                            setFieldValue('giftCardCode', '');
+                            setFieldValue('promotionCoupanCode', '');
+                            setFieldValue('rewardCoupan', '');
+                            setFieldValue('useLoyaltyPoints', false);
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 p-1"
+                        >
+                          <IconX size={14} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>)}
+                )}
 
 
 

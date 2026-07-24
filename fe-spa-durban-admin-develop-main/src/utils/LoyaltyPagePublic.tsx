@@ -1,6 +1,4 @@
-// src/pages/LoyaltyPage.tsx - Updated with Logout Button
-
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
     IconGift,
@@ -24,12 +22,16 @@ import {
     IconLoader2,
     IconArrowRight,
     IconLogout,
+    IconCoin,
+    IconDiscount,
+    IconBuildingStore,
+    IconCopy,
 } from '@tabler/icons-react';
 import './LoyaltyPage.css';
 import { useFetchData } from 'src/hooks/useFetchData';
 import { useGetCustomerQuery } from 'src/modules/Customer/service/CustomerServices';
 import { useGetCouponsByCustomerQuery, useGetLoyaltyHistoryQuery } from 'src/modules/Coupon/service/CouponServices';
-import { useCheckEmailExistsMutation } from 'src/services/AuthServices';
+import { useCheckEmailExistsMutation, useVerifyOtpMutation, useSendOtpMutation } from 'src/services/AuthServices';
 
 interface Coupon {
     id: string;
@@ -41,6 +43,25 @@ interface Coupon {
     discount?: string;
     pointsRequired?: number;
     serviceId?: string;
+
+    // ✅ New fields
+    rewardsPoint: number;
+    isAvailable?: boolean;
+    minimumSpend: number;
+    maximumDiscount: number;
+    rewardType?: string; // 'AMOUNT' | 'PERCENTAGE'
+    rewardValue?: number;
+    validDays?: string[]; // ['Monday', 'Tuesday', ...]
+    startTime?: string; // '09:00'
+    endTime?: string; // '18:00'
+    validFrom?: string;
+    validTill?: string;
+    services?: string[]; // Service names
+    branchCount?: number;
+    couponType?: string; // 'REWARD' | 'PROMOTION' | 'GIFTCARD' | 'COUPON'
+    usedBy?: string[];
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 interface LoyaltyTransaction {
@@ -64,22 +85,107 @@ interface CustomerData {
     rewards?: any[];
 }
 
-// ============= EMAIL VERIFICATION COMPONENT =============
-const EmailVerification = ({ 
-    onVerified 
-}: { 
+// ============= OTP INPUT COMPONENT =============
+const OtpInput = ({
+    value,
+    onChange,
+    onComplete
+}: {
+    value: string;
+    onChange: (value: string) => void;
+    onComplete: () => void;
+}) => {
+    const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+    const [otp, setOtp] = useState<string[]>(value.split('').concat(Array(6 - value.length).fill('')));
+
+    const handleChange = (index: number, val: string) => {
+        if (val.length > 1) return;
+        if (!/^\d*$/.test(val)) return;
+
+        const newOtp = [...otp];
+        newOtp[index] = val;
+        setOtp(newOtp);
+        onChange(newOtp.join(''));
+
+        // Move to next input
+        if (val && index < 5) {
+            inputRefs.current[index + 1]?.focus();
+        }
+
+        // Auto submit when all digits filled
+        if (newOtp.every(digit => digit !== '') && newOtp.join('').length === 6) {
+            onComplete();
+        }
+    };
+
+    const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Backspace' && !otp[index] && index > 0) {
+            inputRefs.current[index - 1]?.focus();
+        }
+        if (e.key === 'Enter') {
+            onComplete();
+        }
+    };
+
+    const handlePaste = (e: React.ClipboardEvent) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').slice(0, 6);
+        if (/^\d*$/.test(pastedData)) {
+            const newOtp = [...otp];
+            for (let i = 0; i < 6; i++) {
+                newOtp[i] = pastedData[i] || '';
+            }
+            setOtp(newOtp);
+            onChange(newOtp.join(''));
+            if (newOtp.every(digit => digit !== '')) {
+                onComplete();
+            }
+        }
+    };
+
+    return (
+        <div className="otp-container">
+            {otp.map((digit, index) => (
+                <input
+                    key={index}
+                    ref={(el) => (inputRefs.current[index] = el)}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => handleChange(index, e.target.value)}
+                    onKeyDown={(e) => handleKeyDown(index, e)}
+                    onPaste={handlePaste}
+                    className="otp-input"
+                    autoFocus={index === 0}
+                />
+            ))}
+        </div>
+    );
+};
+
+// ============= EMAIL VERIFICATION WITH OTP =============
+const EmailVerification = ({
+    onVerified
+}: {
     onVerified: (customerData: CustomerData) => void;
 }) => {
     const [email, setEmail] = useState('');
+    const [otp, setOtp] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [showOtpInput, setShowOtpInput] = useState(false);
+    const [emailVerified, setEmailVerified] = useState(false);
+    const [customerData, setCustomerData] = useState<any>(null);
 
     const [checkEmailExists] = useCheckEmailExistsMutation();
+    const [sendOtp] = useSendOtpMutation();
+    const [verifyOtp] = useVerifyOtpMutation();
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSendOtp = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!email) {
             setError('Please enter your email address');
             return;
@@ -96,13 +202,52 @@ const EmailVerification = ({
         setSuccess('');
 
         try {
+            // Check if email exists
             const response = await checkEmailExists({ email }).unwrap();
-            
+
             if (response.success && response.data) {
-                const customer = response.data;
-                
-                setSuccess('Email verified successfully!');
-                
+                setCustomerData(response.data);
+
+                // Send OTP
+                const otpResponse = await sendOtp({ email }).unwrap();
+
+                if (otpResponse.success) {
+                    setSuccess('OTP sent to your email! Please check your inbox.');
+                    setShowOtpInput(true);
+                    setEmailVerified(true);
+                    setError('');
+                } else {
+                    setError(otpResponse.message || 'Failed to send OTP');
+                }
+            } else {
+                setError('Email not found in our system. Please register first.');
+            }
+        } catch (err: any) {
+            setError(err?.data?.message || 'Something went wrong. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (otp.length !== 6) {
+            setError('Please enter complete 6-digit OTP');
+            return;
+        }
+
+        setIsLoading(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const response = await verifyOtp({ email, otp }).unwrap();
+
+            if (response.success && response.data) {
+                setSuccess('OTP verified successfully!');
+
+                // Use customer data from email check
+                const customer = customerData;
+
                 setTimeout(() => {
                     onVerified({
                         id: customer?._id || '',
@@ -117,7 +262,28 @@ const EmailVerification = ({
                     });
                 }, 500);
             } else {
-                setError('Email not found in our system. Please register first.');
+                setError(response.message || 'Invalid OTP. Please try again.');
+            }
+        } catch (err: any) {
+            setError(err?.data?.message || 'OTP verification failed. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleResendOtp = async () => {
+        setIsLoading(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const response = await sendOtp({ email }).unwrap();
+
+            if (response.success) {
+                setSuccess('New OTP sent to your email!');
+                setOtp('');
+            } else {
+                setError(response.message || 'Failed to send OTP');
             }
         } catch (err: any) {
             setError(err?.data?.message || 'Something went wrong. Please try again.');
@@ -133,7 +299,9 @@ const EmailVerification = ({
                     <IconMail size={48} className="email-icon" />
                     <h2>Verify Your Email</h2>
                     <p className="verification-subtitle">
-                        Enter your registered email to access your loyalty rewards
+                        {!showOtpInput
+                            ? 'Enter your registered email to access your loyalty rewards'
+                            : 'Enter the 6-digit OTP sent to your email'}
                     </p>
                 </div>
 
@@ -146,55 +314,116 @@ const EmailVerification = ({
 
                 {success && (
                     <div className="alert alert-success">
-                        <IconCheck size={16} />
+                        {/* <IconCheck size={10} /> */}
                         <span>{success}</span>
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="verification-form">
-                    <div className="form-group">
-                        <label>Email Address</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Enter your registered email"
-                            disabled={isLoading}
-                            className="email-input"
-                            autoFocus
-                        />
-                        <p className="field-hint">
-                            We'll check if you're registered in our system
-                        </p>
+                {!showOtpInput ? (
+                    <form onSubmit={handleSendOtp} className="verification-form">
+                        <div className="form-group">
+                            <label>Email Address</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Enter your registered email"
+                                disabled={isLoading}
+                                className="email-input"
+                                autoFocus
+                            />
+                            <p className="field-hint">
+                                We'll send a 6-digit OTP to verify your identity
+                            </p>
+                        </div>
+
+                        <button
+                            type="submit"
+                            className="btn btn-primary"
+                            disabled={isLoading || !email}
+                        >
+                            {isLoading ? (
+                                <>
+                                    <IconLoader2 size={20} className="spinning" />
+                                    Sending OTP...
+                                </>
+                            ) : (
+                                <>
+                                    <IconMail size={20} />
+                                    Send OTP
+                                    <IconArrowRight size={18} />
+                                </>
+                            )}
+                        </button>
+                    </form>
+                ) : (
+                    <div className="verification-form">
+                        <div className="form-group">
+                            <label>Enter 6-Digit OTP</label>
+                            <OtpInput
+                                value={otp}
+                                onChange={setOtp}
+                                onComplete={handleVerifyOtp}
+                            />
+                            <p className="field-hint">
+                                OTP sent to <strong>{email}</strong>
+                            </p>
+                        </div>
+
+                        <div className="otp-actions">
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={handleVerifyOtp}
+                                disabled={isLoading || otp.length !== 6}
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <IconLoader2 size={20} className="spinning" />
+                                        Verifying...
+                                    </>
+                                ) : (
+                                    <>
+                                        <IconCheck size={20} />
+                                        Verify OTP
+                                    </>
+                                )}
+                            </button>
+
+                            <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={handleResendOtp}
+                                disabled={isLoading}
+                            >
+                                <IconRefresh size={16} />
+                                Resend OTP
+                            </button>
+
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                onClick={() => {
+                                    setShowOtpInput(false);
+                                    setOtp('');
+                                    setError('');
+                                    setSuccess('');
+                                }}
+                            >
+                                <IconArrowRight size={16} style={{ transform: 'rotate(180deg)' }} />
+                                Change Email
+                            </button>
+                        </div>
                     </div>
+                )}
 
-                    <button 
-                        type="submit" 
-                        className="btn btn-primary"
-                        disabled={isLoading || !email}
-                    >
-                        {isLoading ? (
-                            <>
-                                <IconLoader2 size={20} className="spinning" />
-                                Verifying...
-                            </>
-                        ) : (
-                            <>
-                                <IconMail size={20} />
-                                Verify & Continue
-                                <IconArrowRight size={18} />
-                            </>
-                        )}
-                    </button>
-                </form>
-
-                <div className="verification-footer">
+                {/* <div className="verification-footer">
                     <p className="footer-text">
-                        By continuing, you agree to our 
-                        <a href="/terms">Terms of Service</a> and 
+                        By continuing, you agree to our
+                        <a href="/terms">Terms of Service</a> and
                         <a href="/privacy">Privacy Policy</a>
                     </p>
-                </div>
+                </div> */}
             </div>
         </div>
     );
@@ -250,11 +479,23 @@ const LoyaltyPage = () => {
     // ===== API HOOKS - Always called with proper params =====
     const {
         data: customerResponse,
-        isLoading: customerLoading
+        isLoading: customerLoading,
     } = useFetchData(useGetCustomerQuery, {
         body: fetchId,
         dataType: 'VIEW',
     });
+
+    useEffect(() => {
+        if (!customerId || customerLoading) return;
+
+        const customer = (customerResponse as any)?.data;
+
+        if (!customer) {
+            sessionStorage.removeItem('loyaltyCustomer');
+            navigate("/rewards/LoyaltyPage", { replace: true });
+            setIsVerified(false)
+        }
+    }, [customerId, customerLoading, customerResponse, navigate]);
 
     const {
         data: rewardsResponse,
@@ -308,10 +549,7 @@ const LoyaltyPage = () => {
 
     // ===== LOGOUT FUNCTION =====
     const handleLogout = () => {
-        // Clear session storage
         sessionStorage.removeItem('loyaltyCustomer');
-        
-        // Reset state
         setCustomerData({
             id: '',
             name: '',
@@ -324,10 +562,6 @@ const LoyaltyPage = () => {
         });
         setIsVerified(false);
         setActiveTab('coupons');
-        
-        // Navigate to home or login page (optional)
-        // navigate('/');
-        // Or reload the page to show verification again
         window.location.reload();
     };
 
@@ -403,8 +637,7 @@ const LoyaltyPage = () => {
                             <IconCrown size={20} />
                             {customerData?.tier?.toUpperCase()}
                         </div>
-                        {/* Logout Button */}
-                        <button 
+                        <button
                             className="logout-btn"
                             onClick={handleLogout}
                             title="Logout"
@@ -437,13 +670,6 @@ const LoyaltyPage = () => {
                             <div className="stat-label">Locked</div>
                         </div>
                     </div>
-                    {/* <div className="stat-item">
-                        <span className="stat-icon" style={{ fontWeight: 'bold' }}>R</span>
-                        <div>
-                            <div className="stat-value">{customerData?.cashback?.toFixed(2)}</div>
-                            <div className="stat-label">Cashback</div>
-                        </div>
-                    </div> */}
                 </div>
             </div>
 
@@ -523,93 +749,318 @@ const LoyaltyPage = () => {
                                 const isFree = coupon.pointsRequired === 0;
                                 const isAvailable = isCouponAvailable(coupon.pointsRequired);
                                 const pointsNeeded = getPointsNeeded(coupon.pointsRequired || 0);
+                                const progress = Math.min((customerData.totalPoints / (coupon.pointsRequired || 1)) * 100, 100);
 
                                 return (
                                     <div
                                         key={coupon.id}
-                                        className={`coupon-card ${!isAvailable ? 'locked' : ''}`}
+                                        className={`coupon-card ${!isAvailable ? 'locked' : ''} ${isHovered ? 'hovered' : ''}`}
                                         style={{
                                             borderColor: isAvailable ? color : '#e8ecf1',
                                             opacity: isAvailable ? 1 : 0.6,
-                                            cursor: isAvailable ? 'default' : 'not-allowed'
+                                            cursor: isAvailable ? 'default' : 'not-allowed',
                                         }}
                                         onMouseEnter={() => isAvailable && setHoveredCoupon(coupon.id)}
                                         onMouseLeave={() => setHoveredCoupon(null)}
                                     >
-                                        <div className="coupon-header" style={{ background: isAvailable ? color : '#b2bec3' }}>
-                                            <span className="coupon-icon-wrapper">{getCouponIcon(coupon.type)}</span>
-                                            <span className="coupon-type">{coupon.type}</span>
-                                            {isFree && <span className="free-tag">FREE</span>}
-                                            {!isAvailable && (
-                                                <span className="locked-tag">
-                                                    <IconLock size={12} /> Locked
+                                        {/* 🔥 Ribbon Badge */}
+                                        {isAvailable && !isFree && (
+                                            <div className="coupon-ribbon" style={{ background: color }}>
+                                                {coupon.type?.toUpperCase()}
+                                            </div>
+                                        )}
+                                        {isFree && (
+                                            <div className="coupon-ribbon" style={{ background: '#00b894' }}>
+                                                Free
+                                            </div>
+                                        )}
+                                        {!isAvailable && (
+                                            <div className="coupon-ribbon locked-ribbon">
+                                                Locked
+                                            </div>
+                                        )}
+
+                                        {/* Card Header with Gradient */}
+                                        <div
+                                            className="coupon-header"
+                                            style={{
+                                                background: isAvailable
+                                                    ? `linear-gradient(135deg, ${color}, ${color}dd)`
+                                                    : 'linear-gradient(135deg, #b2bec3, #dfe6e9)'
+                                            }}
+                                        >
+                                            <div className="coupon-header-left">
+                                                <span className="coupon-icon-wrapper">
+                                                    {getCouponIcon(coupon.type)}
                                                 </span>
-                                            )}
-                                            {isAvailable && !isFree && (
-                                                <span className="available-tag">✓ Available</span>
-                                            )}
+                                                <div className="coupon-header-info">
+                                                    <span className="coupon-type">{coupon.title?.toUpperCase()}</span>
+                                                    <span className="coupon-code-badge coupon-type">{coupon.code}</span>
+                                                </div>
+                                            </div>
+                                            <div className="coupon-header-right">
+                                                {coupon.pointsRequired !== undefined && coupon.pointsRequired > 0 && (
+                                                    <span className="points-badge">
+                                                        <IconStar size={12} />
+                                                        {coupon.pointsRequired} pts
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        <div className="coupon-content">
-                                            <h4 className="coupon-title">{coupon.title}</h4>
-                                            <p className="coupon-desc">{coupon.description}</p>
+                                        {/* Card Body */}
+                                        <div className="coupon-body">
+                                            {/* <h4 className="coupon-title">{coupon.title}</h4>
+                                            <p className="coupon-desc">{coupon.description}</p> */}
 
-                                            {!isAvailable && (
-                                                <div className="lock-overlay">
-                                                    <IconLock size={32} />
-                                                    <span>Need {pointsNeeded} more points</span>
+                                            {/* 🔥 Discount Badge */}
+                                            {coupon.discount && (
+                                                <div className="discount-badge" style={{ background: color }}>
+                                                    {coupon.discount}
                                                 </div>
                                             )}
 
-                                            <div className="code-box" style={{ opacity: isAvailable ? 1 : 0.5 }}>
-                                                <span className="code-label">
-                                                    <IconTag size={14} />
-                                                    <span>Coupon Code</span>
-                                                </span>
+                                            {/* 🔥 Coupon Details Grid */}
+                                            <div className="coupon-details-grid">
+                                                {coupon.rewardType && (
+                                                    <div className="detail-chip">
+                                                        <IconTag size={12} />
+                                                        <span>
+                                                            {coupon.rewardType === 'PERCENTAGE'
+                                                                ? `${coupon.rewardValue}% OFF`
+                                                                : `R${coupon.rewardValue} OFF`}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {coupon.minimumSpend && coupon.minimumSpend > 0 && (
+                                                    <div className="detail-chip">
+                                                        <IconCoin size={12} />
+                                                        <span>Min R{coupon.minimumSpend}</span>
+                                                    </div>
+                                                )}
+                                                {coupon.maximumDiscount && coupon.maximumDiscount > 0 && (
+                                                    <div className="detail-chip">
+                                                        <IconDiscount size={12} />
+                                                        <span>Max R{coupon.maximumDiscount}</span>
+                                                    </div>
+                                                )}
+                                                {coupon.services && coupon.services.length > 0 && (
+                                                    <div className="detail-chip">
+                                                        <IconBuildingStore size={12} />
+                                                        <span>{coupon.services.length} service(s)</span>
+                                                    </div>
+                                                )}
+                                                {coupon.validDays && coupon.validDays.length > 0 && coupon.validDays.length < 7 && (
+                                                    <div className="detail-chip">
+                                                        <IconCalendar size={12} />
+                                                        <span>{coupon.validDays.map(day => day.slice(0, 3)).join(', ')}</span>
+                                                    </div>
+                                                )}
+                                                {coupon.validDays && coupon.validDays.length === 7 && (
+                                                    <div className="detail-chip">
+                                                        <IconCalendar size={12} />
+                                                        <span>All Days</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* 🔥 Points Progress */}
+                                            {!isFree && coupon.pointsRequired && coupon.pointsRequired > 0 && (
+                                                <div className="points-progress">
+                                                    <div className="points-progress-header">
+                                                        <span>Progress</span>
+                                                        <span>{Math.round(progress)}%</span>
+                                                    </div>
+                                                    <div className="points-progress-bar">
+                                                        <div
+                                                            className="points-progress-fill"
+                                                            style={{
+                                                                width: `${Math.min(progress, 100)}%`,
+                                                                background: `linear-gradient(90deg, ${color}, ${color}dd)`
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="points-progress-text">
+                                                        <span>
+                                                            <IconStar size={12} /> {customerData.totalPoints} pts
+                                                        </span>
+                                                        <span>
+                                                            {isAvailable
+                                                                ? '✅ Ready to redeem!'
+                                                                : `${(coupon.pointsRequired - customerData.totalPoints)} more needed`
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* 🔥 Lock Overlay */}
+                                            {!isAvailable && (
+                                                <div className="lock-overlay">
+                                                    <div className="lock-icon-wrapper">
+                                                        <IconLock size={32} />
+                                                    </div>
+                                                    <span className="lock-text">Need {pointsNeeded} more points</span>
+                                                    <div className="lock-progress">
+                                                        <div
+                                                            className="lock-progress-fill"
+                                                            style={{
+                                                                width: `${Math.min(progress, 100)}%`,
+                                                                background: color
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <span className="lock-progress-text">{Math.round(progress)}% complete</span>
+                                                </div>
+                                            )}
+
+                                            {/* 🔥 Code Box */}
+                                            <div className="code-box">
+                                                <div className="code-box-header">
+                                                    <div className="code-box-left">
+                                                        <IconTag size={14} />
+                                                        <span>Coupon Code</span>
+                                                    </div>
+                                                    <span className="code-hint">
+                                                        {/* {isAvailable ? (
+                                    isHovered ? (
+                                        <span className="hint-visible">👁️ Visible</span>
+                                    ) : (
+                                        <span className="hint-hover">🔄 Hover to reveal</span>
+                                    )
+                                ) : (
+                                    <span className="hint-locked">🔒 Locked</span>
+                                )} */}
+                                                    </span>
+                                                </div>
                                                 <div className="code-row">
                                                     <span className={`code ${isHovered && isAvailable ? 'show' : 'hide'}`}>
                                                         {isHovered && isAvailable ? coupon.code : '••••••••••'}
                                                     </span>
-                                                    <span className="hint">
-                                                        {isAvailable ? (
-                                                            isHovered ? (
-                                                                <><IconEye size={14} /><span>Visible</span></>
-                                                            ) : (
-                                                                <><IconEyeOff size={14} /><span>Hover</span></>
-                                                            )
-                                                        ) : (
-                                                            <><IconLock size={12} /><span>Locked</span></>
-                                                        )}
-                                                    </span>
+                                                    {isAvailable && (
+                                                        <button
+                                                            className="copy-btn"
+                                                            onClick={() => {
+                                                                if (isAvailable) {
+                                                                    navigator.clipboard.writeText(coupon.code);
+                                                                    // Show toast notification
+                                                                }
+                                                            }}
+                                                            title="Copy code"
+                                                        >
+                                                            <IconCopy size={20} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
 
+                                            {/* 🔥 Footer */}
+                                            {/* Footer */}
                                             <div className="coupon-footer">
-                                                <div className="tags">
-                                                    {coupon.discount && (
-                                                        <span className="tag discount" style={{ background: isAvailable ? color : '#b2bec3' }}>
-                                                            {coupon.discount}
-                                                        </span>
-                                                    )}
-                                                    {coupon.pointsRequired !== undefined && coupon.pointsRequired > 0 && (
-                                                        <span className={`tag points ${!isAvailable ? 'locked-tag' : ''}`}>
-                                                            <IconStar size={12} />
-                                                            <span>{coupon.pointsRequired} pts</span>
-                                                        </span>
-                                                    )}
-                                                    {isFree && <span className="tag free">🎉 Free</span>}
-                                                    {!isAvailable && (
-                                                        <span className="tag needed">
-                                                            Need {pointsNeeded} more
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {coupon.expiryDate && (
-                                                    <div className="expiry" style={{ opacity: isAvailable ? 1 : 0.5 }}>
-                                                        <IconCalendar size={12} />
-                                                        <span>{new Date(coupon.expiryDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                                <div className="footer-left">
+                                                    <div className="tags">
+                                                        {coupon.discount && (
+                                                            <span className="tag discount" style={{ background: isAvailable ? color : '#b2bec3' }}>
+                                                                {coupon.discount}
+                                                            </span>
+                                                        )}
+                                                        {isFree && <span className="tag free">🎉 Free</span>}
+                                                        {!isAvailable && (
+                                                            <span className="tag needed">
+                                                                Need {pointsNeeded} more
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                )}
+
+                                                    {/* 🔥 All Details - Left Side */}
+                                                    <div className="footer-details">
+                                                        {coupon?.minimumSpend > 0 && (
+                                                            <div className="detail-line">
+                                                                <span className="bullet">•</span>
+                                                                <span>Minimum Spend: <strong>R {coupon.minimumSpend}</strong></span>
+                                                            </div>
+                                                        )}
+
+                                                        {coupon?.rewardType === "PERCENTAGE" ? (
+                                                            <div className="detail-line">
+                                                                <span className="bullet">•</span>
+                                                                <span>
+                                                                    <strong>{coupon.rewardValue}% OFF</strong>
+                                                                    {coupon?.maximumDiscount > 0 &&
+                                                                        ` (Max Discount: R ${coupon.maximumDiscount})`}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="detail-line">
+                                                                <span className="bullet">•</span>
+                                                                <span>Discount: <strong>R {coupon.rewardValue}</strong></span>
+                                                            </div>
+                                                        )}
+
+                                                        {coupon.couponType === "REWARD" && coupon.rewardsPoint > 0 && (
+                                                            <div className="detail-line">
+                                                                <span className="bullet">•</span>
+                                                                <span>Requires <strong>{coupon.rewardsPoint}</strong> Loyalty Points</span>
+                                                            </div>
+                                                        )}
+
+                                                        {coupon.couponType === "GIFTCARD" && (
+                                                            <div className="detail-line">
+                                                                <span className="bullet">•</span>
+                                                                <span>Gift Card Value: <strong>R {coupon.rewardValue}</strong></span>
+                                                            </div>
+                                                        )}
+
+                                                        {coupon.validTill && (
+                                                            <div className="detail-line">
+                                                                <span className="bullet">•</span>
+                                                                <span>
+                                                                    Valid Till: <strong>
+                                                                        {new Date(coupon.validTill).toLocaleDateString("en-ZA", {
+                                                                            day: '2-digit',
+                                                                            month: 'short',
+                                                                            year: 'numeric'
+                                                                        })}
+                                                                    </strong>
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="footer-right">
+                                                    {/* Points & Expiry */}
+                                                    <div className="footer-info-group">
+                                                        {coupon.pointsRequired !== undefined && coupon.pointsRequired > 0 && (
+                                                            <div className={`points-info ${isAvailable ? 'available' : 'locked'}`}>
+                                                                <IconStar size={12} />
+                                                                <span className="points-text">{coupon.pointsRequired} pts</span>
+                                                                {isAvailable ? (
+                                                                    <span className="points-status available">✓</span>
+                                                                ) : (
+                                                                    <span className="points-status locked">🔒</span>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {coupon.pointsRequired !== undefined && coupon.pointsRequired > 0 && coupon.expiryDate && (
+                                                            <span className="info-separator">•</span>
+                                                        )}
+
+                                                        {/* {coupon.expiryDate && (
+                <div className="expiry">
+                    <IconCalendar size={12} />
+                    <span>
+                        {new Date(coupon.expiryDate).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                        })}
+                    </span>
+                </div>
+            )} */}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

@@ -239,27 +239,27 @@ const navigation: (params?: {
     {
       groupLable: 'Marketing',
       items: [
-        {
-          title: 'Coupons',
-          icon: IconDiscount,
-          path: 'coupons',
-          searchParams: {
-            page: '1',
-            limit: '10',
-          },
-          permission: 'NAV_COUPONS_REFERRAL',
-        },
+        // {
+        //   title: 'Coupons',
+        //   icon: IconDiscount,
+        //   path: 'coupons',
+        //   searchParams: {
+        //     page: '1',
+        //     limit: '10',
+        //   },
+        //   permission: 'NAV_COUPONS_REFERRAL',
+        // },
 
-        {
-          title: 'Gift-Card',
-          icon: IconOutbound,
-          path: 'gift-card',
-          searchParams: {
-            page: '1',
-            limit: '10',
-          },
-          permission: 'NAV_GIFT_CARD',
-        },
+        // {
+        //   title: 'Gift-Card',
+        //   icon: IconOutbound,
+        //   path: 'gift-card',
+        //   searchParams: {
+        //     page: '1',
+        //     limit: '10',
+        //   },
+        //   permission: 'NAV_GIFT_CARD',
+        // },
 
         {
           title: 'Loyalty',
@@ -291,16 +291,16 @@ const navigation: (params?: {
           },
           permission: 'NAV_CASHBACK_RULES',
         },
-        {
-          title: 'Promotion Coupons',
-          icon: IconReceiptTax,
-          path: 'promotion-coupons',
-          searchParams: {
-            page: '1',
-            limit: '10',
-          },
-          permission: 'NAV_CASHBACK_RULES',
-        },
+        // {
+        //   title: 'Promotion Coupons',
+        //   icon: IconReceiptTax,
+        //   path: 'promotion-coupons',
+        //   searchParams: {
+        //     page: '1',
+        //     limit: '10',
+        //   },
+        //   permission: 'NAV_CASHBACK_RULES',
+        // },
       ],
     },
 

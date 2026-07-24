@@ -30,5 +30,6 @@ export type CustomerFormValues = {
   dateOfBirth: Date | null;
   gender: any;
   customerGroup?:any;
+    loyaltyPoints?: string;
   outlets?: any[];
 };

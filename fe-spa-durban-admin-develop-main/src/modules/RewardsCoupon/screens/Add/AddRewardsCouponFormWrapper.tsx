@@ -28,6 +28,7 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
   const [addRewardsCoupon] = useAddRewardsCouponMutation();
 
   const initialValues: RewardsCouponFormValues = {
+    couponType: "NORMAL",
     rewardName: '',
     rewardsPoint: '',
     rewardType: 'AMOUNT',
@@ -48,19 +49,23 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
   };
 
   const validationSchema = object().shape({
+
+    couponType: string()
+      .required('Reward type is required')
+      .oneOf(["REWARD", "PROMOTION", "GIFTCARD", "NORMAL"], 'Invalid reward type'),
     rewardName: string()
       .required('Reward name is required')
       .min(3, 'Minimum 3 characters')
       .max(100, 'Maximum 100 characters'),
-    
+
     rewardsPoint: string()
       .required('Rewards point is required')
       .matches(/^[0-9]+$/, 'Must be a valid number'),
-    
+
     rewardType: string()
       .required('Reward type is required')
       .oneOf(['AMOUNT', 'PERCENTAGE'], 'Invalid reward type'),
-    
+
     rewardValue: number()
       .required('Reward value is required')
       .min(0, 'Cannot be negative')
@@ -69,39 +74,39 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
         then: (schema) => schema.min(1, 'Must be at least 1%').max(100, 'Cannot exceed 100%'),
         otherwise: (schema) => schema.min(0, 'Cannot be negative'),
       }),
-    
+
     minimumSpend: number()
       .required('Minimum spend is required')
       .min(0, 'Cannot be negative'),
-    
+
     maximumDiscount: number()
       .required('Maximum discount is required')
       .min(0, 'Cannot be negative'),
-    
+
     couponCode: string()
       .required('Coupon code is required')
       .matches(/^[A-Z0-9]+$/, 'Must be uppercase letters and numbers only')
       .min(4, 'Minimum 4 characters')
       .max(20, 'Maximum 20 characters'),
-    
-     // BranchId - Required hataye
-  branchId: array()
-    .nullable()
-    .optional(), // Not required anymore
-  
-  // ServiceId - Required hataye
-  serviceId: array()
-    .nullable()
-    .optional(), // Not required anymore
-    
+
+    // BranchId - Required hataye
+    branchId: array()
+      .nullable()
+      .optional(), // Not required anymore
+
+    // ServiceId - Required hataye
+    serviceId: array()
+      .nullable()
+      .optional(), // Not required anymore
+
     validDays: array()
       .min(1, 'Select at least one valid day')
       .of(string().oneOf(weekdays)),
-    
+
     startTime: string()
       .required('Start time is required')
       .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format'),
-    
+
     endTime: string()
       .required('End time is required')
       .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format')
@@ -110,7 +115,7 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
         if (!startTime || !value) return true;
         return value > startTime;
       }),
-    
+
     validFrom: mixed()
       .test('valid-date', 'Valid from date is required', function (value) {
         if (!value) return false;
@@ -124,7 +129,7 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
         today.setHours(0, 0, 0, 0);
         return date >= today;
       }),
-    
+
     validTill: mixed()
       .test('valid-date', 'Valid till date is required', function (value) {
         if (!value) return false;
@@ -138,11 +143,11 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
         const tillDate = new Date(value as string | Date);
         return tillDate > fromDate;
       }),
-    
+
     description: string()
       .max(500, 'Maximum 500 characters')
       .nullable(),
-    
+
     isActive: boolean(),
     status: string(),
   });
@@ -152,6 +157,7 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
     { resetForm, setSubmitting }: FormikHelpers<RewardsCouponFormValues>,
   ) => {
     const formattedValues = {
+      couponType:values?.couponType,
       rewardName: values.rewardName,
       rewardsPoint: values.rewardsPoint,
       rewardType: values.rewardType,
@@ -161,13 +167,13 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
       couponCode: values.couponCode.toUpperCase(),
       branchId: Array.isArray(values.branchId)
         ? values.branchId.map((branch: any) =>
-            typeof branch === 'object' ? branch._id : branch
-          )
+          typeof branch === 'object' ? branch._id : branch
+        )
         : [],
       serviceId: Array.isArray(values.serviceId)
         ? values.serviceId.map((service: any) =>
-            typeof service === 'object' ? service._id : service
-          )
+          typeof service === 'object' ? service._id : service
+        )
         : [],
       validDays: values.validDays || [],
       startTime: values.startTime,

@@ -1,78 +1,157 @@
 import httpStatus from "http-status";
-import RewardsCoupon, { RewardsCouponDocument } from "./schema.rewardscoupon";
+import RewardsCoupon, { RewardsCouponDocument } from "./schema.rewardscoupon"; // Adjust RewardsCouponDocument based on your schema setup
 import ApiError from "../../../../utilities/apiError";
 import mongoose from "mongoose";
 import { RangeFilter } from "../../../utils/interface";
 
-/**
- * Create Rewards Coupon
- */
-// rewardsCoupon.service.ts
-
 const createRewardsCoupon = async (
   body: any
 ): Promise<RewardsCouponDocument> => {
-  // Check if reward name already exists
-  const exists = await RewardsCoupon.findOne({
+
+  // Reward Name unique
+  const rewardExists = await RewardsCoupon.findOne({
     rewardName: body.rewardName,
     isDeleted: false,
   });
 
-  if (exists) {
+  if (rewardExists) {
     throw new ApiError(
       httpStatus.BAD_REQUEST,
-      "Reward coupon with this name already exists."
+      "Reward name already exists."
     );
   }
 
-  // Check if coupon code already exists
-  if (body.couponCode) {
-    const codeExists = await RewardsCoupon.findOne({
-      couponCode: body.couponCode.toUpperCase(),
-      isDeleted: false,
-    });
-    if (codeExists) {
+  // Coupon Code unique
+  const couponExists = await RewardsCoupon.findOne({
+    couponCode: body.couponCode.toUpperCase(),
+    isDeleted: false,
+  });
+
+  if (couponExists) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Coupon code already exists."
+    );
+  }
+
+  // Validate dates
+  if (body.validFrom && body.validTill) {
+    const fromDate = new Date(body.validFrom);
+    const tillDate = new Date(body.validTill);
+    
+    if (fromDate > tillDate) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "Coupon code already exists. Please use a different code."
+        "Valid From date cannot be greater than Valid Till date."
       );
     }
   }
 
-  // If branchId is empty or not provided, set as empty array (means all branches)
-  // If serviceId is empty or not provided, set as empty array (means all services)
-  const branchId = body.branchId && Array.isArray(body.branchId) && body.branchId.length > 0 
-    ? body.branchId 
-    : [];
-    
-  const serviceId = body.serviceId && Array.isArray(body.serviceId) && body.serviceId.length > 0 
-    ? body.serviceId 
-    : [];
+  // Validate time format (HH:MM)
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  if (body.startTime && !timeRegex.test(body.startTime)) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Start time must be in HH:MM format."
+    );
+  }
+  if (body.endTime && !timeRegex.test(body.endTime)) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "End time must be in HH:MM format."
+    );
+  }
 
-  return RewardsCoupon.create({
+  // Validate rewards point for REWARD type
+  if (body.couponType === "REWARD") {
+    if (!body.rewardsPoint || body.rewardsPoint <= 0) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Rewards point is required for Reward Coupon and must be greater than 0."
+      );
+    }
+  }
+
+  // Validate reward value
+  if (body.rewardType === "PERCENTAGE") {
+    if (body.rewardValue > 100) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Percentage value cannot be greater than 100."
+      );
+    }
+    if (body.rewardValue <= 0) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Percentage value must be greater than 0."
+      );
+    }
+  } else if (body.rewardType === "AMOUNT") {
+    if (body.rewardValue <= 0) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Reward amount must be greater than 0."
+      );
+    }
+  }
+
+  // Validate minimum spend
+  if (body.minimumSpend < 0) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Minimum spend cannot be negative."
+    );
+  }
+
+  // Validate maximum discount
+  if (body.maximumDiscount < 0) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Maximum discount cannot be negative."
+    );
+  }
+
+  // Validate valid days
+  if (body.validDays && body.validDays.length === 0) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "At least one valid day must be selected."
+    );
+  }
+
+  return await RewardsCoupon.create({
+    couponType: body.couponType || "COUPON",
     rewardName: body.rewardName,
-    rewardsPoint: body.rewardsPoint,
+    rewardsPoint: body.couponType === "REWARD" ? body.rewardsPoint : 0,
     rewardType: body.rewardType || "AMOUNT",
     rewardValue: body.rewardValue,
+    
     minimumSpend: body.minimumSpend || 0,
     maximumDiscount: body.maximumDiscount || 0,
+    
+    giftCardAmount: body.giftCardAmount || 0,
+    balanceAmount: body.balanceAmount || 0,
+    promotionCategory: body.promotionCategory || "",
+    
     couponCode: body.couponCode.toUpperCase(),
-    branchId: branchId, // Empty array = all branches
-    serviceId: serviceId, // Empty array = all services
+    
+    branchId: body.branchId || [],
+    serviceId: body.serviceId || [],
+    
     validDays: body.validDays || [],
     startTime: body.startTime || "",
     endTime: body.endTime || "",
+    
     validFrom: body.validFrom,
     validTill: body.validTill,
+    
     description: body.description || "",
-    isActive: body.isActive !== undefined ? body.isActive : true,
+    
+    isActive: body.isActive === undefined ? true : body.isActive,
     status: body.status || "active",
   });
 };
 
-/**
- * Query Rewards Coupons with Pagination
- */
 const queryRewardsCoupons = async (
   filter: any,
   options: any
@@ -91,76 +170,174 @@ const queryRewardsCoupons = async (
   return rewardsCoupons;
 };
 
-/**
- * Update Rewards Coupon by ID
- */
 const updateRewardsCouponById = async (
-  rewardsCouponId: string | number,
+  rewardsCouponId: string,
   updateBody: any
 ): Promise<RewardsCouponDocument> => {
+
   const rewardsCoupon = await getRewardsCouponById(rewardsCouponId);
+
   if (!rewardsCoupon) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Rewards coupon not found");
+    throw new ApiError(
+      httpStatus.NOT_FOUND,
+      "Reward not found."
+    );
   }
 
-  // Check if reward name already exists (excluding current coupon)
+  // Reward Name duplicate check
   if (updateBody.rewardName) {
-    const existingReward = await RewardsCoupon.findOne({
+    const rewardExists = await RewardsCoupon.findOne({
       rewardName: updateBody.rewardName,
       isDeleted: false,
       _id: { $ne: rewardsCouponId },
     });
-    if (existingReward) {
+
+    if (rewardExists) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "Reward coupon with this name already exists."
+        "Reward name already exists."
       );
     }
   }
 
-  // Check if coupon code already exists (excluding current coupon)
+  // Coupon Code duplicate check
   if (updateBody.couponCode) {
-    const existingCode = await RewardsCoupon.findOne({
-      couponCode: updateBody.couponCode.toUpperCase(),
+    updateBody.couponCode = updateBody.couponCode.toUpperCase();
+
+    const couponExists = await RewardsCoupon.findOne({
+      couponCode: updateBody.couponCode,
       isDeleted: false,
       _id: { $ne: rewardsCouponId },
     });
-    if (existingCode) {
+
+    if (couponExists) {
       throw new ApiError(
         httpStatus.BAD_REQUEST,
-        "Coupon code already exists. Please use a different code."
+        "Coupon code already exists."
       );
     }
   }
 
-  // Update only provided fields
-  Object.assign(rewardsCoupon, {
-    ...(updateBody.rewardName !== undefined && { rewardName: updateBody.rewardName }),
-    ...(updateBody.rewardsPoint !== undefined && { rewardsPoint: updateBody.rewardsPoint }),
-    ...(updateBody.rewardType !== undefined && { rewardType: updateBody.rewardType }),
-    ...(updateBody.rewardValue !== undefined && { rewardValue: updateBody.rewardValue }),
-    ...(updateBody.minimumSpend !== undefined && { minimumSpend: updateBody.minimumSpend }),
-    ...(updateBody.maximumDiscount !== undefined && { maximumDiscount: updateBody.maximumDiscount }),
-    ...(updateBody.couponCode !== undefined && { couponCode: updateBody.couponCode.toUpperCase() }),
-    ...(updateBody.branchId !== undefined && { branchId: updateBody.branchId }),
-    ...(updateBody.serviceId !== undefined && { serviceId: updateBody.serviceId }),
-    ...(updateBody.validDays !== undefined && { validDays: updateBody.validDays }),
-    ...(updateBody.startTime !== undefined && { startTime: updateBody.startTime }),
-    ...(updateBody.endTime !== undefined && { endTime: updateBody.endTime }),
-    ...(updateBody.validFrom !== undefined && { validFrom: updateBody.validFrom }),
-    ...(updateBody.validTill !== undefined && { validTill: updateBody.validTill }),
-    ...(updateBody.description !== undefined && { description: updateBody.description }),
-    ...(updateBody.isActive !== undefined && { isActive: updateBody.isActive }),
-    ...(updateBody.status !== undefined && { status: updateBody.status }),
-  });
+  // Validate dates
+  const validFrom = updateBody.validFrom || rewardsCoupon.validFrom;
+  const validTill = updateBody.validTill || rewardsCoupon.validTill;
+  
+  if (validFrom && validTill) {
+    const fromDate = new Date(validFrom);
+    const tillDate = new Date(validTill);
+    
+    if (fromDate > tillDate) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Valid From date cannot be greater than Valid Till date."
+      );
+    }
+  }
+
+  // Validate time format (HH:MM)
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  const startTime = updateBody.startTime || rewardsCoupon.startTime;
+  const endTime = updateBody.endTime || rewardsCoupon.endTime;
+  
+  if (startTime && !timeRegex.test(startTime)) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Start time must be in HH:MM format."
+    );
+  }
+  if (endTime && !timeRegex.test(endTime)) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "End time must be in HH:MM format."
+    );
+  }
+
+  // Validate rewards point for REWARD type
+  const couponType = updateBody.couponType || rewardsCoupon.couponType;
+  const rewardsPoint = updateBody.rewardsPoint !== undefined ? updateBody.rewardsPoint : rewardsCoupon.rewardsPoint;
+  
+  if (couponType === "REWARD") {
+    if (!rewardsPoint || rewardsPoint <= 0) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Rewards point is required for Reward Coupon and must be greater than 0."
+      );
+    }
+  }
+
+  // Validate reward value
+  const rewardType = updateBody.rewardType || rewardsCoupon.rewardType;
+  const rewardValue = updateBody.rewardValue !== undefined ? updateBody.rewardValue : rewardsCoupon.rewardValue;
+  
+  if (rewardType === "PERCENTAGE") {
+    if (rewardValue > 100) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Percentage value cannot be greater than 100."
+      );
+    }
+    if (rewardValue <= 0) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Percentage value must be greater than 0."
+      );
+    }
+  } else if (rewardType === "AMOUNT") {
+    if (rewardValue <= 0) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Reward amount must be greater than 0."
+      );
+    }
+  }
+
+  // Validate minimum spend
+  const minimumSpend = updateBody.minimumSpend !== undefined ? updateBody.minimumSpend : rewardsCoupon.minimumSpend;
+  if (minimumSpend < 0) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Minimum spend cannot be negative."
+    );
+  }
+
+  // Validate maximum discount
+  const maximumDiscount = updateBody.maximumDiscount !== undefined ? updateBody.maximumDiscount : rewardsCoupon.maximumDiscount;
+  if (maximumDiscount < 0) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Maximum discount cannot be negative."
+    );
+  }
+
+  // Validate valid days
+  const validDays = updateBody.validDays || rewardsCoupon.validDays;
+  if (validDays && validDays.length === 0) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "At least one valid day must be selected."
+    );
+  }
+
+  // If coupon type is changing from REWARD to something else, reset rewardsPoint to 0
+  if (updateBody.couponType && updateBody.couponType !== "REWARD") {
+    updateBody.rewardsPoint = 0;
+  }
+
+  // If coupon type is changing to REWARD, ensure rewardsPoint is provided
+  if (updateBody.couponType === "REWARD" && !updateBody.rewardsPoint) {
+    throw new ApiError(
+      httpStatus.BAD_REQUEST,
+      "Rewards point is required when coupon type is REWARD."
+    );
+  }
+
+  Object.assign(rewardsCoupon, updateBody);
 
   await rewardsCoupon.save();
+
   return rewardsCoupon;
 };
 
-/**
- * Mark Reward Coupon as Used by Customer
- */
 const markRewardCouponAsUsed = async (
   referralCode: string,
   customerId: string
@@ -175,16 +352,6 @@ const markRewardCouponAsUsed = async (
     throw new ApiError(httpStatus.NOT_FOUND, 'Reward coupon not found');
   }
 
-  // Check if coupon is still valid (date range)
-  const now = new Date();
-  // if (coupon.validFrom && coupon.validFrom > now) {
-  //   throw new ApiError(httpStatus.BAD_REQUEST, 'Coupon is not yet valid');
-  // }
-  if (coupon.validTill && coupon.validTill < now) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Coupon has expired');
-  }
-
-  // Check if already used by this customer
   const alreadyUsed = Array.isArray(coupon.usedBy)
     ? coupon.usedBy.map(id => id?.toString()).includes(customerId.toString())
     : false;
@@ -199,71 +366,37 @@ const markRewardCouponAsUsed = async (
   return coupon;
 };
 
-/**
- * Delete Rewards Coupon by ID (Soft Delete)
- */
+
 const deleteRewardsCouponById = async (
   rewardsCouponId: string | number
 ): Promise<RewardsCouponDocument> => {
   const rewardsCoupon = await getRewardsCouponById(rewardsCouponId);
   if (!rewardsCoupon) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Rewards coupon not found");
+    throw new ApiError(httpStatus.NOT_FOUND, "RewardsCoupon not found");
   }
 
-  // Soft delete - update isDeleted field to true
+  // Instead of deleting, update isDeleted field to true
   await RewardsCoupon.updateOne(
     { _id: rewardsCoupon._id },
     { $set: { isDeleted: true } }
   );
 
+  // Return updated rewardsCoupon object with isDeleted: true
   return rewardsCoupon;
 };
 
-/**
- * Toggle Rewards Coupon Status by ID
- */
 const toggleRewardsCouponStatusById = async (
   rewardsCouponId: string | number
 ): Promise<RewardsCouponDocument> => {
   const rewardsCoupon = await getRewardsCouponById(rewardsCouponId);
   if (!rewardsCoupon) {
-    throw new ApiError(httpStatus.NOT_FOUND, "Rewards coupon not found");
+    throw new ApiError(httpStatus.NOT_FOUND, "RewardsCoupon not found");
   }
-  
   rewardsCoupon.isActive = !rewardsCoupon.isActive;
-  rewardsCoupon.status = rewardsCoupon.isActive ? 'active' : 'inactive';
   await rewardsCoupon.save();
-  
   return rewardsCoupon;
 };
 
-/**
- * Get Rewards Coupon by ID
- */
-const getRewardsCouponById = async (
-  id: string | number
-): Promise<RewardsCouponDocument | null> => {
-  if (typeof id === "string" || typeof id === "number") {
-    return RewardsCoupon.findOne({
-      _id: new mongoose.Types.ObjectId(id.toString()),
-      isDeleted: false,
-    });
-  }
-  return null;
-};
-
-/**
- * Get One by Multi Field
- */
-const getOneByMultiField = async (
-  filter: any
-): Promise<RewardsCouponDocument | null> => {
-  return RewardsCoupon.findOne({ ...filter, isDeleted: false });
-};
-
-/**
- * Check if Records Exist
- */
 interface FilterObject {
   [key: string]: any;
 }
@@ -316,61 +449,28 @@ const isExists = async (
   );
 };
 
-/**
- * Combine Objects Helper
- */
 async function combineObjects(
   filterArray: FilterObject[]
 ): Promise<FilterObject> {
-  let combinedObj: FilterObject = {};
-  filterArray.forEach((obj) => {
-    Object.assign(combinedObj, obj);
-  });
-  return combinedObj;
+  return {} as FilterObject;
 }
 
-/**
- * Bulk Delete Rewards Coupons
- */
-const bulkDeleteRewardsCoupons = async (
-  ids: string[]
-): Promise<void> => {
-  if (!ids || ids.length === 0) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Please provide coupon IDs to delete."
-    );
-  }
-
-  await RewardsCoupon.updateMany(
-    { _id: { $in: ids }, isDeleted: false },
-    { $set: { isDeleted: true } }
-  );
+const getOneByMultiField = async (
+  filter: FilterObject
+): Promise<RewardsCouponDocument | null> => {
+  return RewardsCoupon.findOne({ ...filter, isDeleted: false });
 };
 
-/**
- * Bulk Toggle Rewards Coupons Status
- */
-const bulkToggleRewardsCouponsStatus = async (
-  ids: string[],
-  status: boolean
-): Promise<void> => {
-  if (!ids || ids.length === 0) {
-    throw new ApiError(
-      httpStatus.BAD_REQUEST,
-      "Please provide coupon IDs to update."
-    );
+const getRewardsCouponById = async (
+  id: string | number
+): Promise<RewardsCouponDocument | null> => {
+  if (typeof id === "string" || typeof id === "number") {
+    return RewardsCoupon.findById({
+      _id: new mongoose.Types.ObjectId(id),
+      isDeleted: false,
+    });
   }
-
-  await RewardsCoupon.updateMany(
-    { _id: { $in: ids }, isDeleted: false },
-    { 
-      $set: { 
-        isActive: status,
-        status: status ? 'active' : 'inactive'
-      } 
-    }
-  );
+  return null;
 };
 
 export {
@@ -382,7 +482,5 @@ export {
   getRewardsCouponById,
   getOneByMultiField,
   toggleRewardsCouponStatusById,
-  markRewardCouponAsUsed,
-  bulkDeleteRewardsCoupons,
-  bulkToggleRewardsCouponsStatus,
+  markRewardCouponAsUsed
 };
