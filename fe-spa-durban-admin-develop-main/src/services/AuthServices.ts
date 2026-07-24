@@ -64,6 +64,17 @@ export const authApi = apiSlice.injectEndpoints({
         };
       },
     }),
+    checkEmailExists: builder.mutation({
+      query: (body: { email: string }) => {
+        return {
+          url: '/auth/check-email',
+          method: 'POST',
+          headers: {
+            'device-id': deviceId,
+          },
+          body,
+        };
+      }})
   }),
 });
 
@@ -72,4 +83,5 @@ export const {
   useGetAccessTokenMutation,
   useChangePasswordMutation,
   useLoginAutoMutation,
+  useCheckEmailExistsMutation,
 } = authApi;

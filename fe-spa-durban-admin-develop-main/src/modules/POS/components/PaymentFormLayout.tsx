@@ -25,7 +25,6 @@ type Props = {
   previewIsLoading: boolean;
   isDraftSubmitting: boolean;
   loyaltyPoints: number;
-  cashBackAmount: number;
 };
 
 type Coupon = {
@@ -48,8 +47,7 @@ const PaymentFormLayout = ({
   onModify,
   previewIsLoading,
   loyaltyPoints,
-  isDraftSubmitting,
-  cashBackAmount,
+  isDraftSubmitting
 }: Props) => {
   const { values, setFieldValue, isSubmitting } = formikProps;
   const customerId = values?.customer?._id;
@@ -134,8 +132,8 @@ const PaymentFormLayout = ({
     refetch()
   }, [])
 
-const isButtonDisabled =
-  calculateTotalReceived() < previewData?.invoiceData?.totalAmount;
+  const isButtonDisabled =
+    calculateTotalReceived() < previewData?.invoiceData?.totalAmount;
   return (
     <>
       <MOLFormDialog
@@ -229,12 +227,9 @@ const isButtonDisabled =
                       name="couponCode"
                       value={values?.couponCode}
                       onChange={(e) => {
-                        setFieldValue('couponCode', e.target.value),
-                          setFieldValue('useCashBackAmount', false),
-                          setFieldValue(
-                            'usedCashBackAmount',
-                            0,
-                          );
+                        setFieldValue('couponCode', e.target.value)
+                        // setFieldValue('useCashBackAmount', false)
+
                       }}
                       placeholder="Enter Coupon Code"
                       label="Coupon Code"
@@ -310,13 +305,13 @@ const isButtonDisabled =
                   {isPreviewed ? (
                     previewData?.invoiceData?.loyaltyPointsDiscount ? (
                       <div className="flex items-center justify-between p-1 text-xs font-regular">
-                        <div className=" text-neutral-40"> Loyalty Points</div>{' '}
+                        {/* <div className=" text-neutral-40"> Loyalty Points</div>{' '}
                         <span className="font-medium text-green-600">
                           - {CURRENCY}{' '}
                           {previewData?.invoiceData?.loyaltyPointsDiscount.toFixed(
                             2,
                           )}
-                        </span>
+                        </span> */}
                       </div>
                     ) : null
                   ) : (
@@ -339,108 +334,107 @@ const isButtonDisabled =
                     </div>
                   )}
                 </div>
+
                 {!isPreviewed && (<div className="mt-1">
                   <div className="flex flex-row-reverse overflow-x-auto max-w-full space-x-2 space-x-reverse pb-2">
                     {allCoupans?.data?.map((coupon: any, index: any) => (
                       <label
                         key={index}
-                        className={`min-w-[240px] border p-3 rounded-md shadow-sm text-xs cursor-pointer transition duration-200 ease-in-out ${selectedCode === coupon.code
-                          ? 'border-[#006972] bg-[#e6f5f4]'
-                          : 'border-gray-200 bg-white'
-                          } hover:shadow-md`}
+                        className={`min-w-[200px] rounded-xl border p-4 shadow-sm cursor-pointer transition-all duration-200
+    ${selectedCode === coupon.code
+                            ? "border-[#006972] bg-[#eef9f8] shadow-md"
+                            : "border-gray-200 bg-white hover:border-[#006972] hover:shadow-md"
+                          }`}
                       >
-                        <div className="flex items-start gap-2">
+                        <div className="flex gap-3">
                           <input
                             type="radio"
                             name="coupon"
                             value={coupon.code}
                             checked={selectedCode === coupon.code}
-                            // onChange={() => {
-                            //   if (coupon.type === 'Promotional') {
-                            //     setFieldValue('promotionCoupanCode', coupon.code);
-                            //     setFieldValue('couponCode', '');
-                            //     setFieldValue('giftCardCode', '');
-                            //   } else if (coupon.type === 'GiftCard') {
-                            //     setFieldValue('giftCardCode', coupon.code);
-                            //     setFieldValue('couponCode', '');
-                            //     setFieldValue('promotionCoupanCode', '');
-                            //   } else {
-                            //     setFieldValue('couponCode', coupon.code);
-                            //     setFieldValue('giftCardCode', '');
-                            //     setFieldValue('promotionCoupanCode', '');
-                            //   }
-                            //   setSelectedCode(coupon.code);
-                            // }}
                             onChange={() => {
-                              if (coupon.type === 'Promotional') {
-                                setFieldValue('promotionCoupanCode', coupon.code);
-                                setFieldValue('couponCode', '');
-                                setFieldValue('giftCardCode', '');
-                                setFieldValue('rewardCoupan', '');
-                                setFieldValue('useCashBackAmount', false);
-                              } else if (coupon.type === 'GiftCard') {
-                                setFieldValue('giftCardCode', coupon.code);
-                                setFieldValue('couponCode', '');
-                                setFieldValue('promotionCoupanCode', '');
-                                setFieldValue('rewardCoupan', '');
-                                setFieldValue('useCashBackAmount', false);
-                              } else if (coupon.type === 'Reward') {
-                                setFieldValue('rewardCoupan', coupon.code);
-                                setFieldValue('couponCode', '');
-                                setFieldValue('promotionCoupanCode', '');
-                                setFieldValue('giftCardCode', '');
-                                setFieldValue(
-                                  'usedCashBackAmount',
-                                  coupon?.discount,
-                                );
-                                setFieldValue('useCashBackAmount', true);
+                              if (coupon.type === "Promotional") {
+                                setFieldValue("promotionCoupanCode", coupon.code);
+                                setFieldValue("couponCode", "");
+                                setFieldValue("giftCardCode", "");
+                                setFieldValue("rewardCoupan", "");
+                              } else if (coupon.type === "GiftCard") {
+                                setFieldValue("giftCardCode", coupon.code);
+                                setFieldValue("couponCode", "");
+                                setFieldValue("promotionCoupanCode", "");
+                                setFieldValue("rewardCoupan", "");
+                              } else if (coupon.type === "Reward") {
+                                setFieldValue("rewardCoupan", coupon.code);
+                                setFieldValue("useLoyaltyPoints", true);
+                                setFieldValue("couponCode", "");
+                                setFieldValue("promotionCoupanCode", "");
+                                setFieldValue("giftCardCode", "");
                               } else {
-                                // Assuming all other types fall under regular coupon
-                                setFieldValue('couponCode', coupon.code);
-                                setFieldValue('giftCardCode', '');
-                                setFieldValue('promotionCoupanCode', '');
-                                setFieldValue('rewardCoupan', '');
-                                setFieldValue('useCashBackAmount', false);
+                                setFieldValue("couponCode", coupon.code);
+                                setFieldValue("giftCardCode", "");
+                                setFieldValue("promotionCoupanCode", "");
+                                setFieldValue("rewardCoupan", "");
                               }
 
                               setSelectedCode(coupon.code);
-
                             }}
-
-                            className="accent-[#006972] mt-1"
+                            className="mt-1 accent-[#006972]"
                           />
 
-                          <div className="flex flex-col gap-1">
-                            <div className="font-medium text-sm">
-                              {coupon.type === 'GiftCard' && '🎁 Gift Card'}
-                              {coupon.type === 'Promotional' && '💥 Promo Coupon'}
-                              {coupon.type === 'Birthday' && '🎂 Birthday Coupon'}
-                              {coupon.type === 'Reward' && '🏅 Reward Coupon'}
-                            </div>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-sm">
+                                {coupon.type === "GiftCard" && "🎁 Gift Card"}
+                                {coupon.type === "Promotional" && "💥 Promo"}
+                                {coupon.type === "Birthday" && "🎂 Birthday"}
+                                {coupon.type === "Reward" && "🏅 Reward"}
+                              </span>
 
-                            <div className="flex items-center justify-between text-sm font-medium text-gray-700">
-                              <span className="text-gray-600">Discount</span>
-                              {coupon.type === 'Reward' ? (
-                                <span className="ml-2 text-[10px] font-semibold text-white bg-[#006972] px-2 py-[2px] rounded-full">
-                                  🎯 {coupon.discount} Points
-                                </span>
-                              ) : (
-                                <span className="ml-2 text-[10px] font-semibold text-white bg-[#006972] px-2 py-[2px] rounded-full">
-                                  {coupon.discountPercent
-                                    ? `${coupon.discountPercent}% Off`
-                                    : `R${coupon.discount} Off`}
+                              {selectedCode === coupon.code && (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-[#006972] text-white">
+                                  Selected
                                 </span>
                               )}
                             </div>
 
+                            {coupon.rewardName && (
+                              <div className="text-[11px] text-gray-500 truncate">
+                                {coupon.rewardName}
+                              </div>
+                            )}
 
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {coupon.type === "Reward" ? (
+                                <>
+                                  <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                                    R {coupon.discount} OFF
+                                  </span>
 
-                            <div className="text-[11px] text-gray-500">
-                              Valid Till: {new Date(coupon.validTill).toDateString()}
+                                  <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                                    {coupon.rewardPoints} Pts
+                                  </span>
+
+                                  <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded">
+                                    Min R{coupon.minimumSpend}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="text-[10px] bg-[#006972] text-white px-2 py-0.5 rounded">
+                                  {coupon.discountPercent
+                                    ? `${coupon.discountPercent}% OFF`
+                                    : `R ${coupon.discount} OFF`}
+                                </span>
+                              )}
                             </div>
 
-                            <div className="text-[10px] text-white bg-[#006972] px-2 py-[2px] rounded w-fit">
-                              Code: {coupon.code}
+                            <div className="mt-2 flex justify-between items-center text-[10px] text-gray-500">
+                              <span>
+                                📅 {new Date(coupon.validTill).toLocaleDateString()}
+                              </span>
+
+                              <span className="bg-gray-100 px-2 py-0.5 rounded font-medium text-gray-700">
+                                {coupon.code}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -451,7 +445,7 @@ const isButtonDisabled =
 
 
 
-                <div className="">
+                {/* <div className="">
                   {isPreviewed ? (
                     previewData?.invoiceData?.usedCashBackAmount ? (
                       <div className="flex items-center justify-between p-1 text-xs font-regular">
@@ -508,24 +502,19 @@ const isButtonDisabled =
                       </div>
                     </div>
                   )}
-                </div>
+                </div> */}
               </div>
             </div>
 
 
             <div>
               {/* Loyalty Points Earned */}
-              {isPreviewed && previewData?.pointsToAdd ? (
+              {isPreviewed && previewData?.invoiceData?.totalDiscount ? (
                 <div className="px-4 py-1 text-xs font-medium text-green-900">
-                  Loyalty Points Earned :{' '}
-                  {(previewData?.pointsToAdd)?.toFixed(2)}
+                  Discount Applied : R {Number(previewData?.invoiceData?.totalDiscount).toFixed(2)}
                 </div>
               ) : null}
-              {isPreviewed && previewData?.totalCashBack ? (
-                <div className="px-4 py-1 text-xs font-medium text-green-900">
-                  Cash Back Earned : {(previewData?.totalCashBack)?.toFixed(2)}
-                </div>
-              ) : null}
+
 
               {/* Payable Amount APPLY BUTTON */}
               <div>
@@ -544,7 +533,7 @@ const isButtonDisabled =
                         handleApplyPayment(values, setFieldValue);
                       }}
                       isLoading={previewIsLoading}
-                      disabled={values?.usedCashBackAmount > payAbleAmount || payAbleAmount === 0}
+                      disabled={payAbleAmount === 0}
                     >
                       Apply
                     </ATMButton>

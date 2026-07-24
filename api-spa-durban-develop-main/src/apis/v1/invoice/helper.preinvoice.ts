@@ -134,7 +134,7 @@ const getPreview = async (req: AuthenticatedRequest) => {
   // calculate shipping charges
   const totalWithoutDiscount = invoiceHelper.getTotalWithoutDiscounts(items);
   const totalCashBack = invoiceHelper.getTotalCashBack(items);
-  req.body.cashBackEarned = totalCashBack;
+  // req.body.cashBackEarned = totalCashBack;
   const amountWithShipping = totalWithoutDiscount + shippingCharges;
 
   //if loyalty points used then get amount to be paid
@@ -155,21 +155,22 @@ const getPreview = async (req: AuthenticatedRequest) => {
   );
 
   // calculate discounts
-  const allDiscounts = await invoiceHelper.getDiscounts(
-    amountWithShipping,
-    couponCode,
-    giftCardCode,
-    promotionCoupanCode,
-    rewardCoupan,
-    referralCode,
-    loyaltyPointsDiscount,
-    customerId,
-    usedCashBackAmountData,
-    req.body.items
-  );
+const allDiscounts = await invoiceHelper.getDiscounts(
+  amountWithShipping,
+  couponCode,
+  giftCardCode,
+  promotionCoupanCode,
+  rewardCoupan,
+  referralCode,
+  loyaltyPointsDiscount,
+  customerId,
+  req.body.items
+);
 
-  let { couponDiscount, giftCardDiscount, promotionCoupanCodeDiscount, rewardCoupanCodeDiscount, referralDiscount, totalDiscount } =
+  let { couponDiscount, giftCardDiscount, promotionCoupanCodeDiscount, rewardCoupanCodeDiscount,rewardCouponPoints, referralDiscount, totalDiscount } =
     allDiscounts;
+
+    console.log
   req.body.totalDiscount = totalDiscount;
   req.body.couponDiscount = couponDiscount;
   req.body.giftCardDiscount = giftCardDiscount;
@@ -215,6 +216,7 @@ const getPreview = async (req: AuthenticatedRequest) => {
       walletDebitLog,
       walletCreditLog,
       inventoryData,
+      rewardCouponPoints
     },
     otherData: {
       outlet,

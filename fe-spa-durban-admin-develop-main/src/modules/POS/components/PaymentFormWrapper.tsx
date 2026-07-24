@@ -49,7 +49,7 @@ const PaymentFormWrapper = ({
       promotionCoupanCode: values?.promotionCoupanCode || '',
       rewardCoupan: values?.rewardCoupan || '',
       useLoyaltyPoints: values?.useLoyaltyPoints,
-      useCashBackAmount: values?.useCashBackAmount,
+      useCashBackAmount: false,
       usedCashBackAmount: values?.usedCashBackAmount,
       referralCode: '',
       outletId: (outlet as any)?._id,
@@ -133,7 +133,7 @@ const PaymentFormWrapper = ({
       previewIsLoading={previewIsLoading}
       loyaltyPoints={loyaltyPoints}
       isDraftSubmitting={isDraftSubmitting}
-      cashBackAmount={cashBackAmount}
+      // cashBackAmount={cashBackAmount}
     />
   );
 };

@@ -32,10 +32,18 @@ import SalesRegister from "./schema.salesreegister";
 // };
 
 export const generatePDFBuffer = async (html: string): Promise<Buffer> => {
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'], // ✅ Fix for Ubuntu sandbox issue
-  });
+const browser = await puppeteer.launch({
+  executablePath: "/usr/bin/google-chrome",
+  headless: true,
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--single-process",
+    "--no-zygote",
+  ],
+});
 
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: 'networkidle0' });

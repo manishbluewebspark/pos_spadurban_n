@@ -8,6 +8,7 @@ import {
   forgotPassword,
   resetPassword,
   loginAuto,
+  checkEmailExists,
 } from "./validation.auth";
 
 import { authenticate } from "../../../middleware/authentication";
@@ -31,6 +32,7 @@ const router = Router();
  *       bearerFormat: JWT
  */
 router.post("/login/auto", validate(loginAuto), authController.loginAuto);
+router.post("/check-email", validate(checkEmailExists), authController.verifyEmail);
 /**
  * @swagger
  * /auth/login:

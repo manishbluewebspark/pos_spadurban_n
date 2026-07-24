@@ -6,6 +6,7 @@ import { AuthenticatedRequest } from "../../../utils/interface";
 import config from "../../../../config/config";
 import { authService, tokenService, userService } from "../service.index";
 import { compare } from "bcrypt";
+import Customer from "../customer/schema.customer";
 
 //------------------------------------------------------------
 
@@ -152,7 +153,37 @@ const sendVerificationEmail = catchAsync(
 //------------------------------------------------------------
 
 //verifyEmail
-const verifyEmail = catchAsync(async (req: Request, res: Response) => {});
+const verifyEmail = catchAsync(async (req: Request, res: Response) => {
+  const { email } = req.body;
+
+  // Check if email is provided
+  if (!email) {
+    return res.status(httpStatus.BAD_REQUEST).json({
+      success: false,
+      message: 'Email is required'
+    });
+  }
+
+  // Find customer by email (case insensitive)
+  const existingCustomer = await Customer.findOne({
+    email: { $regex: new RegExp(`^${email}$`, 'i') }
+  });
+
+  if (!existingCustomer) {
+    return res.status(httpStatus.NOT_FOUND).json({
+      success: false,
+      message: 'Email not found in our system. Please register first.'
+    });
+  }
+
+  // Return customer data directly
+  res.status(httpStatus.OK).json({
+    success: true,
+    message: 'User verified successfully',
+    data: existingCustomer
+  });
+});
+
 //------------------------------------------------------------
 
 export default {
