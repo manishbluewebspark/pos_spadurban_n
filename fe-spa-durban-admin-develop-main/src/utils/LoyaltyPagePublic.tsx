@@ -68,6 +68,7 @@ interface LoyaltyTransaction {
     id: string;
     date: string;
     description: string;
+    couponCode: string;
     points: number;
     amountPaid: number;
     type: 'earned' | 'redeemed' | 'used';
@@ -973,59 +974,74 @@ const LoyaltyPage = () => {
                                                     </div>
 
                                                     {/* 🔥 All Details - Left Side */}
-                                                    <div className="footer-details">
-                                                        {coupon?.minimumSpend > 0 && (
-                                                            <div className="detail-line">
-                                                                <span className="bullet">•</span>
-                                                                <span>Minimum Spend: <strong>R {coupon.minimumSpend}</strong></span>
-                                                            </div>
-                                                        )}
+                                                 <div className="footer-details">
+    {/* Minimum Spend */}
+    {coupon?.minimumSpend > 0 && (
+        <div className="detail-line">
+            <span className="bullet">•</span>
+            <span>Minimum Spend: <strong>R {coupon.minimumSpend}</strong></span>
+        </div>
+    )}
 
-                                                        {coupon?.rewardType === "PERCENTAGE" ? (
-                                                            <div className="detail-line">
-                                                                <span className="bullet">•</span>
-                                                                <span>
-                                                                    <strong>{coupon.rewardValue}% OFF</strong>
-                                                                    {coupon?.maximumDiscount > 0 &&
-                                                                        ` (Max Discount: R ${coupon.maximumDiscount})`}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="detail-line">
-                                                                <span className="bullet">•</span>
-                                                                <span>Discount: <strong>R {coupon.rewardValue}</strong></span>
-                                                            </div>
-                                                        )}
+    {/* Discount */}
+    {coupon?.rewardType === "PERCENTAGE" ? (
+        <div className="detail-line">
+            <span className="bullet">•</span>
+            <span>
+                <strong>{coupon.rewardValue}% OFF</strong>
+                {coupon?.maximumDiscount > 0 &&
+                    ` (Max Discount: R ${coupon.maximumDiscount})`}
+            </span>
+        </div>
+    ) : (
+        <div className="detail-line">
+            <span className="bullet">•</span>
+            <span>Discount: <strong>R {coupon.rewardValue}</strong></span>
+        </div>
+    )}
 
-                                                        {coupon.couponType === "REWARD" && coupon.rewardsPoint > 0 && (
-                                                            <div className="detail-line">
-                                                                <span className="bullet">•</span>
-                                                                <span>Requires <strong>{coupon.rewardsPoint}</strong> Loyalty Points</span>
-                                                            </div>
-                                                        )}
+    {/* Reward Points */}
+    {coupon.couponType === "REWARD" && coupon.rewardsPoint > 0 && (
+        <div className="detail-line">
+            <span className="bullet">•</span>
+            <span>Requires <strong>{coupon.rewardsPoint}</strong> Loyalty Points</span>
+        </div>
+    )}
 
-                                                        {coupon.couponType === "GIFTCARD" && (
-                                                            <div className="detail-line">
-                                                                <span className="bullet">•</span>
-                                                                <span>Gift Card Value: <strong>R {coupon.rewardValue}</strong></span>
-                                                            </div>
-                                                        )}
+    {/* Gift Card */}
+    {coupon.couponType === "GIFTCARD" && (
+        <div className="detail-line">
+            <span className="bullet">•</span>
+            <span>Gift Card Value: <strong>R {coupon.rewardValue}</strong></span>
+        </div>
+    )}
 
-                                                        {coupon.validTill && (
-                                                            <div className="detail-line">
-                                                                <span className="bullet">•</span>
-                                                                <span>
-                                                                    Valid Till: <strong>
-                                                                        {new Date(coupon.validTill).toLocaleDateString("en-ZA", {
-                                                                            day: '2-digit',
-                                                                            month: 'short',
-                                                                            year: 'numeric'
-                                                                        })}
-                                                                    </strong>
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
+    {/* 🔥 Services - Applicable Services */}
+    {coupon.services && coupon.services.length > 0 && (
+        <div className="detail-line">
+            <span className="bullet">•</span>
+            <span>
+                Applicable Services: <strong>{coupon.services.join(', ')}</strong>
+            </span>
+        </div>
+    )}
+
+    {/* Valid Till */}
+    {coupon.validTill && (
+        <div className="detail-line">
+            <span className="bullet">•</span>
+            <span>
+                Valid Till: <strong>
+                    {new Date(coupon.validTill).toLocaleDateString("en-ZA", {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                    })}
+                </strong>
+            </span>
+        </div>
+    )}
+</div>
                                                 </div>
 
                                                 <div className="footer-right">
@@ -1072,63 +1088,141 @@ const LoyaltyPage = () => {
             )}
 
             {/* History */}
-            {activeTab === 'history' && (
-                <div className="history-section">
-                    <div className="history-stats">
-                        <div className="history-stat">
-                            <span>Total Earned</span>
-                            <span className="positive">+{loyaltyHistory.filter(t => t.type === 'earned').reduce((sum, t) => sum + t.points, 0)?.toFixed(2)}</span>
-                        </div>
-                        <div className="history-stat">
-                            <span>Total Redeemed</span>
-                            <span className="negative">{loyaltyHistory.filter(t => t.type === 'redeemed').reduce((sum, t) => sum + t.points, 0)?.toFixed(2)}</span>
-                        </div>
-                        <div className="history-stat">
-                            <span>Total Used</span>
-                            <span className="negative">{loyaltyHistory.filter(t => t.type === 'used').reduce((sum, t) => sum + t.points, 0)?.toFixed(2)}</span>
-                        </div>
-                        <div className="history-stat">
-                            <span>Balance</span>
-                            <span className="positive">{customerData?.totalPoints?.toFixed(2)}</span>
-                        </div>
+           {activeTab === 'history' && (
+    <div className="history-section">
+        {/* History Stats */}
+        <div className="history-stats">
+            <div className="history-stat">
+                <span>Total Earned</span>
+                <span className="positive">
+                    +{loyaltyHistory
+                        .filter(t => t.type === 'earned')
+                        .reduce((sum, t) => sum + (t.points || 0), 0)
+                        ?.toFixed(0)}
+                </span>
+            </div>
+            <div className="history-stat">
+                <span>Total Redeemed</span>
+                <span className="negative">
+                    {loyaltyHistory
+                        .filter(t => t.type === 'redeemed')
+                        .reduce((sum, t) => sum + (t.points || 0), 0)
+                        ?.toFixed(0)}
+                </span>
+            </div>
+            <div className="history-stat">
+                <span>Total Used</span>
+                <span className="negative">
+                    {loyaltyHistory
+                        .filter(t => t.type === 'used')
+                        .reduce((sum, t) => sum + (t.points || 0), 0)
+                        ?.toFixed(0)}
+                </span>
+            </div>
+            <div className="history-stat">
+                <span>Balance</span>
+                <span className="positive">{customerData?.totalPoints?.toFixed(0) || 0}</span>
+            </div>
+        </div>
+
+        {/* History List */}
+        <div className="history-list">
+            {loyaltyHistory.length === 0 ? (
+                <div className="empty-state">
+                    <div className="empty-icon">
+                        <IconHistory size={48} />
                     </div>
-
-                    <div className="history-list">
-                        {loyaltyHistory.map((item) => {
-                            const isPositive = item.type === 'earned';
-                            const colors = { earned: '#00B894', redeemed: '#FDCB6E', used: '#E17055' };
-
-                            return (
-                                <div key={item.id} className="history-item">
-                                    <div className="history-icon" style={{ background: colors[item.type] }}>
-                                        {item.type === 'earned' ? <IconCirclePlus size={16} /> :
-                                            item.type === 'redeemed' ? <IconRefresh size={16} /> :
-                                                <IconCircleMinus size={16} />}
-                                    </div>
-                                    <div className="history-info">
-                                        <div>{item.description}</div>
-                                        <div className="history-date">
-                                            <IconCalendar size={12} /> {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                        </div>
-                                    </div>
-                                    <div className="history-right">
-                                        <div className={`history-points ${isPositive ? 'positive' : 'negative'}`}>
-                                            {isPositive ? '+' : ''}
-                                            {item.points} pts
-                                        </div>
-
-                                        {item.amountPaid > 0 && (
-                                            <div className="history-amount">
-                                                Spent R{item.amountPaid}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                    <h3>No History Yet</h3>
+                    <p>Start earning points to see your history here.</p>
                 </div>
+            ) : (
+                loyaltyHistory.map((item) => {
+                    const isPositive = item.type === 'earned';
+                    const isRedeemed = item.type === 'redeemed';
+                    const isUsed = item.type === 'used';
+                    
+                    // Get icon based on type
+                    const getIcon = () => {
+                        if (isPositive) return <IconCirclePlus size={18} />;
+                        if (isRedeemed) return <IconRefresh size={18} />;
+                        if (isUsed) return <IconCircleMinus size={18} />;
+                        return <IconCirclePlus size={18} />;
+                    };
+                    
+                    // Get status label
+                    const getStatusLabel = () => {
+                        if (isPositive) return 'Earned';
+                        if (isRedeemed) return 'Redeemed';
+                        if (isUsed) return 'Used';
+                        return '';
+                    };
+                    
+                    // Get status color
+                    const getStatusColor = () => {
+                        if (isPositive) return '#00B894';
+                        if (isRedeemed) return '#F59E0B';
+                        if (isUsed) return '#EF4444';
+                        return '#636E72';
+                    };
+                    
+                    return (
+                        <div key={item.id} className="history-item">
+                            <div 
+                                className="history-icon" 
+                                style={{ background: getStatusColor() }}
+                            >
+                                {getIcon()}
+                            </div>
+                            
+                            <div className="history-info">
+                                <div className="history-description">
+                                    {item.description || getStatusLabel()}
+                                    <span 
+                                        className="history-status"
+                                        style={{ 
+                                            background: getStatusColor() + '20',
+                                            color: getStatusColor()
+                                        }}
+                                    >
+                                        {/* {getStatusLabel()} */}
+                                    </span>
+                                </div>
+                                <div className="history-date">
+                                    <IconCalendar size={14} /> 
+                                    {item.date ? new Date(item.date).toLocaleDateString('en-IN', { 
+                                        day: '2-digit', 
+                                        month: 'short', 
+                                        year: 'numeric' 
+                                    }) : 'N/A'}
+                                </div>
+                            </div>
+                            
+                            <div className="history-right">
+                                {item.points !== undefined && item.points !== 0 && (
+                                    <div className={`history-points ${isPositive ? 'positive' : 'negative'}`}>
+                                        {isPositive ? '+' : ''}{item.points} pts
+                                    </div>
+                                )}
+                                
+                                {item.amountPaid > 0 && (
+                                    <div className="history-amount">
+                                        R {item.amountPaid.toFixed(2)}
+                                    </div>
+                                )}
+                                
+                                {item.couponCode && (
+                                    <div className="history-coupon-code">
+                                        Code: {item.couponCode}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })
             )}
+        </div>
+    </div>
+)}
         </div>
     );
 };

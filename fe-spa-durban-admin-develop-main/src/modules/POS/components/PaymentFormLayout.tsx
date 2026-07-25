@@ -242,7 +242,7 @@ const PaymentFormLayout = ({
                 {!isPreviewed && allCoupans?.data?.length > 0 && (
                   <div className="mt-3">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-500">🎫 Available Coupons</span>
+                      <span className="text-xs font-medium text-gray-500">Available Coupons</span>
                       <span className="text-[10px] text-gray-400">{allCoupans.data.length} coupon(s)</span>
                     </div>
 
@@ -400,7 +400,7 @@ const PaymentFormLayout = ({
 
                                 {/* Footer */}
                                 <div className="mt-2 flex items-center justify-between text-[9px] text-gray-400">
-                                  <span>📅 {coupon.validTill ? new Date(coupon.validTill).toLocaleDateString() : 'N/A'}</span>
+                                  <span>{coupon.validTill ? new Date(coupon.validTill).toLocaleDateString() : 'N/A'}</span>
                                   {coupon.validDays && coupon.validDays.length > 0 && coupon.validDays.length < 7 && (
                                     <span className="bg-gray-100 px-1.5 py-0.5 rounded">
                                       {coupon.validDays.map((d: string) => d.slice(0, 3)).join(', ')}

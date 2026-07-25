@@ -46,11 +46,30 @@ export interface RewardsCouponDocument extends Document {
   isActive: boolean;
   isDeleted: boolean;
   status: string;
-
+  customerId: Types.ObjectId;
+  
+  // Birthday type: TODAY or UPCOMING (14 days before)
+  birthdayType: "TODAY" | "UPCOMING";
   // Tracking
   usedBy: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
+  initialEmailSent: boolean;
+  initialEmailSentAt?: Date | null;
+
+  thirtyDayReminderSent: boolean;
+  thirtyDayReminderSentAt?: Date | null;
+
+  expiryReminderSent: boolean;
+  expiryReminderSentAt?: Date | null;
+
+  redeemedAt?: Date | null;
+
+  communicationLogs: {
+    event: "INITIAL" | "REMINDER_30_DAYS" | "EXPIRY_REMINDER";
+    sentAt: Date;
+    status: "SUCCESS" | "FAILED";
+  }[];
 }
 
 export interface RewardsCouponModel
@@ -79,6 +98,15 @@ const RewardsCouponSchema = new mongoose.Schema<RewardsCouponDocument>(
       required: true,
       default: "REWARD",
     },
+    customerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Customer',
+    index: true,
+},
+birthdayType: {
+    type: String,
+    enum: ['TODAY', 'UPCOMING'],
+},
     // Basic Info
     rewardName: {
       type: String,
@@ -203,7 +231,64 @@ const RewardsCouponSchema = new mongoose.Schema<RewardsCouponDocument>(
       enum: ["active", "inactive"],
       default: "active",
     },
+    // Communication Tracking
+    initialEmailSent: {
+      type: Boolean,
+      default: false,
+    },
 
+    initialEmailSentAt: {
+      type: Date,
+      default: null,
+    },
+
+    thirtyDayReminderSent: {
+      type: Boolean,
+      default: false,
+    },
+
+    thirtyDayReminderSentAt: {
+      type: Date,
+      default: null,
+    },
+
+    expiryReminderSent: {
+      type: Boolean,
+      default: false,
+    },
+
+    expiryReminderSentAt: {
+      type: Date,
+      default: null,
+    },
+
+    redeemedAt: {
+      type: Date,
+      default: null,
+    },
+
+    communicationLogs: [
+      {
+        event: {
+          type: String,
+          enum: [
+            "INITIAL",
+            "REMINDER_30_DAYS",
+            "EXPIRY_REMINDER",
+          ],
+          required: true,
+        },
+        sentAt: {
+          type: Date,
+          default: Date.now,
+        },
+        status: {
+          type: String,
+          enum: ["SUCCESS", "FAILED"],
+          default: "SUCCESS",
+        },
+      },
+    ],
     // Tracking
     usedBy: [
       {

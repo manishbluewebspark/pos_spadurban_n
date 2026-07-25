@@ -68,6 +68,10 @@ const typeOption = [
     value: 'gift_card',
   },
   {
+    label: 'Coupon',
+    value: 'coupan',
+  },
+  {
     label: 'EMI',
     value: 'emi',
   },
