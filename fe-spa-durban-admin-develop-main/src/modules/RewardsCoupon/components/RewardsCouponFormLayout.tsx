@@ -58,7 +58,7 @@ const RewardsCouponFormLayout = ({
   const { values, setFieldValue, isSubmitting, handleBlur, touched, errors } =
     formikProps;
 
-    console.log('------errr',errors)
+  console.log('------errr', errors)
   const [searchValue, setSearchValue] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -95,33 +95,49 @@ const RewardsCouponFormLayout = ({
   };
 
   // Render day checkboxes
-  const renderDayCheckboxes = () => {
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
-        {weekdays.map((day) => {
-          const isSelected = values.validDays?.includes(day) || false;
-          return (
-            <label
-              key={day}
-              className={`flex items-center justify-center p-2 border rounded cursor-pointer transition-all ${
-                isSelected
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-300 bg-white hover:bg-gray-50'
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => handleDayToggle(day)}
-                className="sr-only"
-              />
-              <span className="text-sm font-medium">{day.slice(0, 3)}</span>
-            </label>
-          );
-        })}
-      </div>
-    );
-  };
+ const renderDayCheckboxes = () => {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-1 px-2 py-1 border rounded cursor-pointer text-xs">
+        <input
+          type="checkbox"
+          checked={values.validDays?.length === weekdays.length}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setFieldValue("validDays", weekdays);
+            } else {
+              setFieldValue("validDays", []);
+            }
+          }}
+        />
+        <span className="font-medium whitespace-nowrap">All</span>
+      </label>
+
+      {weekdays.map((day) => {
+        const isSelected = values.validDays?.includes(day) || false;
+
+        return (
+          <label
+            key={day}
+            className={`flex items-center justify-center px-2 py-1 min-w-[46px] border rounded cursor-pointer text-xs transition-all ${
+              isSelected
+                ? "border-blue-500 bg-blue-50 text-blue-700"
+                : "border-gray-300 bg-white hover:bg-gray-50"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => handleDayToggle(day)}
+              className="sr-only"
+            />
+            <span className="font-medium">{day.slice(0, 3)}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+};
 
   // Helper to check if field has error
   const hasError = (field: keyof RewardsCouponFormValues) => {
@@ -175,7 +191,7 @@ const RewardsCouponFormLayout = ({
             value={values.couponType}
             onChange={(value) => {
 
-              console.log('------couponType',value)
+              console.log('------couponType', value)
               setFieldValue("couponType", value?.value);
               if (value?.value !== "REWARD") {
                 setFieldValue("rewardsPoint", 0);
@@ -284,7 +300,9 @@ const RewardsCouponFormLayout = ({
             required
             name="minimumSpend"
             label="Minimum Spend"
-            value={String(values.minimumSpend || '')}
+            value={values.minimumSpend !== null && values.minimumSpend !== undefined
+  ? String(values.minimumSpend)
+  : ""}
             onChange={(newValue) => setFieldValue('minimumSpend', Number(newValue))}
             placeholder="Enter minimum spend amount"
             onBlur={handleBlur}
@@ -300,7 +318,10 @@ const RewardsCouponFormLayout = ({
             required
             name="maximumDiscount"
             label="Maximum Discount"
-            value={String(values.maximumDiscount || '')}
+            // value={String(values.maximumDiscount || '')}
+            value={values.maximumDiscount !== null && values.maximumDiscount !== undefined
+  ? String(values.maximumDiscount)
+  : ""}
             onChange={(newValue) => setFieldValue('maximumDiscount', Number(newValue))}
             placeholder="Enter maximum discount limit"
             onBlur={handleBlur}
@@ -320,8 +341,19 @@ const RewardsCouponFormLayout = ({
             dateFormat="dd/MM/yyyy"
             minDate={new Date()}
             value={getDateValue(values.validFrom)}
+            // onChange={(newValue: Date | null) => {
+            //   setFieldValue('validFrom', newValue);
+            // }}
             onChange={(newValue: Date | null) => {
-              setFieldValue('validFrom', newValue);
+              setFieldValue("validFrom", newValue);
+
+              if (newValue) {
+                const validTill = new Date(newValue);
+                validTill.setMonth(validTill.getMonth() + 3);
+                setFieldValue("validTill", validTill);
+              } else {
+                setFieldValue("validTill", null);
+              }
             }}
             placeholder="dd/MM/yyyy"
             isTouched={touched.validFrom}
@@ -381,8 +413,10 @@ const RewardsCouponFormLayout = ({
           />
         </div>
 
+
+
         {/* Valid Days */}
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Valid Days <span className="text-red-500">*</span>
           </label>
@@ -393,7 +427,7 @@ const RewardsCouponFormLayout = ({
         </div>
 
         {/* Branches */}
-        <div className="md:col-span-2">
+        {/* <div className="md:col-span-2">
           <ATMMultiSelect
             name="branchId"
             label="Branches"
@@ -407,7 +441,7 @@ const RewardsCouponFormLayout = ({
           {touched.branchId && errors.branchId && (
             <p className="mt-1 text-sm text-red-600">{String(errors.branchId)}</p>
           )}
-        </div>
+        </div> */}
 
         {/* Services */}
         <div className="md:col-span-2">

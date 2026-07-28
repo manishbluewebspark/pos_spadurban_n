@@ -27,6 +27,8 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
   const { data } = useFetchData(useGetOutletQuery, {});
   const [addRewardsCoupon] = useAddRewardsCouponMutation();
 
+
+  
   const initialValues: RewardsCouponFormValues = {
     couponType: "NORMAL",
     rewardName: '',
@@ -75,13 +77,19 @@ const AddRewardsCouponFormWrapper = (props: Props) => {
         otherwise: (schema) => schema.min(0, 'Cannot be negative'),
       }),
 
-    minimumSpend: number()
-      .required('Minimum spend is required')
-      .min(0, 'Cannot be negative'),
+   minimumSpend: number()
+  .transform((value, originalValue) =>
+    originalValue === "" ? undefined : value
+  )
+  .required("Minimum spend is required")
+  .min(0, "Cannot be negative"),
 
-    maximumDiscount: number()
-      .required('Maximum discount is required')
-      .min(0, 'Cannot be negative'),
+maximumDiscount: number()
+  .transform((value, originalValue) =>
+    originalValue === "" ? undefined : value
+  )
+  .required("Maximum discount is required")
+  .min(0, "Cannot be negative"),
 
     couponCode: string()
       .required('Coupon code is required')

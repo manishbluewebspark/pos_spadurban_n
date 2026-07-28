@@ -41,7 +41,7 @@ interface Coupon {
     description: string;
     expiryDate?: string;
     discount?: string;
-    pointsRequired?: number;
+    pointsRequired: number;
     serviceId?: string;
 
     // ✅ New fields
@@ -598,7 +598,7 @@ const LoyaltyPage = () => {
 
     const getPointsNeeded = (pointsRequired: number = 0) => {
         const needed = pointsRequired - customerData.totalPoints;
-        return needed > 0 ? needed?.toFixed(2) : 0;
+        return needed > 0 ? needed : 0;
     };
 
     const isCouponAvailable = (pointsRequired?: number) => {
@@ -796,7 +796,7 @@ const LoyaltyPage = () => {
                                                 </span>
                                                 <div className="coupon-header-info">
                                                     <span className="coupon-type">{coupon.title?.toUpperCase()}</span>
-                                                    <span className="coupon-code-badge coupon-type">{coupon.code}</span>
+                                                    {/* <span className="coupon-code-badge coupon-type">{coupon.code}</span> */}
                                                 </div>
                                             </div>
                                             <div className="coupon-header-right">
@@ -866,7 +866,7 @@ const LoyaltyPage = () => {
                                             </div>
 
                                             {/* 🔥 Points Progress */}
-                                            {!isFree && coupon.pointsRequired && coupon.pointsRequired > 0 && (
+                                            {/* {!isFree && coupon.pointsRequired && coupon.pointsRequired > 0 && (
                                                 <div className="points-progress">
                                                     <div className="points-progress-header">
                                                         <span>Progress</span>
@@ -893,10 +893,10 @@ const LoyaltyPage = () => {
                                                         </span>
                                                     </div>
                                                 </div>
-                                            )}
+                                            )} */}
 
                                             {/* 🔥 Lock Overlay */}
-                                            {!isAvailable && (
+                                            {/* {!isAvailable && (
                                                 <div className="lock-overlay">
                                                     <div className="lock-icon-wrapper">
                                                         <IconLock size={32} />
@@ -913,7 +913,7 @@ const LoyaltyPage = () => {
                                                     </div>
                                                     <span className="lock-progress-text">{Math.round(progress)}% complete</span>
                                                 </div>
-                                            )}
+                                            )} */}
 
                                             {/* 🔥 Code Box */}
                                             <div className="code-box">
@@ -968,7 +968,7 @@ const LoyaltyPage = () => {
                                                         {isFree && <span className="tag free">🎉 Free</span>}
                                                         {!isAvailable && (
                                                             <span className="tag needed">
-                                                                Need {pointsNeeded} more
+                                                                Need {pointsNeeded} points more
                                                             </span>
                                                         )}
                                                     </div>
@@ -1026,6 +1026,15 @@ const LoyaltyPage = () => {
         </div>
     )}
 
+   {coupon?.pointsRequired > 0 && (
+  <div className="detail-line">
+    <span className="bullet">•</span>
+    <span>
+      Required Points: <strong>{coupon.pointsRequired}</strong>
+    </span>
+  </div>
+)}
+
     {/* Valid Till */}
     {coupon.validTill && (
         <div className="detail-line">
@@ -1047,7 +1056,7 @@ const LoyaltyPage = () => {
                                                 <div className="footer-right">
                                                     {/* Points & Expiry */}
                                                     <div className="footer-info-group">
-                                                        {coupon.pointsRequired !== undefined && coupon.pointsRequired > 0 && (
+                                                        {/* {coupon.pointsRequired !== undefined && coupon.pointsRequired > 0 && (
                                                             <div className={`points-info ${isAvailable ? 'available' : 'locked'}`}>
                                                                 <IconStar size={12} />
                                                                 <span className="points-text">{coupon.pointsRequired} pts</span>
@@ -1057,11 +1066,11 @@ const LoyaltyPage = () => {
                                                                     <span className="points-status locked">🔒</span>
                                                                 )}
                                                             </div>
-                                                        )}
+                                                        )} */}
 
-                                                        {coupon.pointsRequired !== undefined && coupon.pointsRequired > 0 && coupon.expiryDate && (
+                                                        {/* {coupon.pointsRequired !== undefined && coupon.pointsRequired > 0 && coupon.expiryDate && (
                                                             <span className="info-separator">•</span>
-                                                        )}
+                                                        )} */}
 
                                                         {/* {coupon.expiryDate && (
                 <div className="expiry">

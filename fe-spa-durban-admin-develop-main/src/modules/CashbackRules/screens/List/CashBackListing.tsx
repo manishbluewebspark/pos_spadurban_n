@@ -37,7 +37,7 @@ const CashBackListing = ({
     <>
       <div className="flex flex-col h-full gap-2 p-4">
         <ATMPageHeader
-          heading="Cash Back Program"
+          heading="Loyalty Program"
           buttonProps={{
             label: 'Add New',
             icon: IconPlus,

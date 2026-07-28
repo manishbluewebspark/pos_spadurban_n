@@ -151,24 +151,24 @@ const getPreview = async (req: AuthenticatedRequest) => {
     isWalkinCustomer
   );
 
-const allDiscounts = await invoiceHelper.getDiscounts(
-  amountWithShipping,
-  couponCode,
-  referralCode,
-  loyaltyPointsDiscount,
-  customerId,
-  req.body.items
-);
+  const allDiscounts = await invoiceHelper.getDiscounts(
+    amountWithShipping,
+    couponCode,
+    referralCode,
+    loyaltyPointsDiscount,
+    customerId,
+    req.body.items
+  );
 
-const {
-  couponDiscount,
-  usedPoints,
-  referralDiscount,
-  loyaltyPointsDiscount: finalLoyaltyPointsDiscount,
-  totalDiscount,
-} = allDiscounts;
+  const {
+    couponDiscount,
+    usedPoints,
+    referralDiscount,
+    loyaltyPointsDiscount: finalLoyaltyPointsDiscount,
+    totalDiscount,
+  } = allDiscounts;
 
-    console.log
+  console.log
   req.body.totalDiscount = totalDiscount;
   req.body.couponDiscount = couponDiscount;
   req.body.giftCardDiscount = 0;
@@ -180,16 +180,20 @@ const {
   let totalAmount = amountWithShipping - totalDiscount;
   req.body.totalAmount = parseFloat(totalAmount.toFixed(2));
 
+  const totalPointsToDebit =
+    Number(loyaltyPointsDiscount || 0) + Number(usedPoints || 0);
+
   /**
    * get data to debit from loyalty wallet
    */
-  const { walletDebitLog, pointsToDebit } = await getLoyaltyWalletDebitData(
-    customerId,
-    req.body.employeeId,
-    outletId,
-    req.body.totalAmount,
-    loyaltyPointsDiscount
-  );
+  const { walletDebitLog, pointsToDebit } =
+    await getLoyaltyWalletDebitData(
+      customerId,
+      req.body.employeeId,
+      outletId,
+      req.body.totalAmount,
+      totalPointsToDebit
+    );
   /**
    * get data to credit loyalty wallet
    */
@@ -201,28 +205,28 @@ const {
     isWalkinCustomer
   );
 
- return {
-  message: "Successfully!",
-  dataToResponse: {
-    invoiceData: { ...req.body },
-    pointsToAdd,
-    totalCashBack,
-  },
-  dataToUpdate: {
-    pointsToAdd,
-    pointsToDebit,
-    walletDebitLog,
-    walletCreditLog,
-    inventoryData,
-    usedPoints,
-  },
-  otherData: {
-    outlet,
-  },
-  status: true,
-  code: "OK",
-  issue: null,
-};
+  return {
+    message: "Successfully!",
+    dataToResponse: {
+      invoiceData: { ...req.body },
+      pointsToAdd,
+      totalCashBack,
+    },
+    dataToUpdate: {
+      pointsToAdd,
+      pointsToDebit,
+      walletDebitLog,
+      walletCreditLog,
+      inventoryData,
+      usedPoints,
+    },
+    otherData: {
+      outlet,
+    },
+    status: true,
+    code: "OK",
+    issue: null,
+  };
 };
 
 export { getPreview };

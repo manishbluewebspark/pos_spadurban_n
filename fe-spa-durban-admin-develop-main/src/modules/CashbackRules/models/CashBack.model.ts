@@ -14,6 +14,7 @@ cashBackDate: Date | null;
 
 export type CashBackFormValues = {
   // outlets: any;
+  serviceSelectionMode:string,
   cashBackRulesName: string;
   howMuchCashback: any;
   cashBackDate: Date | null;

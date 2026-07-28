@@ -271,7 +271,7 @@ const getCouponByCustomerId = async (
 
       minimumSpend: doc.minimumSpend,
       maximumDiscount: doc.maximumDiscount,
-
+      pointsRequired:doc.rewardsPoint,
       validFrom: doc.validFrom,
       validTill: doc.validTill,
       validDays: doc.validDays,

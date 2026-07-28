@@ -114,7 +114,7 @@ const createInvoice = catchAsync(
         "Something Went Wrong"
       );
     }
-    // console.log("22222222222")
+    console.log("22222222222", previewResult)
 
     let { dataToResponse, dataToUpdate, otherData } = previewResult;
     if (!previewResult.status) {
@@ -136,13 +136,13 @@ const createInvoice = catchAsync(
     let { outlet } = otherData;
 
     const totalDebitPoints =
-  Number(pointsToDebit || 0) +
-  Number(usedPoints || 0);
+      Number(pointsToDebit || 0) +
+      Number(usedPoints || 0);
 
     console.log('-----totalDebitPoints', totalDebitPoints)
-      console.log('-----rewardCouponPoints', usedPoints)
+    console.log('-----rewardCouponPoints', usedPoints)
     console.log('-----pointsToAdd', pointsToAdd)
-      console.log('-----pointsToDebit', pointsToDebit)
+    console.log('-----pointsToDebit', pointsToDebit)
 
     const now = new Date();
     const itemIds = invoiceData?.items.map((item: any) => item.itemId);
@@ -174,18 +174,26 @@ const createInvoice = catchAsync(
 
     const potentialRules = await Cashback.find({
       isActive: true,
-      serviceId: { $in: itemIds },
-      $or: [
+      $and: [
         {
-          // Date-based cashback rule
-          cashBackDate: { $lte: now },
-          cashBackEndDate: { $gte: now }
+          $or: [
+            { serviceSelectionMode: "ALL" },
+            { serviceSelectionMode: "INCLUDE", serviceId: { $in: itemIds } },
+            { serviceSelectionMode: "EXCLUDE" },
+          ],
         },
         {
-          // Day-based cashback rule
-          activeDays: { $in: [currentDay] }
-        }
-      ]
+          $or: [
+            {
+              cashBackDate: { $lte: now },
+              cashBackEndDate: { $gte: now },
+            },
+            {
+              activeDays: { $in: [currentDay] },
+            },
+          ],
+        },
+      ],
     });
 
 
@@ -194,6 +202,32 @@ const createInvoice = catchAsync(
     // console.log('-----potentialRules', potentialRules)
     // Step 2: Filter valid rules
     const validRules = potentialRules.filter((rule: any) => {
+      // Service rule check
+      const matchesService = itemIds.some((itemId: any) => {
+        const exists = rule.serviceId?.some(
+          (id: any) => id.toString() === itemId.toString()
+        );
+
+        switch (rule.serviceSelectionMode) {
+          case "ALL":
+            return true;
+
+          case "INCLUDE":
+            return exists;
+
+          case "EXCLUDE":
+            return !exists;
+
+          default:
+            return false;
+        }
+      });
+
+      if (!matchesService) {
+        return false;
+      }
+
+      // Time/Date rule check
       const isDayRule =
         Array.isArray(rule.activeDays) &&
         rule.activeDays.includes(currentDay) &&
@@ -201,12 +235,16 @@ const createInvoice = catchAsync(
         rule.endTime;
 
       if (isDayRule) {
-        const [sh, sm] = rule.startTime.split(':').map(Number); // 17, 52
-        const [eh, em] = rule.endTime.split(':').map(Number);   // 18, 29
+        const [sh, sm] = rule.startTime.split(":").map(Number);
+        const [eh, em] = rule.endTime.split(":").map(Number);
+
         const startMins = sh * 60 + sm;
         const endMins = eh * 60 + em;
 
-        return currentTimeMinutes >= startMins && currentTimeMinutes <= endMins;
+        return (
+          currentTimeMinutes >= startMins &&
+          currentTimeMinutes <= endMins
+        );
       }
 
       return (
@@ -227,6 +265,7 @@ const createInvoice = catchAsync(
     }
 
     const finalCashback = (invoiceData?.cashBackEarned || 0) * cashbackMultiplier;
+    const finalPointsToAdd = (pointsToAdd || 0) * cashbackMultiplier;
     // console.log('Final Cashback:', finalCashback);
 
 
@@ -268,7 +307,7 @@ const createInvoice = catchAsync(
       cashBackEarned: isNaN(Number(finalCashback)) ? 0 : Number(finalCashback),
       bookingId,
       // loyaltyPointsEarned: pointsToAdd,
-      loyaltyPoints: pointsToAdd,
+      loyaltyPoints: finalPointsToAdd,
       companyId: getOutletData?.companyId
     });
 
@@ -309,25 +348,29 @@ const createInvoice = catchAsync(
       throw new ApiError(httpStatus.NOT_FOUND, "Something went wrong.");
     }
 
+    console.log("walletDebitLog =", walletDebitLog);
+console.log("walletDebitLog type =", typeof walletDebitLog);
+console.log("totalDebitPoints =", totalDebitPoints);
+
     //debit  to loyalty wallet
     if (walletDebitLog && totalDebitPoints > 0) {
       let debitedPoints = await updateWalletAndUpdateLog(
         walletDebitLog,
         Number(usedPoints || 0)
       );
-      console.log("9999999999999")
+      console.log("9999999999999",usedPoints)
       if (!debitedPoints) {
         throw new ApiError(httpStatus.NOT_FOUND, "Something went wrong.");
       }
     }
 
     //credit to loyalty wallet
-if (walletCreditLog && pointsToAdd > 0) {
+    if (walletCreditLog && finalPointsToAdd > 0) {
       let creditedPoints = await updateWalletAndUpdateLog(
         walletCreditLog,
-        pointsToAdd
+        finalPointsToAdd
       );
-      console.log("100000000000")
+      console.log("100000000000",finalPointsToAdd)
       if (!creditedPoints) {
         throw new ApiError(httpStatus.NOT_FOUND, "Something went wrong.");
       }
@@ -372,8 +415,8 @@ if (walletCreditLog && pointsToAdd > 0) {
         emailSubject: `💰 You've Earned Bonus Cashback!`,
         emailBody: `
     <p>Dear ${customerData?.customerName || 'Customer'},</p>
-    <p>Great news! You’ve earned <strong>${cashbackMultiplier}X</strong> cashback on your recent purchase 🎉</p>
-    <p>🪙 <strong>Cashback Earned:</strong> R${invoiceData.cashBackEarned * cashbackMultiplier}</p>
+    <p>Great news! You’ve earned <strong>${cashbackMultiplier}X</strong> loyalty points on your recent purchase 🎉</p>
+    <p>🪙 <strong>Loyalty points Earned:</strong> R${invoiceData.cashBackEarned * cashbackMultiplier}</p>
     <p>This bonus was applied automatically based on our special cashback rules.</p>
     <br/>
     <p>Keep an eye out for more offers and save big on every visit!</p>
@@ -402,7 +445,7 @@ if (walletCreditLog && pointsToAdd > 0) {
     } catch (error) {
       console.log('-----error', error)
     }
-    
+
     return res.status(httpStatus.CREATED).send({
       message: "Added successfully!",
       data: invoice,

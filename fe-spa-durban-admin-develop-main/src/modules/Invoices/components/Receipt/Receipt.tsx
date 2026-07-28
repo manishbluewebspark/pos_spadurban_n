@@ -398,7 +398,7 @@ const Receipt = () => {
                   <div>{youHave && youHave.toFixed(2)}</div>
                 </div>
               </div>
-              <div className="px-2 ">
+              {/* <div className="px-2 ">
                 <div className="flex justify-between">
                   <div>You Earn Cashback Amount </div>
                   <div>{youEarnCashback && youEarnCashback.toFixed(2)}</div>
@@ -407,7 +407,7 @@ const Receipt = () => {
                   <div>Total Cashback Amount</div>
                   <div>{youHaveCashback && youHaveCashback.toFixed(2)}</div>
                 </div>
-              </div>
+              </div> */}
               <div className="mt-2 mb-1 border-t border-dashed"></div>
               <div className="px-2 text-xs font-medium text-slate-600">
                 <div className="flex items-center gap-20 ">

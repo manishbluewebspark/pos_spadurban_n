@@ -206,8 +206,13 @@ export const getLoyaltyWalletDebitData = async (
   spentAmount: number,
   pointsUsed: number
 ) => {
-  if (!pointsUsed) {
-    return { walletDebitLog: null, pointsToDebit: 0 };
+  const debitPoints = Number(pointsUsed || 0);
+
+  if (debitPoints <= 0) {
+    return {
+      walletDebitLog: null,
+      pointsToDebit: 0,
+    };
   }
 
   return {
@@ -218,11 +223,11 @@ export const getLoyaltyWalletDebitData = async (
       spentAmount,
       todaysPoints: 0,
       todaysAmount: 0,
-      pointsCreditedOrUsed: pointsUsed,
-      amountCreditedOrUsed: pointsUsed,
+      pointsCreditedOrUsed: debitPoints,
+      amountCreditedOrUsed: debitPoints,
       transactionType: TransactionTypeEnum.debit,
     },
-    pointsToDebit: pointsUsed,
+    pointsToDebit: debitPoints,
   };
 };
 

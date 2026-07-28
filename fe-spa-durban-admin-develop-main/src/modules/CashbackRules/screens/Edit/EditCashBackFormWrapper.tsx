@@ -43,7 +43,8 @@ const EditCashBackFormWrapper = (props: Props) => {
     startTime: (cashbackData as any)?.data?.startTime || '',
     endTime: (cashbackData as any)?.data?.endTime || '',
     activeDays: (cashbackData as any)?.data?.activeDays || '',
-    selectDateOrDays: ''
+    selectDateOrDays: '',
+    serviceSelectionMode: (cashbackData as any)?.data?.serviceSelectionMode || "ALL",
   };
 
 
@@ -70,6 +71,7 @@ const EditCashBackFormWrapper = (props: Props) => {
       howMuchCashback: values?.howMuchCashback,
       cashBackDate: values?.cashBackDate,
       cashBackEndDate: values?.cashBackEndDate,
+      serviceSelectionMode:values?.serviceSelectionMode,
       serviceId: values?.serviceId?.map((serviceId: any) => serviceId?._id),
       startTime: values?.startTime,
       endTime: values?.endTime,

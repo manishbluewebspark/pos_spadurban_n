@@ -373,11 +373,15 @@ const searchInProductAndService = catchAsync(
     const searchIn = req.query.searchIn as string[] | null;
 
     let productMatchQuery: any = {
-      $and: [{ isDeleted: false }],
+      $and: [
+        { isDeleted: false },
+        { isActive: true },
+      ],
     };
     let serviceMatchQuery: any = {
       $and: [
         { isDeleted: false },
+        { isActive: true },
         { outletIds: new mongoose.Types.ObjectId(outletId) },
       ],
     };
@@ -592,54 +596,54 @@ const searchInProductAndService = catchAsync(
           //   },
           // },
           colorCode: {
-  $cond: [
-    {
-      $gt: [
-        {
-          $size: "$categoryData"
-        },
-        0
-      ]
-    },
-    {
-      $ifNull: [
-        {
-          $let: {
-            vars: {
-              matchedCategory: {
-                $first: {
-                  $filter: {
-                    input: "$categoryData",
-                    as: "cat",
-                    cond: {
-                      $eq: [
-                        "$$cat._id",
-                        filterBy?.find(
-                          (f) => f.fieldName === "categoryIds"
-                        )?.value?.[0]
-                          ? new mongoose.Types.ObjectId(
-                              filterBy.find(
-                                (f) => f.fieldName === "categoryIds"
-                              ).value[0]
-                            )
-                          : { $arrayElemAt: ["$categoryData._id", 0] },
-                      ],
+            $cond: [
+              {
+                $gt: [
+                  {
+                    $size: "$categoryData"
+                  },
+                  0
+                ]
+              },
+              {
+                $ifNull: [
+                  {
+                    $let: {
+                      vars: {
+                        matchedCategory: {
+                          $first: {
+                            $filter: {
+                              input: "$categoryData",
+                              as: "cat",
+                              cond: {
+                                $eq: [
+                                  "$$cat._id",
+                                  filterBy?.find(
+                                    (f) => f.fieldName === "categoryIds"
+                                  )?.value?.[0]
+                                    ? new mongoose.Types.ObjectId(
+                                      filterBy.find(
+                                        (f) => f.fieldName === "categoryIds"
+                                      ).value[0]
+                                    )
+                                    : { $arrayElemAt: ["$categoryData._id", 0] },
+                                ],
+                              },
+                            },
+                          },
+                        },
+                      },
+                      in: "$$matchedCategory.colorCode",
                     },
                   },
-                },
+                  {
+                    $arrayElemAt: ["$categoryData.colorCode", 0],
+                  },
+                ],
               },
-            },
-            in: "$$matchedCategory.colorCode",
+              null,
+            ],
           },
-        },
-        {
-          $arrayElemAt: ["$categoryData.colorCode", 0],
-        },
-      ],
-    },
-    null,
-  ],
-},
         },
       },
 
@@ -816,54 +820,54 @@ const searchInProductAndService = catchAsync(
           //   },
           // },
           colorCode: {
-  $cond: [
-    {
-      $gt: [
-        {
-          $size: "$categoryData"
-        },
-        0
-      ]
-    },
-    {
-      $ifNull: [
-        {
-          $let: {
-            vars: {
-              matchedCategory: {
-                $first: {
-                  $filter: {
-                    input: "$categoryData",
-                    as: "cat",
-                    cond: {
-                      $eq: [
-                        "$$cat._id",
-                        filterBy?.find(
-                          (f) => f.fieldName === "categoryIds"
-                        )?.value?.[0]
-                          ? new mongoose.Types.ObjectId(
-                              filterBy.find(
-                                (f) => f.fieldName === "categoryIds"
-                              ).value[0]
-                            )
-                          : { $arrayElemAt: ["$categoryData._id", 0] },
-                      ],
+            $cond: [
+              {
+                $gt: [
+                  {
+                    $size: "$categoryData"
+                  },
+                  0
+                ]
+              },
+              {
+                $ifNull: [
+                  {
+                    $let: {
+                      vars: {
+                        matchedCategory: {
+                          $first: {
+                            $filter: {
+                              input: "$categoryData",
+                              as: "cat",
+                              cond: {
+                                $eq: [
+                                  "$$cat._id",
+                                  filterBy?.find(
+                                    (f) => f.fieldName === "categoryIds"
+                                  )?.value?.[0]
+                                    ? new mongoose.Types.ObjectId(
+                                      filterBy.find(
+                                        (f) => f.fieldName === "categoryIds"
+                                      ).value[0]
+                                    )
+                                    : { $arrayElemAt: ["$categoryData._id", 0] },
+                                ],
+                              },
+                            },
+                          },
+                        },
+                      },
+                      in: "$$matchedCategory.colorCode",
                     },
                   },
-                },
+                  {
+                    $arrayElemAt: ["$categoryData.colorCode", 0],
+                  },
+                ],
               },
-            },
-            in: "$$matchedCategory.colorCode",
+              null,
+            ],
           },
-        },
-        {
-          $arrayElemAt: ["$categoryData.colorCode", 0],
-        },
-      ],
-    },
-    null,
-  ],
-},
 
           categoryIds: {
             $cond: {

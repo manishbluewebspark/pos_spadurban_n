@@ -53,6 +53,21 @@ const typeOption = [
   },
 ];
 
+const serviceSelectionModeOptions = [
+  {
+    label: "All Services",
+    value: "ALL",
+  },
+  {
+    label: "Include Selected Services",
+    value: "INCLUDE",
+  },
+  {
+    label: "Exclude Selected Services",
+    value: "EXCLUDE",
+  },
+];
+
 type Props = {
   formikProps: FormikProps<CashBackFormValues>;
   formType: 'ADD' | 'EDIT';
@@ -116,7 +131,7 @@ const CashBackFormLayout = ({
           {/* Header */}
           <div className="sticky -top-2 flex items-center justify-between py-2 bg-white z-[10000]">
             <span className="text-lg font-semibold text-slate-700">
-              {formType === 'ADD' ? 'Add' : 'Edit'} Cash Back
+              {formType === 'ADD' ? 'Add' : 'Edit'} Loyalty Points Rules
             </span>
             <div className="flex items-center gap-2">
               <ATMButton children="Cancel" variant="outlined" onClick={onCancel} />
@@ -128,7 +143,7 @@ const CashBackFormLayout = ({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <ATMTextField
               required
-              label="Cash Back Rules Name"
+              label="Loyalty Rules Name"
               name="cashBackRulesName"
               value={values.cashBackRulesName}
               onChange={(e) => setFieldValue('cashBackRulesName', e.target.value)}
@@ -141,7 +156,7 @@ const CashBackFormLayout = ({
 
             <ATMNumberField
               name="howMuchCashback"
-              label="Cashback Multiplier"
+              label="Points Multiplier"
               value={values.howMuchCashback}
               onChange={(newValue) => setFieldValue('howMuchCashback', newValue)}
               placeholder="Cashback Multiplier"
@@ -151,20 +166,43 @@ const CashBackFormLayout = ({
               isAllowCharacter=""
             />
 
-
-
-
-
-            <ATMMultiSelect
-              name="serviceId"
-              value={values?.serviceId || []}
-              onChange={(newValue) => setFieldValue('serviceId', newValue)}
-              label="Service"
-              options={data}
-              getOptionLabel={(opt) => opt?.itemName}
-              valueAccessKey="_id"
-              placeholder="Select Services"
+            <ATMSelect
+              name="serviceSelectionMode"
+              label="Service Rule"
+              value={values.serviceSelectionMode}
+              onChange={(newValue) =>
+                setFieldValue("serviceSelectionMode", newValue?.value)
+              }
+              options={serviceSelectionModeOptions}
+              valueAccessKey="value"
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+
+
+            {values.serviceSelectionMode !== "ALL" && (
+              <div className="">
+                <ATMMultiSelect
+                  name="serviceId"
+                  value={values.serviceId || []}
+                  onChange={(newValue) => setFieldValue("serviceId", newValue)}
+                  label={
+                    values.serviceSelectionMode === "EXCLUDE"
+                      ? "Exclude Services"
+                      : "Include Services"
+                  }
+                  options={data}
+                  getOptionLabel={(opt) => opt?.itemName}
+                  valueAccessKey="_id"
+                  placeholder={
+                    values.serviceSelectionMode === "EXCLUDE"
+                      ? "Select services to exclude"
+                      : "Select services to include"
+                  }
+                />
+              </div>
+            )}
           </div>
 
           <ATMSelect

@@ -17,6 +17,7 @@ export interface CashbackDocument extends Document {
   activeDays: string[];
   startTime: string;
   endTime: string;
+  serviceSelectionMode:string;
 }
 
 export interface CashbackModel extends mongoose.Model<CashbackDocument> {
@@ -78,6 +79,11 @@ const CashbackSchema = new mongoose.Schema<CashbackDocument>(
       },
 
     ],
+    serviceSelectionMode: {
+  type: String,
+  enum: ["ALL", "INCLUDE", "EXCLUDE"],
+  default: "ALL",
+},
     startTime: {
       type: String,
       default: null

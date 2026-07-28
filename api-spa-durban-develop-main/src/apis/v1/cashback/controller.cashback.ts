@@ -26,6 +26,7 @@ const createCashback = catchAsync(
       throw new ApiError(httpStatus.UNAUTHORIZED, "Invalid token");
     }
 
+    // Date/Days logic
     if (req.body.activeDays && req.body.activeDays.length > 0) {
       req.body.cashBackDate = null;
       req.body.cashBackEndDate = null;
@@ -33,6 +34,20 @@ const createCashback = catchAsync(
       req.body.activeDays = [];
       req.body.startTime = null;
       req.body.endTime = null;
+    }
+
+    // Service selection mode logic
+    req.body.serviceSelectionMode =
+      req.body.serviceSelectionMode || "ALL";
+
+    // If ALL, no need to store service ids
+    if (req.body.serviceSelectionMode === "ALL") {
+      req.body.serviceId = [];
+    }
+
+    // Ensure serviceId is always an array
+    if (!Array.isArray(req.body.serviceId)) {
+      req.body.serviceId = [];
     }
 
     const cashback = await cashbackService.createCashback(req.body);
