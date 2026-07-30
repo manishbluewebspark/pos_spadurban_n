@@ -269,7 +269,7 @@ const AddCustomerFormLayout = ({
             <ATMCircularProgress />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 w-[500px]">
+          <div className="grid grid-cols-2 gap-4 w-[600px]">
             {/* customerName */}
             <div className="col-span-2">
               <ATMTextField

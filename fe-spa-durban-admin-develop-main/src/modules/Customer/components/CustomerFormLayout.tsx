@@ -474,6 +474,20 @@ const CustomerFormLayout = ({
               />
             </div>
 
+            <div>
+            <ATMTextField
+  name="referCode"
+  value={values.referCode || ""}
+  onChange={(e) => setFieldValue("referCode", e.target.value)}
+  label="Referral Code"
+  placeholder="Enter referral code (Optional)"
+  onBlur={handleBlur}
+  isTouched={touched?.referCode}
+  errorMessage={errors?.referCode}
+  isValid={!errors?.referCode}
+/>
+            </div>
+
           </div>
         </div>
       )}

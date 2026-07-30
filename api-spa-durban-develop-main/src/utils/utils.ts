@@ -22,6 +22,19 @@ export const getFormattedTimestamp = (): string => {
   return formattedDate
 }
 
+export const generateReferralCode = (): string => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // O, I, 0, 1 remove
+  let code = "";
+
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(
+      Math.floor(Math.random() * chars.length)
+    );
+  }
+
+  return code;
+};
+
 /**
  * Generates MongoDB query objects for text search across multiple fields.
  * @param {string[]} searchIn - Fields to search in if provided.

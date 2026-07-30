@@ -7,7 +7,7 @@ import { setupMiddleware } from "./middleware/setupMiddleware"
 import { setupMonitoring } from "./middleware/monitoringSetup"
 import { rootHandler } from "./handlers/rootHandler" // Import the root handler
 import { runBirthdayCouponNow, startBirthdayCouponCron } from "./src/cron/birthdayCoupons"
-import { runRewardCheck } from "./src/cron/rewardCheckCron"
+import { runRewardCheck, runRewardCheckNow } from "./src/cron/rewardCheckCron"
 import { getAllBookings, getCustomerChartData, runDynamicQuery } from "./src/apis/v1/service/controller.service"
 // Initialize express app
 const app = express()
@@ -24,9 +24,13 @@ setupMiddleware(app)
 
 // Setup monitoring
 setupMonitoring(app)
-startBirthdayCouponCron();
-// runBirthdayCouponNow()
+// startBirthdayCouponCron();
 // runRewardCheck()
+
+
+//manual run 
+// runBirthdayCouponNow()
+// runRewardCheckNow()
 /**
  * Routes setup
  */

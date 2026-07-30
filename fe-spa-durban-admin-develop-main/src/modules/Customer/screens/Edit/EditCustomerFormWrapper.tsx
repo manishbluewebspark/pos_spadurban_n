@@ -33,6 +33,7 @@ const EditCustomerFormWrapper = () => {
     customerGroup: (data as any)?.data?.customerGroup || '',
     loyaltyPoints:(data as any)?.data?.loyaltyPoints || '',
     outlets: (data as any)?.data?.outlets,
+    referCode:(data as any)?.data?.referCode,
   };
 
   const validationSchema = object().shape({

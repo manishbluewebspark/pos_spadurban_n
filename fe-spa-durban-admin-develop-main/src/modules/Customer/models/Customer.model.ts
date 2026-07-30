@@ -16,6 +16,7 @@ export type Customer = {
   updatedAt:Date;
   viewSalesReport:any;
   customerGroup:string;
+ referCode?: string;
 };
 
 export type CustomerFormValues = {
@@ -32,4 +33,5 @@ export type CustomerFormValues = {
   customerGroup?:any;
     loyaltyPoints?: string;
   outlets?: any[];
+ referCode?: string;
 };

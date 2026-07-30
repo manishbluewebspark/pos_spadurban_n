@@ -12,6 +12,7 @@ import { isValid } from "date-fns";
 import pool from "../../../../database/postgres";
 import { v4 as uuidv4 } from "uuid";
 import { VendService } from "../vendor/service.vendor";
+import { generateReferralCode } from "../../../utils/utils";
 const dayjs = require('dayjs');
 const customParseFormat = require('dayjs/plugin/customParseFormat');
 dayjs.extend(customParseFormat);
@@ -55,6 +56,9 @@ const createCustomer = async (customerBody: any): Promise<CustomerDocument> => {
   customerBody["userName"] = customerBody.email;
   customerBody["password"] = customerBody.phone;
   customerBody["name"] = customerBody.customerName;
+
+
+
   customerBody['customerGroup'] = 'new user'
   const user = await userService.createUser(customerBody);
 
@@ -67,8 +71,36 @@ const createCustomer = async (customerBody: any): Promise<CustomerDocument> => {
 
   customerBody["_id"] = user._id;
 
+
+  let loyaltyPoints = 500;
+  customerBody.referralCode = await generateReferralCode();
+
+  // Referral Signup
+  if (customerBody.referCode) {
+    const referrer = await Customer.findOne({
+      referralCode: customerBody.referCode,
+    });
+
+    if (!referrer) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Invalid referral code."
+      );
+    }
+
+    customerBody.referredBy = referrer.referralCode;
+
+    // Referral signup gets 2000 instead of 500
+    loyaltyPoints = 2000;
+  }
+
   // ✅ Mongo Create
-  const mongoCustomer = await Customer.create(customerBody);
+  // const mongoCustomer = await Customer.create(customerBody);
+  const mongoCustomer = await Customer.create({
+    ...customerBody,
+    loyaltyPoints,
+  });
+
 
   // // 🔥 Postgres Insert
   // try {
@@ -90,63 +122,63 @@ const createCustomer = async (customerBody: any): Promise<CustomerDocument> => {
   //   console.log('Postgres Sync Error:', error);
   // }
 
-  
+
   let vendCustomer;
   try {
-            vendCustomer = await VendService.createCustomer({
-                first_name: customerBody.customerName?.split(' ')[0] || '',
-                last_name: customerBody.customerName?.split(' ')[1] || '',
-                email:customerBody.email,
-                date_of_birth:customerBody.dob,
-                mobile:customerBody.phone,
-                gender:mapGender(customerBody.gender)
-            });
-        } catch (e) {
-            console.log(e)
-            throw new Error(JSON.stringify(e))
-        }
+    vendCustomer = await VendService.createCustomer({
+      first_name: customerBody.customerName?.split(' ')[0] || '',
+      last_name: customerBody.customerName?.split(' ')[1] || '',
+      email: customerBody.email,
+      date_of_birth: customerBody.dob,
+      mobile: customerBody.phone,
+      gender: mapGender(customerBody.gender)
+    });
+  } catch (e) {
+    console.log(e)
+    throw new Error(JSON.stringify(e))
+  }
 
   const customerId = uuidv4();
- 
-  const existingCustomerpostgrs = await pool.query(
-  `SELECT id FROM public."Customers" WHERE email=$1`,
-  [customerBody.email]
-);
 
-if (existingCustomerpostgrs.rows.length) {
-  // Update existing
-  await pool.query(
-    `UPDATE public."Customers"
+  const existingCustomerpostgrs = await pool.query(
+    `SELECT id FROM public."Customers" WHERE email=$1`,
+    [customerBody.email]
+  );
+
+  if (existingCustomerpostgrs.rows.length) {
+    // Update existing
+    await pool.query(
+      `UPDATE public."Customers"
      SET "firstName"=$1, "lastName"=$2, dob=$3, mobile=$4, gender=$5, "vendId"=$6, "updatedAt"=NOW()
      WHERE email=$7`,
-    [
-      customerBody.customerName?.split(' ')[0] || '',
-      customerBody.customerName?.split(' ')[1] || '',
-      customerBody.dateOfBirth || null,
-      customerBody.phone,
-      mapGender(customerBody.gender),
-      vendCustomer.id,
-      customerBody.email
-    ]
-  );
-} else {
-  // Insert new
-  await pool.query(
-    `INSERT INTO public."Customers"
+      [
+        customerBody.customerName?.split(' ')[0] || '',
+        customerBody.customerName?.split(' ')[1] || '',
+        customerBody.dateOfBirth || null,
+        customerBody.phone,
+        mapGender(customerBody.gender),
+        vendCustomer.id,
+        customerBody.email
+      ]
+    );
+  } else {
+    // Insert new
+    await pool.query(
+      `INSERT INTO public."Customers"
      (id, "firstName", "lastName", dob, email, mobile, gender, "vendId", "createdAt", "updatedAt")
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW(),NOW())`,
-    [
-      customerId,
-      customerBody.customerName?.split(' ')[0] || '',
-      customerBody.customerName?.split(' ')[1] || '',
-      customerBody.dateOfBirth || null,
-      customerBody.email,
-      customerBody.phone,
-      mapGender(customerBody.gender),
-      vendCustomer.id
-    ]
-  );
-}
+      [
+        customerId,
+        customerBody.customerName?.split(' ')[0] || '',
+        customerBody.customerName?.split(' ')[1] || '',
+        customerBody.dateOfBirth || null,
+        customerBody.email,
+        customerBody.phone,
+        mapGender(customerBody.gender),
+        vendCustomer.id
+      ]
+    );
+  }
 
   return mongoCustomer;
 
@@ -352,9 +384,9 @@ const updateCustomerById = async (
   // });
 
   // 🔥 Postgres Update Sync
- try {
-  await pool.query(
-    `UPDATE public."Customers"
+  try {
+    await pool.query(
+      `UPDATE public."Customers"
      SET "firstName" = $1,
          "lastName" = $2,
          dob = $3,
@@ -362,19 +394,19 @@ const updateCustomerById = async (
          gender = $5,
          "updatedAt" = NOW()
      WHERE email = $6`,
-    [
-      customerUpdated.customerName?.split(' ')[0] || '',
-      customerUpdated.customerName?.split(' ')[1] || '',
-      customerUpdated.dateOfBirth || null,
-      customerUpdated.phone,
-      mapGender(customerUpdated.gender),
-      customerUpdated.email
-    ]
-  );
-} catch (error) {
-  console.log('Postgres Update Sync Error:', error);
-  throw new Error('Customer update failed');
-}
+      [
+        customerUpdated.customerName?.split(' ')[0] || '',
+        customerUpdated.customerName?.split(' ')[1] || '',
+        customerUpdated.dateOfBirth || null,
+        customerUpdated.phone,
+        mapGender(customerUpdated.gender),
+        customerUpdated.email
+      ]
+    );
+  } catch (error) {
+    console.log('Postgres Update Sync Error:', error);
+    throw new Error('Customer update failed');
+  }
 
   return customerUpdated;
 };
@@ -432,12 +464,12 @@ const deleteCustomerById = async (
   // 🔥 Postgres Soft Delete
   try {
     await pool.query(
-  `UPDATE public."Customers"
+      `UPDATE public."Customers"
    SET "isDeleted" = true,
        "updatedAt" = NOW()
    WHERE email = $1`,
-  [customer.email]
-);
+      [customer.email]
+    );
   } catch (error) {
     console.log('Postgres Delete Sync Error:', error);
   }

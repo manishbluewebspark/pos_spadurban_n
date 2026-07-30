@@ -43,6 +43,8 @@ import mongoose from "mongoose";
 import Cashback from "../cashback/schema.cashback";
 import { sendEmail } from "../../../../src/helper/sendEmail";
 import pool from "../../../../database/postgres";
+import Customer from "../customer/schema.customer";
+import { TransactionTypeEnum } from "../../../utils/enumUtils";
 
 const previewInvoice = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
@@ -349,8 +351,8 @@ const createInvoice = catchAsync(
     }
 
     console.log("walletDebitLog =", walletDebitLog);
-console.log("walletDebitLog type =", typeof walletDebitLog);
-console.log("totalDebitPoints =", totalDebitPoints);
+    console.log("walletDebitLog type =", typeof walletDebitLog);
+    console.log("totalDebitPoints =", totalDebitPoints);
 
     //debit  to loyalty wallet
     if (walletDebitLog && totalDebitPoints > 0) {
@@ -358,7 +360,7 @@ console.log("totalDebitPoints =", totalDebitPoints);
         walletDebitLog,
         Number(usedPoints || 0)
       );
-      console.log("9999999999999",usedPoints)
+      console.log("9999999999999", usedPoints)
       if (!debitedPoints) {
         throw new ApiError(httpStatus.NOT_FOUND, "Something went wrong.");
       }
@@ -370,7 +372,7 @@ console.log("totalDebitPoints =", totalDebitPoints);
         walletCreditLog,
         finalPointsToAdd
       );
-      console.log("100000000000",finalPointsToAdd)
+      console.log("100000000000", finalPointsToAdd)
       if (!creditedPoints) {
         throw new ApiError(httpStatus.NOT_FOUND, "Something went wrong.");
       }
@@ -410,13 +412,19 @@ console.log("totalDebitPoints =", totalDebitPoints);
 
     if (validRules.length) {
       const customerData = await customerService.getCustomerById(invoiceData?.customerId)
+      
+      // Calculate loyalty points earned
+      const loyaltyPointsEarned = invoiceData.cashBackEarned * cashbackMultiplier;
+      const totalLoyaltyPoints = (customerData?.loyaltyPoints || 0) + loyaltyPointsEarned;
+      
       const emailData = {
         sendTo: customerData?.email,
-        emailSubject: `💰 You've Earned Bonus Cashback!`,
+        emailSubject: `💰 You've Earned Bonus Loyalty Points!`,
         emailBody: `
     <p>Dear ${customerData?.customerName || 'Customer'},</p>
     <p>Great news! You’ve earned <strong>${cashbackMultiplier}X</strong> loyalty points on your recent purchase 🎉</p>
-    <p>🪙 <strong>Loyalty points Earned:</strong> R${invoiceData.cashBackEarned * cashbackMultiplier}</p>
+    <p>🪙 <strong>Loyalty Points Earned:</strong> ${loyaltyPointsEarned} points</p>
+    <p>📊 <strong>Your Total Loyalty Points:</strong> ${totalLoyaltyPoints} points</p>
     <p>This bonus was applied automatically based on our special cashback rules.</p>
     <br/>
     <p>Keep an eye out for more offers and save big on every visit!</p>
@@ -444,6 +452,58 @@ console.log("totalDebitPoints =", totalDebitPoints);
 
     } catch (error) {
       console.log('-----error', error)
+    }
+
+    console.log('----invoiceData?.customerId',invoiceData?.customerId)
+
+const customer = await Customer.findById(invoiceData.customerId);
+console.log(customer);
+
+    if (
+      customer &&
+      customer.referredBy &&
+      !customer.referralRewardGiven
+    ) {
+      const referrer = await Customer.findOne({
+        referralCode: customer.referredBy,
+      });
+
+      console.log('-----referrer',referrer)
+
+      if (referrer) {
+        // Referrer ke wallet me 2000 points credit
+        const referralWalletLog = {
+  customerId: (referrer._id as mongoose.Types.ObjectId).toString(),
+          employeeId: req.userData.Id,
+          outletId,
+
+          spentAmount: 0,
+
+          todaysPoints: 2000,
+          todaysAmount: 0,
+
+          pointsCreditedOrUsed: 2000,
+          amountCreditedOrUsed: 2000,
+
+          transactionType: TransactionTypeEnum.credit,
+        };
+
+        const rewarded = await updateWalletAndUpdateLog(
+          referralWalletLog,
+          2000
+        );
+
+        if (!rewarded) {
+          throw new ApiError(
+            httpStatus.INTERNAL_SERVER_ERROR,
+            "Unable to credit referral reward."
+          );
+        }
+
+        // Referral reward sirf first purchase par mile
+        customer.referralRewardGiven = true;
+        await customer.save();
+      }
     }
 
     return res.status(httpStatus.CREATED).send({

@@ -27,10 +27,14 @@ export interface CustomerDocument extends Document {
   isActive: boolean;
   bookingCustomerId: string;
   cashBackAmount: number;
-  customerGroup:string;
-  outlets:Object,
-  otp?:string,
-  otpExpiry?:number
+  customerGroup: string;
+  outlets: Object,
+  otp?: string,
+  otpExpiry?: number
+  referralCode?: string
+  referredBy?: string
+  hasPurchased: boolean
+  referralRewardGiven: boolean
 }
 
 export interface CustomerModel extends mongoose.Model<CustomerDocument> {
@@ -133,8 +137,8 @@ const CustomerSchema = new mongoose.Schema<CustomerDocument>(
       // required: true,
       trim: true,
     },
-    customerGroup:{
-      type:String,
+    customerGroup: {
+      type: String,
       // required:true
     },
     customerType: {
@@ -143,7 +147,7 @@ const CustomerSchema = new mongoose.Schema<CustomerDocument>(
       default: CustomerTypeEnum.regular,
       trim: true,
     },
- outlets: {
+    outlets: {
       type: [mongoose.Types.ObjectId],
       ref: "Outlet",
       required: false,
@@ -165,7 +169,7 @@ const CustomerSchema = new mongoose.Schema<CustomerDocument>(
       type: Number,
       default: 0,
     },
-     otp: {
+    otp: {
       type: String,
       required: false,
       select: false, // Don't return in queries by default
@@ -174,6 +178,27 @@ const CustomerSchema = new mongoose.Schema<CustomerDocument>(
       type: Number,
       required: false,
       select: false,
+    },
+    referralCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+
+    referredBy: {
+      type: String,
+      default: "",
+    },
+
+    hasPurchased: {
+      type: Boolean,
+      default: false,
+    },
+
+    referralRewardGiven: {
+      type: Boolean,
+      default: false,
     },
   },
 

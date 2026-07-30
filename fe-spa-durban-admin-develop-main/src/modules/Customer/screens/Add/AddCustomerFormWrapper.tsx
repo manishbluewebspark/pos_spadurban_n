@@ -24,7 +24,8 @@ const AddCustomerFormWrapper = () => {
     gender: '',
     customerGroup: '',
     loyaltyPoints:"",
-    outlets: []
+    outlets: [],
+    referCode:""
   };
 
   const validationSchema = object().shape({

@@ -132,7 +132,7 @@ export const getCouponDiscount = async (
   const customer = await Customer.findById(customerId);
 
   if (!customer) {
-    throw new ApiError(404, "Customer not found.");
+    throw new ApiError(404, "Customer not found....");
   }
 
   // Expiry
