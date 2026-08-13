@@ -279,7 +279,7 @@ const navigation: (params?: {
             page: '1',
             limit: '10',
           },
-          permission: 'NAV_CASHBACK_RULES',
+          permission: 'NAV_LOYALTY',
         },
         {
           title: 'Rewards & Coupon',
@@ -289,7 +289,7 @@ const navigation: (params?: {
             page: '1',
             limit: '10',
           },
-          permission: 'NAV_CASHBACK_RULES',
+          permission: 'NAV_LOYALTY',
         },
         // {
         //   title: 'Promotion Coupons',
@@ -417,6 +417,7 @@ const navigation: (params?: {
     },
     {
       groupLable: 'Reports',
+      
       items:[
         {
           title: 'Retail Dashbaord',

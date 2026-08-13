@@ -13,6 +13,47 @@ import cron from 'node-cron';
 // CONFIGURATION
 // ============================================
 
+
+
+const REWARD_TIERS = [
+    {
+        rewardsPoint: 3000,
+        rewardName: "10% Off",
+        rewardType: "PERCENTAGE",
+        rewardValue: 10,
+        description: "10% discount on eligible spa services.",
+    },
+    {
+        rewardsPoint: 5000,
+        rewardName: "20% Off",
+        rewardType: "PERCENTAGE",
+        rewardValue: 20,
+        description: "20% discount on eligible spa services.",
+    },
+    {
+        rewardsPoint: 7500,
+        rewardName: "30% Off Any Package",
+        rewardType: "PERCENTAGE",
+        rewardValue: 30,
+        description: "30% discount on any eligible spa package.",
+    },
+    {
+        rewardsPoint: 10000,
+        rewardName: "50% Off Any Spa Package",
+        rewardType: "PERCENTAGE",
+        rewardValue: 50,
+        description: "50% discount on any eligible spa package.",
+    },
+    {
+        rewardsPoint: 20000,
+        rewardName: "Free Full Body Massage",
+        rewardType: "FREE_SERVICE",
+        rewardValue: 0,
+        description: "Complimentary Full Body Massage.",
+    },
+];
+
+
 const REWARD_CONFIG = {
     // Points thresholds
     MIN_POINTS_FOR_REWARD: 3000,
@@ -33,6 +74,18 @@ const REWARD_CONFIG = {
 // ============================================
 // CONSTANTS
 // ============================================
+
+
+
+const getEligibleRewardTier = (loyaltyPoints: number) => {
+    const eligible = REWARD_TIERS
+        .filter((tier) => loyaltyPoints >= tier.rewardsPoint)
+        .sort((a, b) => b.rewardsPoint - a.rewardsPoint);
+
+    return eligible[0] || null;
+};
+
+
 
 const FULL_BODY_MASSAGE_SERVICE_ID = new mongoose.Types.ObjectId("67c5c5b888910b9e3e672d0f");
 
@@ -116,11 +169,28 @@ const generateRewardCoupons = async () => {
         logger.info(`Found ${rewardTemplates.length} reward templates`);
 
         // Get customers with sufficient points
+        // const customers = await Customer.find({
+        //     isDeleted: false,
+        //     isActive: true,
+        //     email: { $nin: [null, ''] },
+        //     loyaltyPoints: {
+        //         $gte: REWARD_CONFIG.MIN_POINTS_FOR_REWARD,
+        //     },
+        // });
+
         const customers = await Customer.find({
+            _id: {
+                $in: [
+                    new mongoose.Types.ObjectId("6a0c22d765b2f744892635bb"),
+                    new mongoose.Types.ObjectId("67c6b282e9ff880e680ec0bf"),
+                ],
+            },
             isDeleted: false,
             isActive: true,
             email: { $nin: [null, ''] },
-            loyaltyPoints: { $gte: REWARD_CONFIG.FREE_MASSAGE_POINTS },
+            loyaltyPoints: {
+                $gte: REWARD_CONFIG.MIN_POINTS_FOR_REWARD,
+            },
         });
 
         if (customers.length === 0) {
@@ -131,7 +201,7 @@ const generateRewardCoupons = async () => {
         logger.info(`Processing ${customers.length} customers with sufficient points`);
 
         for (const customer of customers) {
-            await generateCustomerRewards(customer, rewardTemplates);
+            await generateCustomerRewards(customer);
         }
 
     } catch (error) {
@@ -143,54 +213,58 @@ const generateRewardCoupons = async () => {
 // GENERATE CUSTOMER REWARDS
 // ============================================
 
-const generateCustomerRewards = async (customer: any, rewardTemplates: any[]) => {
+const generateCustomerRewards = async (customer: any) => {
     const customerId = customer._id;
     const customerEmail = customer.email;
     const customerName = customer.customerName || 'Customer';
     const loyaltyPoints = customer.loyaltyPoints || 0;
 
     try {
-        // Filter eligible rewards based on customer points
-        const eligibleRewards = rewardTemplates.filter(
-            (reward) => loyaltyPoints >= reward.rewardsPoint
-        );
+        const eligibleReward = getEligibleRewardTier(loyaltyPoints);
 
-        if (eligibleRewards.length === 0) {
+        if (!eligibleReward) {
             return;
         }
 
-        logger.info(`Customer ${customerName} eligible for ${eligibleRewards.length} rewards`);
+        logger.info(
+            `Customer ${customerName} eligible for ${eligibleReward.rewardName}`
+        );
 
-        const generatedRewards = [];
+        // Check if this reward already exists
+        const existingReward = await RewardsCoupon.findOne({
+            customerId,
+            rewardName: eligibleReward.rewardName,
+            couponType: "REWARD",
+            isDeleted: false,
+            isActive: true,
+            validTill: { $gte: new Date() },
+        });
 
-        for (const template of eligibleRewards) {
-            // Check if reward already exists for this customer
-            let customerReward = await RewardsCoupon.findOne({
-                customerId: customerId,
-                rewardName: template.rewardName,
-                couponType: "REWARD",
-                isDeleted: false,
-                isActive: true,
-                validTill: { $gte: new Date() }, // Still valid
-            });
-
-            // If reward doesn't exist, create it
-            if (!customerReward) {
-                customerReward = await createCustomerReward(customer, template);
-                if (customerReward) {
-                    generatedRewards.push(customerReward);
-                }
-            }
+        if (existingReward) {
+            logger.info(
+                `Reward already exists for ${customerName}: ${existingReward.couponCode}`
+            );
+            return;
         }
 
-        // Send email if new rewards were generated
-        if (generatedRewards.length > 0) {
-            await sendRewardEmail(customer, generatedRewards);
-            logger.success(`✅ Reward email sent to ${customerEmail} (${generatedRewards.length} rewards)`);
+        const customerReward = await createCustomerReward(
+            customer,
+            eligibleReward
+        );
+
+        if (customerReward) {
+            await sendRewardEmail(customer, [customerReward]);
+
+            logger.success(
+                `Reward email sent to ${customerEmail}`
+            );
         }
 
     } catch (error) {
-        logger.error(`Error generating rewards for customer ${customerId}`, error);
+        logger.error(
+            `Error generating reward for customer ${customerId}`,
+            error
+        );
     }
 };
 
@@ -651,7 +725,7 @@ const getReminderEmailHTML = (coupon: any, customer: any, type: 'REDEEM' | 'EXPI
 const generateRewardCouponCode = (): string => {
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.floor(1000 + Math.random() * 9000);
-    return `RW-${timestamp}-${random}`;
+    return `RW${timestamp}${random}`;
 };
 
 // ============================================

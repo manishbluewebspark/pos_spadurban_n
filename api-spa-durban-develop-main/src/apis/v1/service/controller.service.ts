@@ -16,7 +16,7 @@ import {
   RangeFilter,
   AuthenticatedRequest,
 } from "../../../utils/interface";
-
+import { v4 as uuidv4 } from "uuid";
 import {
   getFilterQuery,
   getRangeQuery,
@@ -24,7 +24,7 @@ import {
   checkInvalidParams,
   getDateFilterQuery,
 } from "../../../utils/utils";
-import { searchKeys, allowedDateFilterKeys } from "./schema.service";
+import Service, { searchKeys, allowedDateFilterKeys } from "./schema.service";
 import { UserEnum } from "../../../utils/enumUtils";
 import mongoose from "mongoose";
 import axios from "axios";
@@ -91,29 +91,37 @@ const createService = catchAsync(
         //throw new ApiError(httpStatus.NOT_FOUND, "Invalid tax.");
       }
     }
-    try {
-      const otherData = await axios.post(
-        `${process.env.BOOKING_API_BASE_URL}/customerData/treatment`,
-        {
-          name: req.body.serviceName,
-          duration: req.body.duration,
-          description: req.body.description,
-          productTypeId: req.body.category,
-        }
-      );
-      if (otherData?.data?.id) {
-        req.body.bookingTreatmentsId = otherData.data.id;
-      } else {
-        console.warn("API response does not contain an ID.");
-      }
-    } catch (error) {
-      console.error("Error adding booking customer:", error);
+    const treatmentId = uuidv4();
+    const now = new Date();
 
-      if (axios.isAxiosError(error)) {
-        console.error("Response data:", error.response?.data);
-        console.error("Status code:", error.response?.status);
-      }
-    }
+    const result = await pool.query(
+      `
+    INSERT INTO "Treatments"
+    (
+        id,
+        name,
+        price,
+        duration,
+        description,
+        "isDeleted",
+        "createdAt",
+        "updatedAt"
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
+    RETURNING *
+    `,
+      [
+        treatmentId,
+        req.body.serviceName,
+        req.body.sellingPrice || 0,
+        req.body.duration,
+        req.body.description || null,
+        false,
+        now,
+      ]
+    );
+
+    req.body.bookingTreatmentsId = treatmentId;
 
     const service = await serviceService.createService(req.body);
     return res.status(httpStatus.CREATED).send({
@@ -654,6 +662,23 @@ const updateService = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
     let { categoryId, subCategoryId, outletIds, products, taxId } = req.body;
 
+    let bookingTreatmentsId = null;
+
+    const mongoService = await Service.findById(req.params.serviceId).lean();
+
+
+    if (mongoService?.bookingTreatmentsId) {
+      bookingTreatmentsId = mongoService.bookingTreatmentsId;
+      console.log(
+        "✅ bookingTreatmentsId found:",
+        bookingTreatmentsId
+      );
+    } else {
+      console.warn(
+        `⚠️ bookingTreatmentsId not found for Mongo service: ${req.params.serviceId}`
+      );
+    }
+
     // category exists check (only if provided)
     if (categoryId) {
       let categoryExists = await categoryService.getCategoryById(categoryId);
@@ -700,6 +725,48 @@ const updateService = catchAsync(
       if (!tax) {
         // throw new ApiError(httpStatus.NOT_FOUND, "Invalid tax.");
       }
+    }
+
+
+    if (bookingTreatmentsId) {
+      const now = new Date();
+
+      const treatmentResult = await pool.query(
+        `
+        UPDATE "Treatments"
+        SET
+          name = $1,
+          price = $2,
+          duration = $3,
+          description = $4,
+          "isDeleted" = false,
+          "updatedAt" = $5
+        WHERE id = $6
+        RETURNING *
+        `,
+        [
+          req.body.serviceName,
+          req.body.sellingPrice || 0,
+          req.body.duration,
+          req.body.description || null,
+          now,
+          bookingTreatmentsId,
+        ]
+      );
+
+      if (treatmentResult.rows.length === 0) {
+        console.warn(
+          `⚠️ Booking Treatment not found: ${bookingTreatmentsId}`
+        );
+      } else {
+        console.log(
+          `✅ Booking Treatment updated: ${bookingTreatmentsId}`
+        );
+      }
+    } else {
+      console.warn(
+        "⚠️ bookingTreatmentsId not provided. PostgreSQL Treatment was not updated."
+      );
     }
 
 
@@ -906,6 +973,68 @@ const addServiceToTop = catchAsync(
 );
 const deleteService = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
+
+    const { serviceId } = req.params;
+
+    const mongoService = await Service.findById(serviceId).lean();
+
+    if (!mongoService) {
+      throw new ApiError(
+        httpStatus.NOT_FOUND,
+        "Service not found."
+      );
+    }
+
+    const bookingTreatmentsId = mongoService.bookingTreatmentsId;
+
+    console.log(
+      "🗑️ bookingTreatmentsId:",
+      bookingTreatmentsId
+    );
+
+    // ============================================
+    // 2. PostgreSQL Treatment soft delete
+    // ============================================
+
+    if (bookingTreatmentsId) {
+      const now = new Date();
+
+      const treatmentResult = await pool.query(
+        `
+        UPDATE "Treatments"
+        SET
+          "isDeleted" = true,
+          "updatedAt" = $1
+        WHERE id = $2
+        RETURNING id, name, "isDeleted"
+        `,
+        [
+          now,
+          bookingTreatmentsId,
+        ]
+      );
+
+      if (treatmentResult.rows.length > 0) {
+        console.log(
+          `✅ Booking Treatment deleted: ${bookingTreatmentsId}`
+        );
+      } else {
+        console.warn(
+          `⚠️ Booking Treatment not found: ${bookingTreatmentsId}`
+        );
+      }
+    } else {
+      console.warn(
+        `⚠️ bookingTreatmentsId not found for service: ${serviceId}`
+      );
+    }
+
+    // ============================================
+    // 3. Mongo service delete
+    // ============================================
+
+
+
     await serviceService.deleteServiceById(req.params.serviceId);
     return res.status(httpStatus.OK).send({
       message: "Successfull.",
@@ -966,7 +1095,7 @@ const getAllBookings = catchAsync(async (req: Request, res: Response) => {
     page = 1,
     limit = 10,
   } = req.query;
-  console.log('---------reeee',req.body,req.query)
+  console.log('---------reeee', req.body, req.query)
 
   const offset = (Number(page) - 1) * Number(limit);
 
@@ -1004,15 +1133,15 @@ const getAllBookings = catchAsync(async (req: Request, res: Response) => {
     values.push(`%${serviceName}%`);
   }
 
-if (startDate) {
-  conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
-  values.push(`${startDate} 00:00:00`);
-}
+  if (startDate) {
+    conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
+    values.push(`${startDate} 00:00:00`);
+  }
 
-if (endDate) {
-  conditions.push(`b."bookingDateTimeStamp" <= $${idx++}`);
-  values.push(`${endDate} 23:59:59`);
-}
+  if (endDate) {
+    conditions.push(`b."bookingDateTimeStamp" <= $${idx++}`);
+    values.push(`${endDate} 23:59:59`);
+  }
 
 
 
@@ -1101,7 +1230,7 @@ const runDynamicQuery = catchAsync(async (req: Request, res: Response) => {
   try {
     // Receive the SQL query from request body (sent by your React query builder)
     const { query: sqlQuery } = req.body;
-    
+
     console.log('Received SQL Query:', sqlQuery);
 
     if (!sqlQuery) {
@@ -1134,7 +1263,7 @@ const runDynamicQuery = catchAsync(async (req: Request, res: Response) => {
 
     // Execute the dynamic SQL query
     const result = await pool.query(sqlQuery);
-    
+
     // Extract limit from query for response metadata (optional)
     let limit = result.rows.length;
     const limitMatch = sqlQuery.match(/LIMIT\s+(\d+)/i);
@@ -1151,7 +1280,7 @@ const runDynamicQuery = catchAsync(async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('Query execution error:', error);
-    
+
     // Send detailed error message for debugging
     res.status(500).json({
       success: false,
@@ -1308,15 +1437,15 @@ const getCustomerChartData = catchAsync(async (req: Request, res: Response) => {
   let values: any[] = [];
   let idx = 1;
 
- if (startDate) {
-  conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
-  values.push(`${startDate} 00:00:00`);
-}
+  if (startDate) {
+    conditions.push(`b."bookingDateTimeStamp" >= $${idx++}`);
+    values.push(`${startDate} 00:00:00`);
+  }
 
-if (endDate) {
-  conditions.push(`b."bookingDateTimeStamp" <= $${idx++}`);
-  values.push(`${endDate} 23:59:59`);
-}
+  if (endDate) {
+    conditions.push(`b."bookingDateTimeStamp" <= $${idx++}`);
+    values.push(`${endDate} 23:59:59`);
+  }
 
   if (outletId) {
     // Direct match outletId with StoreId

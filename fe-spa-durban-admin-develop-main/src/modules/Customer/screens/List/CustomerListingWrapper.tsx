@@ -22,6 +22,7 @@ import { isAuthorized } from 'src/utils/authorization';
 import ATMExportDialog from 'src/components/atoms/ATMExportDialog/ATMExportDialog';
 import { ATMButton } from 'src/components/atoms/ATMButton/ATMButton';
 import ATMDialog from 'src/components/atoms/ATMDialog/ATMDialog';
+import LoyaltyPointLogsModal from 'src/components/LoyaltyPointLogsModal';
 
 type Props = {};
 
@@ -94,6 +95,8 @@ const CustomerListingWrapper = (props: Props) => {
   const [startExport, setStartExport] = useState(false)
   const [showExportPreview, setShowExportPreview] = useState(false);
   const [includeCustomerDetails, setIncludeCustomerDetails] = useState<'yes' | 'no'>('yes');
+  const [loyaltyLogsModalOpen, setLoyaltyLogsModalOpen] = useState(false);
+const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const { data: exportData, isLoading: isExporting } = useExportCustomerExcelQuery(
     { includeContact: includeCustomerDetails === 'yes' },
     { skip: !startExport }
@@ -110,6 +113,12 @@ const CustomerListingWrapper = (props: Props) => {
   const handleExport = (status: any) => {
     setStartExport(true);
   }
+
+  const handleViewLoyaltyLogs = (row: any) => {
+  setSelectedCustomer(row);
+  setLoyaltyLogsModalOpen(true);
+};
+
 
   // ⬇️ When exportData is updated by the API call, download the file
   useEffect(() => {
@@ -281,6 +290,20 @@ const CustomerListingWrapper = (props: Props) => {
 
       ),
     },
+   {
+  fieldName: 'viewLoyaltyLogs',
+  headerName: 'Loyalty Logs',
+  flex: 'flex-[0_0_150px]',
+  renderCell: (row: any) => (
+    <button
+      onClick={() => handleViewLoyaltyLogs(row)}
+      className="text-white px-3 py-1 rounded hover:opacity-90"
+      style={{ backgroundColor: '#006972' }}
+    >
+      View Logs
+    </button>
+  ),
+},
     {
       fieldName: 'status',
       headerName: 'Active',
@@ -399,7 +422,15 @@ const CustomerListingWrapper = (props: Props) => {
 
 
 
-
+<LoyaltyPointLogsModal
+  open={loyaltyLogsModalOpen}
+  onClose={() => {
+    setLoyaltyLogsModalOpen(false);
+    setSelectedCustomer(null);
+  }}
+  customer={selectedCustomer}
+  logs={selectedCustomer?.loyaltyPointsLogs || []}
+/>
 
     </>
   );

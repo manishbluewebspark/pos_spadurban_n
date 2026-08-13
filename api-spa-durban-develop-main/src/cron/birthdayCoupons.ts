@@ -156,10 +156,11 @@ const getCustomersByBirthday = async (day: number, month: number): Promise<any[]
         const customers = await Customer.find({
             _id: {
                 $in: [
-                    '6a0c22d765b2f744892635bb',
-                    '67c6b282e9ff880e680ec0bf'
-                ]
+                    new mongoose.Types.ObjectId("6a0c22d765b2f744892635bb"),
+                    new mongoose.Types.ObjectId("67c6b282e9ff880e680ec0bf"),
+                ],
             },
+
             isDeleted: false,
             isActive: true,
             email: { $nin: [null, ''] },

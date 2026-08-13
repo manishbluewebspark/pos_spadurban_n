@@ -37,6 +37,15 @@ export const serviceApi = apiSlice.injectEndpoints({
         };
       },
     }),
+    deleteService: builder.mutation({
+  invalidatesTags: ['services'],
+  query: (serviceId: string) => {
+    return {
+      url: `/service/${serviceId}`,
+      method: 'DELETE',
+    };
+  },
+}),
     updateServiceToTop: builder.mutation({
       invalidatesTags: ['services'],
       query: ({ serviceId, body }: { serviceId: string; body: any }) => {
@@ -77,4 +86,5 @@ export const {
   useGetServiceByIdQuery,
   useServiceStatusMutation,
   useUpdateServiceToTopMutation,
+  useDeleteServiceMutation
 } = serviceApi;

@@ -243,9 +243,14 @@ const queryCustomers = async (
   //   "==============filterBy================================="
   // );
 
+  const matchFilter = {
+    ...filterBy,
+    isDeleted: false,
+  };
+
   try {
     const customersAggregation = await Customer.aggregate([
-      { $match: filterBy || {} },
+      { $match: matchFilter },
 
       {
         $facet: {
@@ -356,15 +361,72 @@ const toggleCustomerStatusById = async (
  */
 const updateCustomerById = async (
   customerId: string | number,
-  updateBody: any
+  updateBody: any,
+  changedBy?: mongoose.Types.ObjectId
 ): Promise<CustomerDocument> => {
   const customer = await getCustomerById(customerId);
   if (!customer) {
     throw new ApiError(httpStatus.NOT_FOUND, "Customer not found");
   }
+
+
+  const oldLoyaltyPoints = Number(
+    customer.loyaltyPoints || 0
+  );
+
+  const loyaltyPointsAreBeingUpdated =
+    updateBody.loyaltyPoints !== undefined &&
+    Number(updateBody.loyaltyPoints) !== oldLoyaltyPoints;
+
+  if (loyaltyPointsAreBeingUpdated) {
+
+    if (
+      !updateBody.loyaltyPointsReason ||
+      !updateBody.loyaltyPointsReason.trim()
+    ) {
+      throw new ApiError(
+        httpStatus.BAD_REQUEST,
+        "Reason is required when changing loyalty points."
+      );
+    }
+  }
+
+  const updateData: any = {
+    ...updateBody,
+  };
+
+  // Reason frontend ke normal customer document
+  // mein save nahi karna.
+  // delete updateData.loyaltyPointsReason;
+
+
+
+  if (loyaltyPointsAreBeingUpdated) {
+
+    const newLoyaltyPoints = Number(
+      updateBody.loyaltyPoints
+    );
+
+    const difference =
+      newLoyaltyPoints - oldLoyaltyPoints;
+
+    const loyaltyLog = {
+      previousPoints: oldLoyaltyPoints,
+      newPoints: newLoyaltyPoints,
+      difference,
+      reason: updateBody.loyaltyPointsReason.trim(),
+      changedBy: changedBy,
+      changedAt: new Date(),
+    };
+
+    updateData.$push = {
+      loyaltyPointsLogs: loyaltyLog,
+    };
+  }
+
   let customerUpdated = await Customer.findByIdAndUpdate(
     { _id: customerId },
-    { ...updateBody },
+    { ...updateData },
     { new: true }
   );
   if (!customerUpdated) {

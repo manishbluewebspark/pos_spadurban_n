@@ -8,7 +8,7 @@ import MOLTable, {
 import { Service } from '../../models/Service.model';
 import { isAuthorized } from 'src/utils/authorization';
 import Authorization from 'src/components/Authorization/Authorization';
-
+import { Dispatch, SetStateAction } from 'react';
 type Props = {
   onAddNew: () => void;
   rowData: Service[];
@@ -18,6 +18,11 @@ type Props = {
     totalPages: number;
   };
   onEdit: (serviceId: string) => void;
+    onDelete: (
+      item: Service,
+      closeDialog: () => void,
+      setIsLoading: Dispatch<SetStateAction<boolean>>,
+    ) => void;
   isTableLoading: boolean;
   filters: any;
 };
@@ -28,6 +33,7 @@ const ServiceListing = ({
   rowData,
   filterPaginationData: { totalCount, totalPages },
   onEdit,
+  onDelete,
   isTableLoading = true,
   filters,
 }: Props) => {
@@ -58,6 +64,7 @@ const ServiceListing = ({
                     ? (item) => onEdit(item?._id)
                     : undefined
                 }
+                onDelete={onDelete}
                 isLoading={isTableLoading}
               />
             </div>

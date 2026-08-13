@@ -616,6 +616,47 @@
       "fields": []
     },
     {
+      "moduleName": "Company",
+      "moduleId": "NAV_COMPANY",
+      "features": [
+        {
+          "featureId": "COMPANY_LIST",
+          "featureName": "See Company List",
+          "relatedFieldColumn": "READ_LIST"
+        },
+        {
+          "featureId": "COMPANY_ADD",
+          "featureName": "Add Company"
+        },
+        {
+          "featureId": "COMPANY_UPDATE",
+          "featureName": "Update Company",
+          "relatedFieldColumn": "UPDATE"
+        },
+        {
+          "featureId": "COMPANY_DELETE",
+          "featureName": "Delete Company"
+        },
+        {
+          "featureId": "COMPANY_ACTIVE_DEACTIVE",
+          "featureName": "Activate/Deactivate Company"
+        },
+        {
+          "featureId": "COMPANY_SALES_REPORT",
+          "featureName": "See Company Sales Report"
+        }
+      ],
+      "dependencies": [
+        "COMPANY_LIST",
+        "COMPANY_ADD",
+        "COMPANY_UPDATE",
+        "COMPANY_DELETE",
+        "COMPANY_ACTIVE_DEACTIVE",
+        "COMPANY_SALES_REPORT"
+      ],
+      "fields": []
+    },
+    {
       "moduleName": "Outlets",
       "moduleId": "NAV_OUTLET",
       "features": [
@@ -658,37 +699,37 @@
     },
     {
       "moduleName": "Taxes",
-      "moduleId": "NAV_TAXE",
+      "moduleId": "NAV_TAX",
       "features": [
         {
-          "featureId": "TAXE_LIST",
+          "featureId": "TAX_LIST",
           "featureName": "See Taxes List",
           "relatedFieldColumn": "READ_LIST"
         },
         {
-          "featureId": "TAXE_ADD",
+          "featureId": "TAX_ADD",
           "featureName": "Add Taxes"
         },
         {
-          "featureId": "TAXE_UPDATE",
+          "featureId": "TAX_UPDATE",
           "featureName": "Update Taxes",
           "relatedFieldColumn": "UPDATE"
         },
         {
-          "featureId": "TAXE_DELETE",
+          "featureId": "TAX_DELETE",
           "featureName": "Delete Taxes"
         },
         {
-          "featureId": "TAXE_ACTIVE_DEACTIVE",
+          "featureId": "TAX_ACTIVE_DEACTIVE",
           "featureName": "Activate/Deactivate Taxes"
         }
       ],
       "dependencies": [
-        "TAXE_LIST",
-        "TAXE_ADD",
-        "TAXE_UPDATE",
-        "TAXE_DELETE",
-        "TAXE_ACTIVE_DEACTIVE"
+        "TAX_LIST",
+        "TAX_ADD",
+        "TAX_UPDATE",
+        "TAX_DELETE",
+        "TAX_ACTIVE_DEACTIVE"
       ],
       "fields": []
     },
@@ -992,7 +1033,7 @@
           "featureName": "See Payment Reports",
           "relatedFieldColumn": "PAYMENT_REPORTS"
         },
-         {
+        {
           "featureId": "SALES_LEDGER",
           "featureName": "See Sales Ledger",
           "relatedFieldColumn": "SALES_LEDGER"

@@ -9,6 +9,8 @@ import { CustomerFormValues } from '../models/Customer.model';
 import ATMMultiSelect from 'src/components/atoms/FormElements/ATMMultiSelect/ATMMultiSelect';
 import { useFetchData } from 'src/hooks/useFetchData';
 import { useGetOutletsQuery } from 'src/modules/Outlet/service/OutletServices';
+import { useSelector } from 'react-redux';
+import { RootState } from 'src/store';
 
 export const countries = [
   { label: 'afghanistan', value: 'AFG' },
@@ -243,6 +245,7 @@ const CustomerFormLayout = ({
 }: Props) => {
   const { values, setFieldValue, isSubmitting, handleBlur, touched, errors } =
     formikProps;
+  const { userData } = useSelector((state: RootState) => state.auth);
 
   const { data: outlets, isLoading: isOutletsLoading } = useFetchData(
     useGetOutletsQuery,
@@ -258,6 +261,15 @@ const CustomerFormLayout = ({
       },
     },
   );
+
+
+  const originalLoyaltyPoints = formikProps.initialValues?.loyaltyPoints ?? 0;
+
+  const currentLoyaltyPoints = Number(values.loyaltyPoints ?? 0);
+
+  const isLoyaltyPointsChanged =
+    formType === 'EDIT' &&
+    currentLoyaltyPoints !== Number(originalLoyaltyPoints);
 
   return (
     <>
@@ -445,7 +457,10 @@ const CustomerFormLayout = ({
               />
             </div>
 
-            <div className="">
+
+           {userData?.roleName === "ADMIN" && (
+            <>
+             <div className="">
               <ATMTextField
                 name="loyaltyPoints"
                 value={values.loyaltyPoints || ""}
@@ -458,6 +473,28 @@ const CustomerFormLayout = ({
                 isValid={!errors?.loyaltyPoints}
               />
             </div>
+            {isLoyaltyPointsChanged && (
+              <div className="">
+                <ATMTextField
+                  required
+                  name="loyaltyPointsReason"
+                  value={values.loyaltyPointsReason || ""}
+                  onChange={(e) =>
+                    setFieldValue(
+                      "loyaltyPointsReason",
+                      e.target.value
+                    )
+                  }
+                  label="Reason for Loyalty Points Change"
+                  placeholder="Enter reason for changing loyalty points"
+                  onBlur={handleBlur}
+                  isTouched={touched?.loyaltyPointsReason}
+                  errorMessage={errors?.loyaltyPointsReason}
+                  isValid={!errors?.loyaltyPointsReason}
+                />
+              </div>
+            )}</>
+           )}
             <div className="">
               <ATMMultiSelect
                 name="outlets"
@@ -475,17 +512,17 @@ const CustomerFormLayout = ({
             </div>
 
             <div>
-            <ATMTextField
-  name="referCode"
-  value={values.referCode || ""}
-  onChange={(e) => setFieldValue("referCode", e.target.value)}
-  label="Referral Code"
-  placeholder="Enter referral code (Optional)"
-  onBlur={handleBlur}
-  isTouched={touched?.referCode}
-  errorMessage={errors?.referCode}
-  isValid={!errors?.referCode}
-/>
+              <ATMTextField
+                name="referCode"
+                value={values.referCode || ""}
+                onChange={(e) => setFieldValue("referCode", e.target.value)}
+                label="Referral Code"
+                placeholder="Enter referral code (Optional)"
+                onBlur={handleBlur}
+                isTouched={touched?.referCode}
+                errorMessage={errors?.referCode}
+                isValid={!errors?.referCode}
+              />
             </div>
 
           </div>

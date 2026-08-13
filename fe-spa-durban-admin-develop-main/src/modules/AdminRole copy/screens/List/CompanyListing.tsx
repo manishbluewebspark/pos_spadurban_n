@@ -46,9 +46,9 @@ const CompanyListing = ({
             icon: IconPlus,
             onClick: onAddNew,
           }}
-          hideButton={!isAuthorized('USER_ROLE_ADD')}
+          hideButton={!isAuthorized('COMPANY_ADD')}
         />
-        <Authorization permission="USER_ROLE_LIST">
+        <Authorization permission="COMPANY_LIST">
           <div className="flex flex-col overflow-auto border rounded border-slate-300">
             {/* Table Toolbar */}
             <MOLFilterBar searchPlaceHolder='Search Company Name...'
@@ -59,9 +59,9 @@ const CompanyListing = ({
                 tableHeaders={tableHeaders}
                 data={rowData}
                 getKey={(item) => item?._id}
-                onEdit={isAuthorized('USER_ROLE_UPDATE') ? onEdit : undefined}
+                onEdit={isAuthorized('COMPANY_UPDATE') ? onEdit : undefined}
                 onDelete={
-                  isAuthorized('USER_ROLE_DELETE')
+                  isAuthorized('COMPANY_DELETE')
                     ? (item, closeDialog, setIsLoading) =>
                       onDelete(item, closeDialog, setIsLoading)
                     : undefined

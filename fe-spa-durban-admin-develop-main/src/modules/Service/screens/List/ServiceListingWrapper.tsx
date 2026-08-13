@@ -13,6 +13,7 @@ import ShowConfirmation from 'src/utils/ShowConfirmation';
 import { showToast } from 'src/utils/showToaster';
 import { Service } from '../../models/Service.model';
 import {
+  useDeleteServiceMutation,
   useGetServicesQuery,
   useServiceStatusMutation,
 } from '../../service/ServiceServices';
@@ -25,6 +26,7 @@ type Props = {};
 const ServiceListingWrapper = (props: Props) => {
   const navigate = useNavigate();
   const [status] = useServiceStatusMutation();
+  const [deleteService] = useDeleteServiceMutation();
   const { outlets } = useSelector((state: RootState) => state.auth);
   const { searchQuery, limit, page, appliedFilters } = useFilterPagination([
     'categoryId',
@@ -43,6 +45,21 @@ const ServiceListingWrapper = (props: Props) => {
       },
     },
   );
+
+  const handleDelete = (item: any, closeDialog: () => void) => {
+    deleteService(item?._id).then((res: any) => {
+      if (res?.error) {
+        showToast('error', res?.error?.data?.message);
+      } else {
+        if (res?.data?.status) {
+          showToast('success', res?.data?.message);
+          closeDialog();
+        } else {
+          showToast('error', res?.data?.message);
+        }
+      }
+    });
+  };
 
   const { data: categoryData } = useFetchData(useGetCategoriesQuery, {
     body: { isPaginationRequired: false },
@@ -131,23 +148,23 @@ const ServiceListingWrapper = (props: Props) => {
       headerName: 'Code',
       flex: 'flex-[1_0_0%]',
     },
-   {
-  fieldName: 'categoryName',
-  headerName: 'Category',
-  flex: 'flex-[1_0_0%]',
-  align: 'start',
-  renderCell: (item:any) => item?.categoryName
-  .map((c:any) => c.categoryNames)
-  .join(", "),
-},
-{
-  fieldName: 'subCategoryName',
-  headerName: 'Sub Category',
-  flex: 'flex-[1_0_0%]',
-  renderCell: (item:any) => item?.subCategoryName
-  .map((c:any) => c.subCategoryNames)
-  .join(", "),
-},
+    {
+      fieldName: 'categoryName',
+      headerName: 'Category',
+      flex: 'flex-[1_0_0%]',
+      align: 'start',
+      renderCell: (item: any) => item?.categoryName
+        .map((c: any) => c.categoryNames)
+        .join(", "),
+    },
+    {
+      fieldName: 'subCategoryName',
+      headerName: 'Sub Category',
+      flex: 'flex-[1_0_0%]',
+      renderCell: (item: any) => item?.subCategoryName
+        .map((c: any) => c.subCategoryNames)
+        .join(", "),
+    },
 
 
     {
@@ -211,7 +228,9 @@ const ServiceListingWrapper = (props: Props) => {
           totalCount: totalData,
           totalPages: totalPages,
         }}
+
         onEdit={(serviceId: string) => navigate(`/service/edit/${serviceId}`)}
+        onDelete={handleDelete}
         isTableLoading={isLoading}
         filters={filters}
       />

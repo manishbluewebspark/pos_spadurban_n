@@ -24,8 +24,8 @@ setupMiddleware(app)
 
 // Setup monitoring
 setupMonitoring(app)
-// startBirthdayCouponCron();
-// runRewardCheck()
+startBirthdayCouponCron();
+runRewardCheck()
 
 
 //manual run 

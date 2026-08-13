@@ -193,7 +193,8 @@ const updateCustomer = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
     const customer = await customerService.updateCustomerById(
       req.params.customerId,
-      req.body
+      req.body,
+      req.userData?.userID
     );
     return res.status(httpStatus.OK).send({
       message: "Updated successfully!",

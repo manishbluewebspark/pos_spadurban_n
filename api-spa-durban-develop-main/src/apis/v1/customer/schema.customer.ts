@@ -10,6 +10,16 @@ import {
 } from "../../../utils/interface";
 import { CustomerTypeEnum, GenderTypeEnum } from "../../../utils/enumUtils";
 
+
+export interface LoyaltyPointsLog {
+  previousPoints: number;
+  newPoints: number;
+  difference: number;
+  reason: string;
+  changedBy?: string;
+  changedAt: Date;
+}
+
 export interface CustomerDocument extends Document {
   customerName: string;
   phone: string;
@@ -30,6 +40,7 @@ export interface CustomerDocument extends Document {
   customerGroup: string;
   outlets: Object,
   otp?: string,
+  loyaltyPointsLogs: LoyaltyPointsLog[];
   otpExpiry?: number
   referralCode?: string
   referredBy?: string
@@ -62,6 +73,8 @@ export interface CustomerModel extends mongoose.Model<CustomerDocument> {
     isPaginationRequired: boolean | undefined;
   }>;
 }
+
+
 
 const CustomerSchema = new mongoose.Schema<CustomerDocument>(
   {
@@ -122,6 +135,44 @@ const CustomerSchema = new mongoose.Schema<CustomerDocument>(
       default: 0,
       trim: true,
     },
+    loyaltyPointsLogs: [
+  {
+    previousPoints: {
+      type: Number,
+      required: true,
+    },
+
+    newPoints: {
+      type: Number,
+      required: true,
+    },
+
+    difference: {
+      type: Number,
+      required: true,
+    },
+
+    reason: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+  
+
+      changedBy: {
+          type: mongoose.Types.ObjectId,
+          ref: "User",
+          default: null,
+          trim: true,
+        },
+
+    changedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+],
     dateOfBirth: {
       type: Date,
       // required: true,
@@ -201,6 +252,7 @@ const CustomerSchema = new mongoose.Schema<CustomerDocument>(
       default: false,
     },
   },
+  
 
   {
     timestamps: true,
@@ -224,6 +276,7 @@ CustomerSchema.statics.isEmailTaken = async function (
   });
   return !!customer;
 };
+
 
 // Static method to check if phone is taken
 CustomerSchema.statics.isPhoneTaken = async function (

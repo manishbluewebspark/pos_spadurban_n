@@ -86,7 +86,7 @@ const CompanyListingWrapper = (props: Props) => {
       renderCell: (row: any) => (
         <button
           onClick={() => {
-            if (!isAuthorized('CUSTOMER_SALES_REPORT')) {
+            if (!isAuthorized('COMPANY_SALES_REPORT')) {
               showToast('error', 'You are not authorized to access this page.')
             } else { handleViewSalesReport(row) }
           }}
