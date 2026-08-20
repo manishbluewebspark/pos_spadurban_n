@@ -9,6 +9,8 @@ import { rootHandler } from "./handlers/rootHandler" // Import the root handler
 import { runBirthdayCouponNow, startBirthdayCouponCron } from "./src/cron/birthdayCoupons"
 import { runRewardCheck, runRewardCheckNow } from "./src/cron/rewardCheckCron"
 import { getAllBookings, getCustomerChartData, runDynamicQuery } from "./src/apis/v1/service/controller.service"
+import { migrateCategories } from "./src/script/migrateCategories"
+import { migrateServices } from "./src/script/migrateServices"
 // Initialize express app
 const app = express()
 /**
@@ -26,7 +28,8 @@ setupMiddleware(app)
 setupMonitoring(app)
 startBirthdayCouponCron();
 runRewardCheck()
-
+// migrateCategories()
+// migrateServices()
 
 //manual run 
 // runBirthdayCouponNow()

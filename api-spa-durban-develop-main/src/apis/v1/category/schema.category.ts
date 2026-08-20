@@ -15,6 +15,7 @@ export interface CategoryDocument extends Document {
   termsAndConditions:string;
   isDeleted: boolean;
   isActive: boolean;
+  bookingProductType:string;
 }
 
 export interface CategoryModel extends mongoose.Model<CategoryDocument> {
@@ -46,6 +47,9 @@ const CategorySchema = new mongoose.Schema<CategoryDocument>(
       required: true,
       trim: true,
       lowercase: true,
+    },
+    bookingProductType: {
+      type: String,
     },
     description: {
       type: String,
