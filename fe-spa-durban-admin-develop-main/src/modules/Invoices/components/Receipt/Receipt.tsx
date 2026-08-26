@@ -53,19 +53,19 @@ const Receipt = () => {
 
   const emailSentRef = useRef(false);
 
-  useEffect(() => {
-    if (!location.state?.autoSendEmail) return;
-    if (!invoiceData?._id) return;
-    if (emailSentRef.current) return;
+  // useEffect(() => {
+  //   if (!location.state?.autoSendEmail) return;
+  //   if (!invoiceData?._id) return;
+  //   if (emailSentRef.current) return;
 
-    emailSentRef.current = true;
+  //   emailSentRef.current = true;
 
-    const timer = setTimeout(() => {
-      handleSendEmail();
-    }, 700);
+  //   const timer = setTimeout(() => {
+  //     handleSendEmail();
+  //   }, 700);
 
-    return () => clearTimeout(timer);
-  }, [invoiceData?._id, location.state?.autoSendEmail]);
+  //   return () => clearTimeout(timer);
+  // }, [invoiceData?._id, location.state?.autoSendEmail]);
 
 
   if (isLoading) {
@@ -454,14 +454,14 @@ const Receipt = () => {
         >
           Back
         </ATMButton>
-        <ATMButton
+        {/* <ATMButton
           extraClasses="w-[120px]"
           onClick={handleSendEmail}
           variant="contained"
           isLoading={pdfLoading}
         >
           Send Email
-        </ATMButton>
+        </ATMButton> */}
         <ATMButton
           extraClasses="w-fit"
           onClick={handlePrint}
