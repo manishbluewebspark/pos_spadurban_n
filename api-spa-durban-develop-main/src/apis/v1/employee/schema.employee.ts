@@ -23,7 +23,7 @@ export interface EmployeeDocument extends Document {
   country: string;
   isDeleted: boolean;
   isActive: boolean;
-  companyId?:ObjectId;
+  companyId?: Types.ObjectId[];
   password:string;
 }
 
@@ -89,13 +89,14 @@ const EmployeeSchema = new mongoose.Schema<EmployeeDocument>(
       default: null,
     },
      companyId: {
-      type: mongoose.Schema.Types.ObjectId,
+      type: [mongoose.Schema.Types.ObjectId],
       ref: "Company",
       trim: true,
       default: null,
     },
     outletsId: {
       type: [mongoose.Schema.Types.ObjectId],
+       ref: "Outlet",
       // required: true,
       default: null,
       trim: true,

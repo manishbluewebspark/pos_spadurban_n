@@ -6,10 +6,30 @@ import { array, mixed, number, object, string } from 'yup';
 import { useNavigate } from 'react-router-dom';
 import { useAddEmployeeMutation } from '../../service/EmployeeServices';
 import { showToast } from 'src/utils/showToaster';
+import { useFetchData } from 'src/hooks/useFetchData';
+import { useGetOutletsQuery } from 'src/modules/Outlet/service/OutletServices';
 
 const AddEmployeeFormWrapper = () => {
   const navigate = useNavigate();
   const [addEmployee] = useAddEmployeeMutation();
+
+
+  const { data: outletsData } = useFetchData(
+  useGetOutletsQuery,
+  {
+    body: {
+      isPaginationRequired: false,
+      filterBy: JSON.stringify([
+        {
+          fieldName: 'isActive',
+          value: true,
+        },
+      ]),
+    },
+  }
+);
+
+
    const [outletOrBranchOutlet, setOutletOrBranchOutlet] = useState('')
   const initialValues: EmployeeFormValues = {
     userName: '',
@@ -23,7 +43,7 @@ const AddEmployeeFormWrapper = () => {
     region: '',
     country: '',
     phone: '',
-    companyId: null
+    companyId: []
   };
 
   const userNameRegex = /^[a-z0-9]*$/;
@@ -55,53 +75,151 @@ const AddEmployeeFormWrapper = () => {
   })
 
   const handleSubmit = (
-    values: EmployeeFormValues,
-    { resetForm, setSubmitting }: FormikHelpers<EmployeeFormValues>,
-  ) => {
+  values: EmployeeFormValues,
+  { resetForm, setSubmitting }: FormikHelpers<EmployeeFormValues>,
+) => {
+  const formattedValues: any = {
+    userName: values?.userName,
+    email: values?.email,
+    password: values?.password,
+    userRoleId: values?.userRoleId?._id,
+    name: values?.name,
+    address: values?.address,
+    city: values?.city,
+    region: values?.region,
+    country: values?.country?.label,
+    phone: values?.phone,
+  };
 
- const formattedValues: any = {
-  userName: values?.userName,
-  email: values?.email,
-  password: values?.password,
-  userRoleId: values?.userRoleId?._id,
-  name: values?.name,
-  address: values?.address,
-  city: values?.city,
-  region: values?.region,
-  country: values?.country?.label,
-  phone: values?.phone,
+  // =====================================================
+  // COMPANY
+  // =====================================================
+
+  if (
+    outletOrBranchOutlet === 'company' &&
+    Array.isArray(values.companyId) &&
+    values.companyId.length > 0
+  ) {
+    // Company IDs
+    const selectedCompanyIds = values.companyId.map(
+      (x: any) => x._id || x
+    );
+
+    // Save selected company IDs
+    formattedValues.companyId = selectedCompanyIds;
+
+    // ===================================================
+    // FIND OUTLETS OF SELECTED COMPANIES
+    // ===================================================
+
+    const companyOutlets = (outletsData || []).filter(
+      (outlet: any) =>
+        selectedCompanyIds.includes(
+          outlet?.companyId?._id || outlet?.companyId
+        )
+    );
+
+    // ===================================================
+    // GET OUTLET IDS
+    // ===================================================
+
+    formattedValues.outletsId = companyOutlets.map(
+      (outlet: any) => outlet._id
+    );
+  }
+
+  // =====================================================
+  // DIRECT OUTLET
+  // =====================================================
+
+  else if (
+    outletOrBranchOutlet === 'outlet' &&
+    Array.isArray(values.outletsId) &&
+    values.outletsId.length > 0
+  ) {
+    formattedValues.outletsId = values.outletsId.map(
+      (x: any) => x._id || x
+    );
+  }
+
+  console.log('FINAL PAYLOAD:', formattedValues);
+
+  addEmployee(formattedValues).then((res: any) => {
+    if (res?.error) {
+      showToast('error', res?.error?.data?.message);
+    } else {
+      if (res?.data?.status) {
+        showToast(
+          'success',
+          'Employee added successfully'
+        );
+
+        resetForm();
+        navigate('/employee');
+      } else {
+        showToast(
+          'error',
+          res?.data?.message
+        );
+      }
+    }
+
+    setSubmitting(false);
+  });
 };
 
-// ✅ Conditionally add either companyId or outletsId based on state
-if (outletOrBranchOutlet === 'company' && values.companyId) {
-  formattedValues.companyId = values.companyId._id || values.companyId;
-} else if (
-  outletOrBranchOutlet === 'outlet' &&
-  Array.isArray(values.outletsId) &&
-  values.outletsId.length > 0
-) {
-  formattedValues.outletsId = values.outletsId.map((x) => x._id || x);
-}
+//   const handleSubmit = (
+//     values: EmployeeFormValues,
+//     { resetForm, setSubmitting }: FormikHelpers<EmployeeFormValues>,
+//   ) => {
+
+//  const formattedValues: any = {
+//   userName: values?.userName,
+//   email: values?.email,
+//   password: values?.password,
+//   userRoleId: values?.userRoleId?._id,
+//   name: values?.name,
+//   address: values?.address,
+//   city: values?.city,
+//   region: values?.region,
+//   country: values?.country?.label,
+//   phone: values?.phone,
+// };
+
+// // ✅ Conditionally add either companyId or outletsId based on state
+// if (
+//   outletOrBranchOutlet === 'company' &&
+//   Array.isArray(values.companyId) &&
+//   values.companyId.length > 0
+// ) {
+//   formattedValues.companyId = values.companyId.map((x: any) => x._id || x);
+// } else if (
+//   outletOrBranchOutlet === 'outlet' &&
+//   Array.isArray(values.outletsId) &&
+//   values.outletsId.length > 0
+// ) {
+//   formattedValues.outletsId = values.outletsId.map((x: any) => x._id || x);
+// }
 
 
     
 
-    // console.log('-----formattedValues', formattedValues)
-    addEmployee(formattedValues).then((res: any) => {
-      if (res?.error) {
-        showToast('error', res?.error?.data?.message);
-      } else {
-        if (res?.data?.status) {
-          showToast('success', 'Employee added successfully');
-          resetForm();
-          navigate('/employee');
-        } else {
-          showToast('error', res?.data?.message);
-        }
-      }
-      setSubmitting(false);
-    });
-  };
+//     // console.log('-----formattedValues', formattedValues)
+//     addEmployee(formattedValues).then((res: any) => {
+//       if (res?.error) {
+//         showToast('error', res?.error?.data?.message);
+//       } else {
+//         if (res?.data?.status) {
+//           showToast('success', 'Employee added successfully');
+//           resetForm();
+//           navigate('/employee');
+//         } else {
+//           showToast('error', res?.data?.message);
+//         }
+//       }
+//       setSubmitting(false);
+//     });
+//   };
 
   return (
     <Formik<EmployeeFormValues>

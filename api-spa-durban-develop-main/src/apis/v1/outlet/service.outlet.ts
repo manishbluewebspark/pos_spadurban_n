@@ -18,6 +18,13 @@ const getOutletsByCompanyId = async (companyId: string) => {
   return Outlet.find({ companyId });
 };
 
+const getOutletsByCompanyIds = async (companyId: string[]) => {
+  return Outlet.find({
+    companyId: {
+      $in: companyId,
+    },
+  });
+};
 
 /**
  * Query for outlets
@@ -276,5 +283,6 @@ export {
   getOutletAggrigate,
   getOutletsWithAggrigate,
   getOutletByBookingStoreId,
-  getOutletsByCompanyId
+  getOutletsByCompanyId,
+  getOutletsByCompanyIds
 };

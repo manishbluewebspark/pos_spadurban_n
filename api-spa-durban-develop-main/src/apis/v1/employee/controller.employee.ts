@@ -211,6 +211,7 @@ const createBookingEmployee = catchAsync(
 const getEmployees = catchAsync(
   async (req: AuthenticatedRequest, res: Response) => {
     const filter = pick(req.query, ["outletsId"]);
+
     const options = pick(req.query, [
       "sortBy",
       "limit",
@@ -220,33 +221,58 @@ const getEmployees = catchAsync(
       "dateFilter",
       "rangeFilterBy",
     ]);
-    // Extract searchValue from req.query
+
+    // =====================================================
+    // QUERY PARAMS
+    // =====================================================
+
     const searchValue = req.query.searchValue as string | undefined;
     const searchIn = req.query.searchIn as string[] | null;
     const dateFilter = req.query.dateFilter as DateFilter | null;
     const filterBy = req.query.filterBy as any[];
-    const rangeFilterBy = req.query.rangeFilterBy as RangeFilter | undefined;
-    const isPaginationRequiredParam = req.query.isPaginationRequired;
-    const isAdmin = req?.userData?.userType === UserEnum.Admin;
+    const rangeFilterBy =
+      req.query.rangeFilterBy as RangeFilter | undefined;
+
+    const isPaginationRequiredParam =
+      req.query.isPaginationRequired;
+
+    // =====================================================
+    // ADMIN CHECK
+    // =====================================================
+
+    const isAdmin =
+      req?.userData?.userType === UserEnum.Admin;
+
     let outletQuery = {};
+
     if (!isAdmin) {
       outletQuery = {
         outletsId: {
-          $in: req?.userData?.outletsData,
+          $in: req?.userData?.outletsData || [],
         },
       };
     }
 
+    // =====================================================
+    // PAGINATION
+    // =====================================================
+
     if (isPaginationRequiredParam !== undefined) {
-      const isPaginationRequired = isPaginationRequiredParam === "true";
+      const isPaginationRequired =
+        isPaginationRequiredParam === "true";
 
       if (isPaginationRequired) {
-        options.isPaginationRequired = isPaginationRequired as any;
+        options.isPaginationRequired =
+          isPaginationRequired as any;
       }
     }
-    // Add searchValue to options if it exists
+
+    // =====================================================
+    // SEARCH
+    // =====================================================
+
     if (searchValue) {
-      let searchQueryCheck = checkInvalidParams(
+      const searchQueryCheck = checkInvalidParams(
         searchIn ? searchIn : [],
         searchKeys
       );
@@ -256,44 +282,72 @@ const getEmployees = catchAsync(
           ...searchQueryCheck,
         });
       }
-      // Extract search query from options
+
       const searchQuery = getSearchQuery(
         searchIn ? searchIn : [],
         searchKeys,
         searchValue
       );
+
       if (searchQuery !== null) {
-        options["search"] = { $or: searchQuery } as any;
+        options["search"] = {
+          $or: searchQuery,
+        } as any;
       }
     }
 
-    //date filter
-    //date filter
+    // =====================================================
+    // DATE FILTER
+    // =====================================================
+
     if (dateFilter) {
       const datefilterQuery = await getDateFilterQuery(
         dateFilter,
         allowedDateFilterKeys
       );
 
-      if (datefilterQuery && datefilterQuery.length) {
-        options["dateFilter"] = { $and: datefilterQuery } as any;
+      if (
+        datefilterQuery &&
+        datefilterQuery.length
+      ) {
+        options["dateFilter"] = {
+          $and: datefilterQuery,
+        } as any;
       }
     }
 
-    //range filter
+    // =====================================================
+    // RANGE FILTER
+    // =====================================================
+
     if (rangeFilterBy !== undefined) {
-      const rangeQuery = getRangeQuery(rangeFilterBy);
+      const rangeQuery =
+        getRangeQuery(rangeFilterBy);
 
       if (rangeQuery && rangeQuery.length) {
-        options["rangeFilterBy"] = { $and: rangeQuery } as any;
+        options["rangeFilterBy"] = {
+          $and: rangeQuery,
+        } as any;
       }
     }
 
-    //check filter by
+    // =====================================================
+    // FILTER BY
+    // =====================================================
+
     if (filterBy?.length) {
-      const booleanFields: string[] = ["isActive"];
+      const booleanFields: string[] = [
+        "isActive",
+      ];
+
       const numberFileds: string[] = [];
-      const objectIdFileds: string[] = ["userRoleId", "outletsId"];
+
+      // ✅ companyId added here
+      const objectIdFileds: string[] = [
+        "userRoleId",
+        "outletsId",
+        "companyId",
+      ];
 
       const withoutRegexFields: string[] = [];
 
@@ -304,20 +358,37 @@ const getEmployees = catchAsync(
         objectIdFileds,
         withoutRegexFields
       );
+
       if (filterQuery) {
-        options["filterBy"] = { $and: filterQuery } as any;
+        options["filterBy"] = {
+          $and: filterQuery,
+        } as any;
       }
     }
 
-    //additional query
-    let additionalQuery = [
-      { $match: outletQuery },
+    // =====================================================
+    // ADDITIONAL QUERY
+    // =====================================================
+
+    const additionalQuery = [
+      // ===================================================
+      // OUTLET ACCESS
+      // ===================================================
+
+      {
+        $match: outletQuery,
+      },
+
+      // ===================================================
+      // ROLE LOOKUP
+      // ===================================================
+
       {
         $lookup: {
-          from: "roles", // The collection name in MongoDB
-          localField: "userRoleId", // The field in the Employee collection
-          foreignField: "_id", // The field in the Category collection
-          as: "roleDetails", // The field name for the joined category data
+          from: "roles",
+          localField: "userRoleId",
+          foreignField: "_id",
+          as: "roleDetails",
           pipeline: [
             {
               $project: {
@@ -327,60 +398,103 @@ const getEmployees = catchAsync(
           ],
         },
       },
+
       {
         $addFields: {
           roleName: {
-            $arrayElemAt: ["$roleDetails.roleName", 0],
+            $arrayElemAt: [
+              "$roleDetails.roleName",
+              0,
+            ],
           },
         },
       },
+
       {
         $unset: ["roleDetails"],
       },
+
+      // ===================================================
+      // OUTLET LOOKUP
+      // ===================================================
+
       {
         $lookup: {
-          from: "outlets", // The collection name in MongoDB
-          localField: "outletsId", // The field in the Employee collection
-          foreignField: "_id", // The field in the Outlet collection
-          as: "outletDetails", // The field name for the joined outlet data
+          from: "outlets",
+          localField: "outletsId",
+          foreignField: "_id",
+          as: "outletDetails",
         },
       },
+
       {
         $addFields: {
           outletNames: "$outletDetails.name",
         },
       },
+
       {
         $unset: ["outletDetails"],
       },
-      // ✅ Lookup for company
+
+      // ===================================================
+      // COMPANY LOOKUP
+      // ===================================================
+
       {
         $lookup: {
-          from: "companies", // MongoDB collection name
+          from: "companies",
+
+          // companyId is now an ARRAY
           localField: "companyId",
+
           foreignField: "_id",
+
           as: "companyDetails",
+
           pipeline: [
             {
               $project: {
+                _id: 1,
                 companyName: 1,
               },
             },
           ],
         },
       },
+
+      // ===================================================
+      // COMPANY NAMES
+      // ===================================================
+
       {
         $addFields: {
-          companyName: { $arrayElemAt: ["$companyDetails.companyName", 0] },
+          // ✅ All company names
+          companyNames: "$companyDetails.companyName",
         },
       },
-      { $unset: ["companyDetails"] },
+
+      {
+        $unset: ["companyDetails"],
+      },
     ];
 
-    options["additionalQuery"] = additionalQuery as any;
+    options["additionalQuery"] =
+      additionalQuery as any;
 
-    const result = await employeeService.queryEmployees(filter, options);
-    return res.status(httpStatus.OK).send(result);
+    // =====================================================
+    // GET EMPLOYEES
+    // =====================================================
+
+    const result =
+      await employeeService.queryEmployees(
+        filter,
+        options
+      );
+
+    return res
+      .status(httpStatus.OK)
+      .send(result);
   }
 );
 
@@ -626,25 +740,28 @@ const updateEmployee = catchAsync(
     /*
      * Enforce mutual exclusivity
      */
-    const hasOutlets = Array.isArray(outletsId) && outletsId.length > 0;
-    const hasCompany = !!companyId;
+   const hasOutlets =
+  Array.isArray(outletsId) && outletsId.length > 0;
 
-    // Remove empty arrays or nulls from body
-    if (!hasOutlets) {
-      req.body.outletsId = null;
-    }
+const hasCompany =
+  Array.isArray(companyId) && companyId.length > 0;
 
-    if (!hasCompany) {
-      req.body.companyId = null;
-    }
+// Remove empty values
+if (!hasOutlets) {
+  delete req.body.outletsId;
+}
 
-    if (hasOutlets && hasCompany) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "Only one of 'outletsId' or 'companyId' is allowed");
-    }
+if (!hasCompany) {
+  delete req.body.companyId;
+}
 
-    if (!hasOutlets && !hasCompany) {
-      throw new ApiError(httpStatus.BAD_REQUEST, "One of 'outletsId' or 'companyId' must be provided");
-    }
+// At least one must be provided
+if (!hasOutlets && !hasCompany) {
+  throw new ApiError(
+    httpStatus.BAD_REQUEST,
+    "One of 'outletsId' or 'companyId' must be provided"
+  );
+}
 
     /*
      * If outlets are provided, validate them

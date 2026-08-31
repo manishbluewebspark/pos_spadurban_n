@@ -117,7 +117,7 @@ const EmployeeListingWrapper = (props: Props) => {
       headerName: 'Company Name',
       sortKey: 'age',
       renderCell: (row: any) => {
-        return row?.companyName || '-';
+        return row?.companyNames?.join(', ') || '-';
       },
     },
     {

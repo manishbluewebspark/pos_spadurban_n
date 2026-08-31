@@ -20,8 +20,8 @@ type Props = {
   onCancel: () => void;
   formType: 'ADD' | 'UPDATE';
   isLoading?: boolean;
-  setOutletOrBranchOutlet:any;
-  outletOrBranchOutlet:any;
+  setOutletOrBranchOutlet: any;
+  outletOrBranchOutlet: any;
 };
 
 const selectOption = [
@@ -61,9 +61,9 @@ const EmployeeFormLayout = ({
     },
   });
 
-  const { data:companyData } = useFetchData(
-      useGetCompaniesQuery
-    )
+  const { data: companyData } = useFetchData(
+    useGetCompaniesQuery
+  )
 
   const { data: outletsData } = useFetchData(useGetOutletsQuery, {
     body: {
@@ -124,7 +124,7 @@ const EmployeeFormLayout = ({
               />
             </div>
 
-             {/* Name */}
+            {/* Name */}
             <div className="">
               <ATMTextField
                 required
@@ -139,7 +139,7 @@ const EmployeeFormLayout = ({
                 errorMessage={errors?.name}
               />
             </div>
-            
+
             {/* Email */}
             <div className="">
               <ATMTextField
@@ -172,7 +172,7 @@ const EmployeeFormLayout = ({
               />
             </div>
 
-            
+
             {/* UserRole  */}
             <div>
               <ATMSelect
@@ -188,7 +188,7 @@ const EmployeeFormLayout = ({
               />
             </div>
 
-<div>
+            <div>
               <ATMSelect
                 required
                 name="outletOrBranchOutlet"
@@ -202,17 +202,16 @@ const EmployeeFormLayout = ({
               />
             </div>
             {outletOrBranchOutlet === "company" && (
-              <div>
-                <ATMSelect
-                  required
+              <div className="col-span-3">
+                <ATMMultiSelect
                   name="companyId"
-                  value={values?.companyId}
+                  value={values?.companyId || []}
                   onChange={(newValue) => setFieldValue('companyId', newValue)}
-                  label="Company"
-                  getOptionLabel={(options) => options?.companyName}
+                  label="Companies"
                   options={companyData}
+                  getOptionLabel={(options) => options?.companyName}
                   valueAccessKey="_id"
-                  placeholder="Please Select Company"     
+                  placeholder="Please Select Companies"
                 />
               </div>
             )}
@@ -233,7 +232,7 @@ const EmployeeFormLayout = ({
               </div>
             )}
 
-           
+
             {/* Address */}
             <div className="">
               <ATMTextField

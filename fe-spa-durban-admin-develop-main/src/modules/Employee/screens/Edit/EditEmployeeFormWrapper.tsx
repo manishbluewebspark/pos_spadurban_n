@@ -10,22 +10,52 @@ import {
 } from '../../service/EmployeeServices';
 import { showToast } from 'src/utils/showToaster';
 import { useFetchData } from 'src/hooks/useFetchData';
+import { useGetOutletsQuery } from 'src/modules/Outlet/service/OutletServices';
 const EditEmployeeFormWrapper = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const [updateEmployee] = useUpdateEmployeeMutation();
+
+const { data: outletsData } = useFetchData(
+  useGetOutletsQuery,
+  {
+    body: {
+      isPaginationRequired: false,
+      filterBy: JSON.stringify([
+        {
+          fieldName: 'isActive',
+          value: true,
+        },
+      ]),
+    },
+  }
+);
+
   const { data, isLoading } = useFetchData(useGetEmployeeByIdQuery, {
     body: id,
     dataType: 'VIEW',
   });
 
+  // useEffect(() => {
+  //   if ((data as any)?.data?.companyId) {
+  //     setOutletOrBranchOutlet('company');
+  //   } else {
+  //     setOutletOrBranchOutlet('outlet');
+  //   }
+  // }, [data])
+
   useEffect(() => {
-    if ((data as any)?.data?.companyId) {
-      setOutletOrBranchOutlet('company');
-    } else {
-      setOutletOrBranchOutlet('outlet');
-    }
-  }, [data])
+  const employeeData = (data as any)?.data;
+
+  if (
+    Array.isArray(employeeData?.companyId) &&
+    employeeData.companyId.length > 0
+  ) {
+    setOutletOrBranchOutlet('company');
+  } else {
+    setOutletOrBranchOutlet('outlet');
+  }
+}, [data]);
 
   const initialValues: EmployeeFormValues = {
     userName: (data as any)?.data?.userName,
@@ -41,7 +71,9 @@ const EditEmployeeFormWrapper = () => {
     region: (data as any)?.data?.region,
     country: { label: (data as any)?.data?.country },
     phone: (data as any)?.data?.phone,
-    companyId: (data as any)?.data?.companyId
+    companyId: (data as any)?.data?.companyId?.map((el: string) => ({
+  _id: el,
+}))
   };
 
   const passwordRegex = /^[a-zA-Z0-9@$!]*$/;
@@ -75,55 +107,154 @@ const EditEmployeeFormWrapper = () => {
   const [outletOrBranchOutlet, setOutletOrBranchOutlet] = useState('')
 
 
-
   const handleSubmit = (
-    values: EmployeeFormValues,
-    { resetForm, setSubmitting }: FormikHelpers<EmployeeFormValues>,
-  ) => {
+  values: EmployeeFormValues,
+  { resetForm, setSubmitting }: FormikHelpers<EmployeeFormValues>,
+) => {
+  const formattedValues: any = {
+    userName: values?.userName,
+    email: values?.email,
+    password: values?.password,
+    userRoleId: values?.userRoleId?._id,
+    name: values?.name,
+    address: values?.address,
+    city: values?.city,
+    region: values?.region,
+    country: values?.country?.label,
+    phone: values?.phone,
+  };
 
-    // console.log('----values',values)
-    const formattedValues: any = {
-      userName: values?.userName,
-      email: values?.email,
-      password: values?.password,
-      userRoleId: values?.userRoleId?._id,
-      name: values?.name,
-      address: values?.address,
-      city: values?.city,
-      region: values?.region,
-      country: values?.country?.label,
-      phone: values?.phone,
-    };
+  // =====================================================
+  // COMPANY
+  // =====================================================
 
-    // ✅ Conditionally add either companyId or outletsId based on state
-    if (outletOrBranchOutlet === 'company' && values.companyId) {
-      formattedValues.companyId = values.companyId._id || values.companyId;
-    } else if (
-      outletOrBranchOutlet === 'outlet' &&
-      Array.isArray(values.outletsId) &&
-      values.outletsId.length > 0
-    ) {
-      formattedValues.outletsId = values.outletsId.map((x) => x._id || x);
+  if (
+    outletOrBranchOutlet === 'company' &&
+    Array.isArray(values.companyId) &&
+    values.companyId.length > 0
+  ) {
+    const selectedCompanyIds = values.companyId.map(
+      (x: any) => x._id || x
+    );
+
+    // Company IDs
+    formattedValues.companyId = selectedCompanyIds;
+
+    // Find outlets belonging to selected companies
+    const companyOutlets = (outletsData || []).filter(
+      (outlet: any) =>
+        selectedCompanyIds.includes(
+          outlet?.companyId?._id || outlet?.companyId
+        )
+    );
+
+    // Outlet IDs
+    formattedValues.outletsId = companyOutlets.map(
+      (outlet: any) => outlet._id
+    );
+  }
+
+  // =====================================================
+  // DIRECT OUTLET
+  // =====================================================
+
+  else if (
+    outletOrBranchOutlet === 'outlet' &&
+    Array.isArray(values.outletsId) &&
+    values.outletsId.length > 0
+  ) {
+    formattedValues.outletsId = values.outletsId.map(
+      (x: any) => x._id || x
+    );
+  }
+
+  console.log(
+    'FINAL UPDATE PAYLOAD:',
+    formattedValues
+  );
+
+  updateEmployee({
+    body: formattedValues,
+    employeeId: id,
+  }).then((res: any) => {
+    if (res?.error) {
+      showToast(
+        'error',
+        res?.error?.data?.message
+      );
+    } else {
+      if (res?.data?.status) {
+        showToast(
+          'success',
+          'Employee updated successfully'
+        );
+
+        resetForm();
+        navigate('/employee');
+      } else {
+        showToast(
+          'error',
+          res?.data?.message
+        );
+      }
     }
 
-    // console.log('------formattedValues',formattedValues)
-    updateEmployee({ body: formattedValues, employeeId: id }).then(
-      (res: any) => {
-        if (res?.error) {
-          showToast('error', res?.error?.data?.message);
-        } else {
-          if (res?.data?.status) {
-            showToast('success', 'Employee updated successfully');
-            resetForm();
-            navigate('/employee');
-          } else {
-            showToast('error', res?.data?.message);
-          }
-        }
-        setSubmitting(false);
-      },
-    );
-  };
+    setSubmitting(false);
+  });
+};
+
+//   const handleSubmit = (
+//     values: EmployeeFormValues,
+//     { resetForm, setSubmitting }: FormikHelpers<EmployeeFormValues>,
+//   ) => {
+
+//     // console.log('----values',values)
+//     const formattedValues: any = {
+//       userName: values?.userName,
+//       email: values?.email,
+//       password: values?.password,
+//       userRoleId: values?.userRoleId?._id,
+//       name: values?.name,
+//       address: values?.address,
+//       city: values?.city,
+//       region: values?.region,
+//       country: values?.country?.label,
+//       phone: values?.phone,
+//     };
+
+//     // ✅ Conditionally add either companyId or outletsId based on state
+//    if (
+//   outletOrBranchOutlet === 'company' &&
+//   Array.isArray(values.companyId) &&
+//   values.companyId.length > 0
+// ) {
+//   formattedValues.companyId = values.companyId.map((x: any) => x._id || x);
+// } else if (
+//   outletOrBranchOutlet === 'outlet' &&
+//   Array.isArray(values.outletsId) &&
+//   values.outletsId.length > 0
+// ) {
+//   formattedValues.outletsId = values.outletsId.map((x: any) => x._id || x);
+// }
+
+//     // console.log('------formattedValues',formattedValues)
+//     updateEmployee({ body: formattedValues, employeeId: id }).then(
+//       (res: any) => {
+//         if (res?.error) {
+//           showToast('error', res?.error?.data?.message);
+//         } else {
+//           if (res?.data?.status) {
+//             showToast('success', 'Employee updated successfully');
+//             resetForm();
+//             navigate('/employee');
+//           } else {
+//             showToast('error', res?.data?.message);
+//           }
+//         }
+//         setSubmitting(false);
+//       },
+//     );
+//   };
 
   return (
     <Formik<EmployeeFormValues>
